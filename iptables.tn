@@ -1,0 +1,200 @@
+#!/bin/sh
+##############################################
+# IPtables script for IDS the tunnel server  #
+# SURFnet IDS                                #
+# Version 1.02.02                            #
+# 26-07-2005                                 #
+# Jan van Lith & Kees Trippelvitz            #
+##############################################
+
+# This is just an example script. By no means is this script
+# something you have to use in order to get stuff working.
+# Tweak it to your liking and setup.
+
+# Configuration Options
+LO="lo"					# local loopback interface
+IF="eth0"				# Main interface where openvpn is listening on
+IF_IP=`/sbin/ifconfig $IF | grep -i "addr:" | cut -f2 -d: | cut -f1 -d " "`
+LO_IP="127.0.0.1"			
+PRIVPORTS="0:1023"			# well-known, privileged port range
+UNPRIVPORTS="1024:65535"		# unprivileged port range
+RED="\033[1;31m"			# Red color code
+GREEN="\033[1;32m"			# Green color code
+NORMAL="\033[0;39m"			# Normal color code
+
+function checkerr {
+  if [ $? == 0 ]; then
+    echo -e "[${GREEN}OK${NORMAL}]"
+  else
+    echo -e "[${RED}FAILED${NORMAL}]"
+  fi
+}
+
+echo "Starting Firewalling..."
+###############################################################
+
+# Enable broadcast echo Protection
+echo -en "Enabling broadcast echo protection: \t\t\t"
+echo 1 > /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
+checkerr
+
+# Disable Source Routed Packets
+echo -en "Disabling source routed packets: \t\t\t"
+for f in /proc/sys/net/ipv4/conf/*/accept_source_route; do
+    echo 0 > $f
+done
+checkerr
+
+# Enable TCP SYN Cookie Protection
+echo -en "Enabling TCP SYN cookie protection: \t\t\t"
+echo 1 > /proc/sys/net/ipv4/tcp_syncookies
+checkerr
+
+# Disable ICMP Redirect Acceptance
+echo -en "Disabling ICMP redirect acceptance: \t\t\t"
+for f in /proc/sys/net/ipv4/conf/*/accept_redirects; do
+    echo 0 > $f
+done
+checkerr
+
+# Don't send Redirect Messages
+echo -en "Disabling redirect messages: \t\t\t\t"
+for f in /proc/sys/net/ipv4/conf/*/send_redirects; do
+    echo 0 > $f
+done
+checkerr
+
+# Drop Spoofed Packets coming in on an interface, which if replied to,
+# would result in the reply going out a different interface.
+echo -en "Enabling packet spoof filter: \t\t\t\t"
+for f in /proc/sys/net/ipv4/conf/*/rp_filter; do
+    echo 1 > $f
+done
+checkerr
+
+# Do not log packets with impossible addresses.
+echo -en "Disabling martian packet logging: \t\t\t"
+for f in /proc/sys/net/ipv4/conf/*/log_martians; do
+    echo 0 > $f
+done
+checkerr
+###############################################################
+
+# Flushing all tables
+iptables -F
+# Remove any pre-existing user-defined chains
+iptables --delete-chain
+
+##################
+#### POLICIES ####
+##################
+echo -en "Setting up default policy to DROP: \t\t\t"
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+checkerr
+
+##################
+#### LOOPBACK ####
+##################
+### Unlimited traffic on the loopback interface
+echo -en "Accepting all traffic on the local loopback device: \t"
+iptables -A INPUT  -i $LO -j ACCEPT
+iptables -A OUTPUT -o $LO -j ACCEPT
+checkerr
+
+######################
+#### STATE CHECKS ####
+######################
+### Using Connection State to By-pass Rule Checking
+# No need to check the packets again if state is set to ESTABLISHED, RELATED or INVALID
+iptables -A INPUT -i $IF -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -o $IF -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -i $IF -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+iptables -A INPUT -i $IF -m state --state INVALID -j DROP
+iptables -A OUTPUT -o $IF -m state --state INVALID -j DROP
+iptables -A FORWARD -i $IF -m state --state INVALID -j DROP
+
+##########################
+#### SPOOF PROTECTION ####
+##########################
+# Source Address Spoofing
+iptables -A OUTPUT -o $IF -s ! $IF_IP -j DROP
+
+#######################
+#### CREATE CHAINS ####
+#######################
+# Create Seperate Chains for ICMP, SSH, WEB, TCP and UDP.
+iptables -N icmp_packets
+iptables -N ssh_packets
+iptables -N udp_packets
+iptables -N tcp_packets
+
+#####################
+#### INPUT CHAIN ####
+#####################
+# Filter the packets onto the correct chains.
+echo -en "Filtering INPUT packets to correct chains: \t\t\t"
+iptables -A INPUT -p ICMP -i $IF -d $IF_IP -j icmp_packets
+iptables -A INPUT -p TCP -i $IF -d $IF_IP --dport 22 -j ssh_packets
+iptables -A INPUT -p TCP -i $IF -d $IF_IP -j tcp_packets
+iptables -A INPUT -p UDP -i $IF -d $IF_IP -j udp_packets
+checkerr
+
+# Drop all remaining packets incoming on $IF
+iptables -A INPUT -p ALL -i $IF -j DROP
+
+# Accept all remaining packets (on the tap devices)
+iptables -A INPUT -p ALL -j ACCEPT
+
+######################
+#### OUTPUT CHAIN ####
+######################
+# Accept all outgoing connections
+echo -en "Accepting all outgoing traffic: \t\t\t"
+iptables -A OUTPUT -p ALL -j ACCEPT
+checkerr
+
+####################
+#### ICMP CHAIN ####
+####################
+# ICMP Control and Status Messages
+echo -en "Setting up ICMP CHAIN rules: \t\t\t\t"
+iptables -A icmp_packets -i $IF -p icmp --icmp-type time-exceeded -j ACCEPT
+iptables -A icmp_packets -i $IF -p icmp --icmp-type source-quench  -j ACCEPT
+iptables -A icmp_packets -i $IF -p icmp --icmp-type parameter-problem -j ACCEPT
+iptables -A icmp_packets -i $IF -p icmp --icmp-type destination-unreachable -j ACCEPT
+iptables -A icmp_packets -i $IF -p icmp --icmp-type fragmentation-needed -j ACCEPT
+iptables -A icmp_packets -i $IF -p icmp -j DROP
+checkerr
+
+###################
+#### SSH CHAIN ####
+###################
+echo -en "Setting up SSH CHAIN rules: \t\t\t\t"
+iptables -A ssh_packets -s 192.168.10.0/24 -j ACCEPT
+iptables -A ssh_packets -s 192.168.20.128/25 -j ACCEPT
+iptables -A ssh_packets -s 10.1.0.0/16 -j ACCEPT
+iptables -A ssh_packets -s 0/0 -j DROP
+checkerr
+
+###################
+#### UDP CHAIN ####
+###################
+echo -en "Setting up UDP CHAIN rules: \t\t\t\t"
+iptables -A udp_packets -p UDP -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A udp_packets -p UDP -j DROP
+checkerr
+
+###################
+#### TCP CHAIN ####
+###################
+echo -en "Setting up TCP CHAIN rules: \t\t\t\t"
+iptables -A tcp_packets -p TCP --dport 1194 -j ACCEPT
+iptables -A tcp_packets -p TCP --dport 4443 -j ACCEPT
+iptables -A tcp_packets -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A tcp_packets -j DROP
+checkerr
+
+echo "Finished!"
