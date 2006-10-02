@@ -1,0 +1,396 @@
+#!/bin/sh
+
+#########################################
+# Update script for SURFnet IDS Sensor	#
+# SURFnet IDS                           #
+# Version 1.02.17                       #
+# 01-08-2006                            #
+# Jan van Lith & Kees Trippelvitz	#
+#########################################
+
+#########################################################################################
+# Copyright (C) 2005 SURFnet                                                            #
+# Authors Jan van Lith & Kees Trippelvitz                                               #
+#                                                                                       #
+# This program is free software; you can redistribute it and/or                         #
+# modify it under the terms of the GNU General Public License                           #
+# as published by the Free Software Foundation; either version 2                        #
+# of the License, or (at your option) any later version.                                #
+#                                                                                       #
+# This program is distributed in the hope that it will be useful,                       #
+# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
+# GNU General Public License for more details.                                          #
+#                                                                                       #
+# You should have received a copy of the GNU General Public License                     #
+# along with this program; if not, write to the Free Software                           #
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
+#                                                                                       #
+# Contact ids@surfnet.nl                                                                #
+#########################################################################################
+
+##################
+# Changelog:
+# 1.02.17 Fixed a small bug in test of $action 
+# 1.02.16 Fixed a bug in the check_ssh grep
+# 1.02.15 Changed the way SSH is handled
+# 1.02.14 Initial release
+##################
+
+################
+#    Traps     #
+################
+trap "{ rm -f /var/run/update.pid; exit 1; }" EXIT KILL SIGTERM SIGINT
+
+################
+# Variables    #
+################
+basedir="/cdrom/scripts"
+. $basedir/scripts.conf
+
+################
+# Start script #
+################
+echo -e "${YELLOW}Starting update${NORMAL}"
+update=0
+menureboot=0
+err=0
+action=""
+
+# Check if the disk is read/write.
+`touch $basedir/touchupdate.tmp`
+if [ $? != 0 ]; then
+  echo -e "${YELLOW}The sensor cannot be updated. The disk is readonly.${NORMAL}"
+  exit 1
+else
+  echo -e "${YELLOW}The sensor is read/write enabled${NORMAL}"
+  `rm -f $basedir/touchupdate.tmp`
+fi
+
+# Check if update isn't already running.
+if [ -e /var/run/update.pid ]; then
+  # There is already an update running.
+  echo -e "${YELLOW}Update is already running. Exiting this update.${NORMAL}"
+  exit 1
+else
+  # Update is not running yet. Create a .pid file with the process ID in /var/run/.
+  echo $$ >> /var/run/update.pid
+fi
+
+# Check the wget version.
+wgetversion=`wget -V | head -n1 | awk '{print $3}'`
+if [ $wgetversion != "1.9.1" ]; then
+  wgetarg="--no-check-certificate"
+else
+  wgetarg=""
+fi
+
+# Check if wget authentication is correct.
+echo -en "${YELLOW}Wget authentication: ${NORMAL}"
+wgetauth=`wget -q $wgetarg --spider $http://$server:$port/updates/server_version.txt`
+if [ $? == 1 ]; then
+  echo -e "${RED}Failed${NORMAL}"
+  echo -e "${RED}This needs to be fixed before the sensor can be started.${NORMAL}"
+else
+  echo -e "${YELLOW}Ok${NORMAL}"
+fi
+
+############
+# Updating #
+############
+
+md5cert=`md5sum $basedir/ca.crt | awk '{print $1}'`
+header="Accept: $md5cert"
+
+# Get the keyname and localip.
+keyname=`ls $basedir | grep "sensor" | grep "crt" | grep -v "bcrt" | cut -d "." -f1`
+localip=`ifconfig | grep "inet addr" | grep -v "127.0.0.1" | cut -d ":" -f2 | cut -d " " -f1`
+
+# Check if SSH is running.
+sshcheck=`ps -ef | grep sshd | grep -v grep | head -n1 | wc -l`
+
+echo -e "${YELLOW}Updating configuration to the server${NORMAL}"
+wget -q $wgetarg --header="$header" -O $basedir/update.php "$http://$server:$port/update.php?localip=$localip&keyname=$keyname&ssh=$sshcheck"
+
+# Check for errors with the localip and tapip update.
+checkerror=`cat $basedir/update.php | grep "ERROR" | wc -l`
+if [ $checkerror -gt 0 ]; then
+  # Errors occured while updating localip and tapip.
+  errors=`cat $basedir/update.php | grep "ERROR"`
+  echo -e "${YELLOW}Error occured while updating localip and tapip.${NORMAL}"
+  echo -e "${RED}$errors${NORMAL}"
+fi
+
+# Check if any action was requested.
+action=`cat $basedir/update.php | grep "ACTION:" | awk '{print $2}'`
+
+##########################
+# Checking for new files #
+##########################
+
+echo -e "${YELLOW}Getting server version information${NORMAL}"
+`wget -q $wgetarg --header="$header" -O $basedir/server_version.txt "$http://$server:$port/updates/server_version.txt"`
+
+echo -e "${YELLOW}Updating sensor files${NORMAL}"
+# No new sensor image, continue with normal updates.
+total_server=`wc -l $basedir/server_version.txt | cut -d " " -f1`
+total_sensor=`wc -l $basedir/sensor_version.txt | cut -d " " -f1`
+# Check for new files on the server.
+if [ $total_server != $total_sensor ]; then  
+  echo -e "${YELLOW}Server has new files available.${NORMAL}"
+
+  # For each filename in server_version.txt check if it exists in sensor_version.txt.
+  for ((i=1; i<=$total_server; i++))
+  do
+    # Check if the sensor has the file already.
+    filename_server=`sed -n "$i"p $basedir/server_version.txt | cut -d ":" -f1`
+    check=`grep ${filename_server}: $basedir/sensor_version.txt | wc -l`
+
+    if [ $check == 0 ]; then
+
+      # The file does not exists in sensor_version.txt.
+      # Remove it if it does exists by accident and download a new one.
+      echo -e "${YELLOW}Downloading $filename_server."
+      wget -q $wgetarg -O $basedir/${filename_server}.sig $http://$server:$port/updates/${filename_server}.sig
+      rm -f $basedir/$filename_server
+
+      # Check the file if it is signed by the scripts certificate.
+      openssl smime -verify -text -inform SMIME -in $basedir/${filename_server}.sig -out $basedir/${filename_server}.new -CAfile $basedir/scripts.crt
+      if [ $? == 0 ]; then
+        # The file was correctly signed by the scripts certificate.
+        # Update sensor_version.txt.
+        rm -f $basedir/${filename_server}.sig
+        `sed 's/\r//' $basedir/${filename_server}.new > $basedir/$filename_server`
+        echo -e "${YELLOW}Renewing sensor_version.txt.${NORMAL}"
+        sed -n "$i"p $basedir/server_version.txt >> $basedir/sensor_version.txt
+        rm -f $basedir/${filename_server}.new
+        rm -f $basedir/${filename_server}.sig
+      else
+        rm -f $basedir/${filename_server}.new
+        rm -f $basedir/${filename_server}.sig
+        echo -e "${YELLOW}Verification of $filename_server failed.${NORMAL}"
+      fi
+    fi
+  done
+fi
+  
+########################
+# Checking for updates #
+########################
+
+# For each file in server_version.txt check version info.
+for ((i=1 ; i<=$total_server; i++))
+do
+  # Compare the version of the sensor with the version of the server.
+  filename_server=`sed -n "$i"p $basedir/server_version.txt | cut -d ":" -f1`
+  new_version=`cat $basedir/server_version.txt | grep ${filename_server}: | cut -d ":" -f2`
+  old_version=`cat $basedir/sensor_version.txt | grep ${filename_server}: | cut -d ":" -f2`
+  if [ $new_version != $old_version -a -n $filename_server ]; then
+    # The version info doesn't match, download a new version from the server.
+
+    # The file to be updated is 'update'.
+    if [ $filename_server == "update" ]; then
+      wget -q $wgetarg -O $basedir/update.sig $http://$server:$port/updates/update.sig
+      echo -e "${YELLOW}Updating the update script"
+      openssl smime -verify -text -inform SMIME -in $basedir/update.sig -out $basedir/update.new -CAfile $basedir/scripts.crt
+      if [ $? == 0 ]; then
+        # Wait with updating if the filename is the update script itself, but mark it for replacement.
+        rm -f $basedir/update.sig
+        echo -e "${filename_server}:$new_version" >> $basedir/newsensor.version
+        update=1
+      else
+        rm -f $basedir/update.sig
+        rm -f $basedir/update.new
+        echo -e "${YELLOW}Verification of update failed.${NORMAL}"
+        echo -e "${filename_server}:$old_version" >> $basedir/newsensor.version
+      fi
+
+    # The file to be updated is 'wgetrc'.
+    elif [ $filename_server == "wgetrc" ]; then
+      echo -e "${YELLOW}Updating file wgetrc."
+      wget -q $wgetarg -O $basedir/wgetrc.sig $http://$server:$port/updates/wgetrc.sig
+      openssl smime -verify -text -inform SMIME -in $basedir/wgetrc.sig -out $basedir/wgetrc.new -CAfile $basedir/scripts.crt
+      if [ $? == 0 ]; then
+        rm -f $basedir/wgetrc
+        rm -f $basedir/wgetrc.sig
+        sed 's/\r//' $basedir/wgetrc.new > $basedir/wgetrc
+        rm -f $basedir/wgetrc.new
+        echo -e "${filename_server}:$new_version" >> $basedir/newsensor.version
+      else
+        rm -f $basedir/wgetrc.new
+        rm -f $basedir/wgetrc.sig
+        echo -e "${YELLOW}Verification of wgetrc failed.${NORMAL}"
+        echo -e "${filename_server}:$old_version" >> $basedir/newsensor.version
+      fi
+
+    # The file to be updated 'client.conf'.
+    elif [ $filename_server == "client.conf" ]; then
+      echo -e "${YELLOW}Updating file client.conf."
+      # Get the keyname.
+      keyname=`ls $basedir | grep "sensor" | grep "crt" | grep -v "bcrt" | cut -d "." -f1`
+      wget -q $wgetarg -O $basedir/client.conf.sig $http://$server:$port/updates/client.conf.sig
+      openssl smime -verify -text -inform SMIME -in $basedir/client.conf.sig -out $basedir/client.conf.new -CAfile $basedir/scripts.crt
+      if [ $? == 0 ]; then
+        # Remove the old client.conf and download a new version.
+        rm -f $basedir/client.conf
+        rm -f $basedir/client.conf.sig
+        sed 's/\r//' $basedir/client.conf.new > $basedir/client.conf
+        rm -f $basedir/client.conf.new
+        # Update the new client.conf with the ca, key and cert entries needed by OpenVPN.
+        echo "ca $basedir/ca.crt" >> $basedir/client.conf
+        echo "key $basedir/$keyname.key" >> $basedir/client.conf
+        echo "cert $basedir/$keyname.crt" >> $basedir/client.conf
+        # Restart the OpenVPN client.
+        echo -e "${YELLOW}---------Stopping sensor--------${NORMAL}"
+        sh $basedir/stopclient
+        echo -e "${YELLOW}------------Finished------------${NORMAL}"
+        echo -e "${YELLOW}---------Starting sensor--------${NORMAL}"
+        sh $basedir/startclient
+        echo -e "${YELLOW}------------Finished------------${NORMAL}"
+        echo -e "${filename_server}:$new_version" >> $basedir/newsensor.version
+      else
+        rm -f $basedir/client.conf.sig
+        rm -f $basedir/client.conf.new
+        echo -e "${filename_server}:$old_version" >> $basedir/newsensor.version
+        echo -e "${YELLOW}Verification of client.conf failed.${NORMAL}"
+      fi
+
+    # The file to be updated not 'idsmenu'.
+    elif [ $filename_server != "idsmenu" ]; then
+      echo -e "${YELLOW}Updating file $filename_server."
+      # Download the new file.
+      wget -q $wgetarg -O $basedir/${filename_server}.sig $http://$server:$port/updates/${filename_server}.sig
+      openssl smime -verify -text -inform SMIME -in $basedir/${filename_server}.sig -out $basedir/${filename_server}.new -CAfile $basedir/scripts.crt
+      if [ $? == 0 ]; then
+        # Remove old file.
+        rm -f $basedir/$filename_server
+        rm -f $basedir/${filename_server}.sig
+        sed 's/\r//' $basedir/${filename_server}.new > $basedir/$filename_server
+        rm -f $basedir/${filename_server}.new
+        echo -e "${filename_server}:$new_version" >> $basedir/newsensor.version
+      else
+        rm -f $basedir/${filename_server}.sig
+        rm -f $basedir/${filename_server}.new
+        echo -e "${filename_server}:$old_version" >> $basedir/newsensor.version
+        echo -e "${YELLOW}Verification of $filename_server failed.${NORMAL}"
+      fi
+
+    # The file to be updated 'idsmenu'.
+    elif [ $filename_server == "idsmenu" ]; then
+      echo -e "${YELLOW}Updating file idsmenu."
+      wget -q $wgetarg -O $basedir/idsmenu.sig $http://$server:$port/updates/idsmenu.sig
+      openssl smime -verify -text -inform SMIME -in $basedir/idsmenu.sig -out $basedir/idsmenu.new -CAfile $basedir/scripts.crt
+      if [ $? == 0 ]; then
+        killall -9 idsmenu
+        rm -f $basedir/idsmenu
+        rm -f $basedir/idsmenu.sig
+        sed 's/\r//' $basedir/idsmenu.new > $basedir/idsmenu
+        rm -f $basedir/idsmenu.new
+        echo -e "${filename_server}:$new_version" >> $basedir/newsensor.version
+      else
+        rm -f $basedir/idsmenu.sig
+        rm -f $basedir/idsmenu.new
+        echo -e "${filename_server}:$old_version" >> $basedir/newsensor.version
+        echo -e "${YELLOW}Verification of idsmenu failed.${NORMAL}"
+      fi
+    fi
+  else
+    echo -e "${filename_server}:$old_version" >> $basedir/newsensor.version
+  fi
+done
+# Update sensor_version.txt.
+echo -e "${YELLOW}Renewing sensor version info${NORMAL}"
+mv -f $basedir/newsensor.version $basedir/sensor_version.txt
+
+################
+# Action check #
+################
+
+if [ $checkerror == 0 ]; then
+  if [ $action == "SSHON" ]; then
+    echo -e "${YELLOW}Server request: start SSH${NORMAL}"
+    enablessh=`/etc/init.d/ssh start`
+  elif [ $action == "SSHOFF" ]; then
+    echo -e "${YELLOW}Server request: stop SSH${NORMAL}"
+    disablessh=`killall sshd`
+  elif [ $action == "CLIENT" ]; then
+    status=`cat $basedir/update.php | grep "STATUS: " | awk '{print $2}'`
+    if [ $status -eq 0 ]; then
+      echo -en "${YELLOW}Server request: start client ${NORMAL}"
+      startclient=`sh $basedir/startclient 0`
+      if [ $? == 0 ]; then
+        stat="[${YELLOW}Ok${NORMAL}]"
+      else
+        stat="[${RED}Failed${NORMAL}]"
+      fi
+      echo -e "$stat"
+    else
+      echo -en "${YELLOW}Server request: stop client ${NORMAL}"
+      stopclient=`sh $basedir/stopclient`
+      if [ $? == 0 ]; then
+        stat="[${YELLOW}Ok${NORMAL}]"
+      else
+        stat="[${RED}Failed${NORMAL}]"
+      fi
+      echo -e "$stat"
+    fi
+  elif [ $action == "RESTART" ]; then
+    echo -en "${YELLOW}Server request: restart client ${NORMAL}"
+    stopclient=`sh $basedir/stopclient`
+    startclient=`sh $basedir/startclient 0`
+    if [ $? == 0 ]; then
+      stat="[${YELLOW}Ok${NORMAL}]"
+    else
+      stat="[${RED}Failed${NORMAL}]"
+    fi
+    echo -e "$stat"
+  elif [ $action == "BLOCK" ]; then
+    status=`cat $basedir/update.php | grep "STATUS: " | awk '{print $2}'`
+    if [ $status == "2" ]; then
+      echo -e "${YELLOW}Server request: Enable client${NORMAL}"
+      mv $basedir/$keyname.bcrt $basedir/$keyname.crt
+      mv $basedir/$keyname.bkey $basedir/$keyname.key
+      chmod 600 $basedir/$keyname.key
+      chmod 644 $basedir/$keyname.crt
+    else
+      echo -e "${YELLOW}Server request: Disable client${NORMAL}"
+      stopclient=`sh $basedir/stopclient`
+      cp $basedir/$keyname.crt $basedir/$keyname.bcrt
+      cp $basedir/$keyname.key $basedir/$keyname.bkey
+      echo "DISABLED" > $basedir/$keyname.crt
+      echo "DISABLED" > $basedir/$keyname.key
+      chmod 600 $basedir/$keyname.bkey
+      chmod 600 $basedir/$keyname.bcrt
+    fi    
+  fi
+fi
+
+if [ $checkerror == 0 ]; then
+  oldserver=`cat $basedir/client.conf | grep "remote " | awk '{print $2}'`
+  newserver=`cat $basedir/update.php | grep "SERVER: " | awk '{print $2}'`
+  if [ $newserver ]; then
+    if [ "$newserver" != "$oldserver" ]; then
+      echo -e "${YELLOW}Server change. New server: $newserver"
+      `sed "s/^remote.*$/remote $newserver/" $basedir/client.conf > $basedir/client.conf.new`
+      mv -f $basedir/client.conf.new $basedir/client.conf
+    fi
+  fi
+fi
+
+# Remove trash files.
+rm -f $basedir/*.sig
+rm -f $basedir/server_version.txt
+rm -f $basedir/knoppix.md5
+rm -f $basedir/knoppix.new.md5
+rm -f /var/run/update.pid
+
+if [ $update == 1 ]; then
+  # If there is a newer version of the update script start update_remove.
+  sh $basedir/update_remove
+else
+  echo -e "${YELLOW}Updates complete${NORMAL}"
+fi
+if [ "$action" == "REBOOT" ]; then
+  echo -e "${YELLOW}Reboot was requested by the server. Rebooting now.${NORMAL}"
+  init 6
+fi

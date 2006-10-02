@@ -1,0 +1,215 @@
+#!/usr/bin/perl
+
+###################################
+#   Setmac script for IDS server  #
+#           SURFnet IDS           #
+#           Version 1.04          #
+#            26-01-2006           #
+# Jan van Lith & Kees Trippelvitz #
+#    Modified by: Peter Arts      #
+###################################
+
+#########################################################################################
+# Copyright (C) 2005 SURFnet                                                            #
+# Authors Jan van Lith & Kees Trippelvitz                                               #
+# Modified by: Peter Arts                                                               #
+#                                                                                       #
+# This program is free software; you can redistribute it and/or                         #
+# modify it under the terms of the GNU General Public License                           #
+# as published by the Free Software Foundation; either version 2                        #
+# of the License, or (at your option) any later version.                                #
+#                                                                                       #
+# This program is distributed in the hope that it will be useful,                       #
+# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
+# GNU General Public License for more details.                                          #
+#                                                                                       #
+# You should have received a copy of the GNU General Public License                     #
+# along with this program; if not, write to the Free Software                           #
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
+#                                                                                       #
+# Contact ids@surfnet.nl                                                                #
+#########################################################################################
+
+##################
+# Modules used
+##################
+use DBI;
+use Time::localtime;
+
+##################
+# Variables used
+##################
+do '/etc/surfnetids/surfnetids-tn.conf';
+$logfile =~ s|.*/||;
+$logfile = "$surfidsdir/log/$logfile";
+if ($logstamp == 1) {
+  $day = localtime->mday();
+  if ($day < 10) {
+    $day = "0" . $day;
+  }
+  $month = localtime->mon() + 1;
+  if ($month < 10) {
+    $month = "0" . $month;
+  }
+  $year = localtime->year() + 1900;
+  $logfile = "$logfile-$day$month$year";
+}
+
+##################
+# Functions
+##################
+
+sub getts {
+  my $ts = time();
+  my $year = localtime->year() + 1900;
+  my $month = localtime->mon() + 1;
+  if ($month < 10) {
+    $month = "0" . $month;
+  }
+  my $day = localtime->mday();
+  if ($day < 10) {
+    $day = "0" . $day;
+  }
+  my $hour = localtime->hour();
+  if ($hour < 10) {
+    $hour = "0" . $hour;
+  }
+  my $min = localtime->min();
+  if ($min < 10) {
+    $min = "0" . $min;
+  }
+  my $sec = localtime->sec();
+  if ($sec < 10) {
+    $sec = "0" . $sec;
+  }
+
+  my $timestamp = "$day-$month-$year $hour:$min:$sec";
+}
+
+sub getec {
+  if ($? == 0) {
+    my $ec = "Ok";
+  }
+  else {
+    my $ec = "Err - $?";
+  }
+}
+
+##################
+# Main script
+##################
+
+# Get tap device that's coming up.
+$tap = $ENV{dev};
+
+# Get sensor name.
+$sensor = $ENV{common_name};
+
+# Opening log file
+open(LOG, ">> $logfile");
+
+$ts = getts();
+print LOG "[$ts - $tap] Starting setmac.pl\n";
+
+# Check for tap existance.
+`ifconfig $tap`;
+
+if ($? == 0) {
+
+  $ec = getec();
+  print LOG "[$ts - $tap - $ec] Tap device exists.\n";
+
+  # Connect to the database (dbh = DatabaseHandler or linkserver)
+  $dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass)
+        or die $DBI::errstr;
+  $ts = getts();
+  print LOG "[$ts - $tap] Connected to $pgsql_dbname with DSN: $dsn\n";
+  print LOG "[$ts - $tap] Connect result: $dbh\n";
+
+  # Get the mac address for the sensor from the database.
+  $sth = $dbh->prepare("SELECT mac, s_tapip FROM sensors WHERE keyname = '$sensor'");
+  $ts = getts();
+  print LOG "[$ts - $tap] Prepared query: SELECT mac, s_tapip FROM sensors WHERE keyname = '$sensor'\n";
+  $execute_result = $sth->execute();
+  $ts = getts();
+  print LOG "[$ts - $tap] Executed query: $execute_result\n";
+
+  @row = $sth->fetchrow_array;
+  $ts = getts();
+  $mac = $row[0];
+  $s_tapip = $row[1];
+  if ($mac eq "") {
+    # If no mac address is present in the database, add the generated one from OpenVPN to the database.
+    print LOG "[$ts - $tap] No MAC address in sensors table for $sensor.\n";
+    $mac = `ifconfig $tap | grep HWaddr`;
+    @mac_ar = split(/ +/, $mac);
+    $mac = $mac_ar[4];
+    $ts = getts();
+    $ec = getec();
+    print LOG "[$ts - $tap - $ec] New MAC address: $mac.\n";
+    $execute_result = $dbh->do("UPDATE sensors SET mac = '$mac' WHERE keyname = '$sensor'");
+    $ts = getts();
+    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET mac = '$mac' WHERE keyname = '$sensor'\n";
+    print LOG "[$ts - $tap] Executed query: $execute_result\n";
+  }
+  else {
+    # MAC address is present in the database, update the interface with the new mac.
+    print LOG "[$ts - $tap] MAC address already known.\n";
+    `ifconfig $tap hw ether $mac`;
+    $ts = getts();
+    $ec = getec();
+    print LOG "[$ts - $tap - $ec] MAC address of $tap set to $mac.\n";
+  }
+
+  # Moved from start_routing.pl: setting IP
+  # s_tapip is empty or NULL for DHCP
+  if ($s_tapip == "NULL" || ($s_tapip == "")) {
+    # Use DHCP
+    $net_method = "dhcp";
+  } else {
+    # Use static network configuration
+    $net_method = "static";
+  }
+
+  $ts = getts();
+  $ec = getec();
+  print LOG "[$ts - $tap - $ec] Network is using method: $net_method \n";
+
+  if ($net_method == "dhcp") {
+    # Get dhcp from remote network without setting of gateway, dns and resolv.conf
+    `dhclient3 -sf /opt/surfnetids/scripts/dhtest-script -lf /var/lib/dhcp3/$tap.leases $tap`;
+    $ts = getts();
+    $ec = getec();
+    print LOG "[$ts - $tap - $ec] Starting dhclient3: dhclient3 -sf /etc/dhcp3/dhtest-script -lf /var/lib/dhcp3/$tap.leases $tap\n";
+  } else {
+    # Set static network configuration without gateway, dns and resolv.conf
+    # Format of netconfig: 0=>IP|1=>netmask|2=>gateway|3=>broadcast
+    @netconfig = split(/\|/, $s_tapip);
+    $if_ip = $netconfig[0];
+    $if_net = $netconfig[1];
+    $if_broadcast = $netconfig[3];
+      `ifconfig $tap $if_ip netmask $if_net broadcast $if_broadcast`;
+    $ts = getts();
+    $ec = getec();
+    print LOG "[$ts - $tap - $ec] Setting IP address, netmask and broadcast\n";
+  }
+  sleep 1;
+
+
+  # Start the sql.pl script to update all tap device information to the database.
+  system "$surfidsdir/scripts/sql.pl $tap $sensor &";
+  print LOG "[$ts - $tap] Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor\n";
+
+  print LOG "-------------Finished setmac.pl-------------\n";
+  close(LOG);
+  exit 0;
+}
+else {
+  $ec = getec();
+  print LOG "[$ts - $tap - $ec] Tap device does not exist.\n";
+
+  print LOG "-------------Finished setmac.pl-------------\n";
+  close(LOG);
+  exit 1;
+}

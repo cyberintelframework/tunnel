@@ -1,0 +1,249 @@
+#/bin/sh
+
+###############################################
+# Network setup script for SURFnet IDS sensor #
+# SURFnet IDS                                 #
+# Version 1.02.02                             #
+# 07-03-2006                                  #
+# Peter Arts & Kees Trippelvitz               #
+###############################################
+
+#########################################################################################
+# Copyright (C) 2005 SURFnet                                                            #
+# Authors Peter Arts & Kees Trippelvitz                                                 #
+#                                                                                       #
+# This program is free software; you can redistribute it and/or                         #
+# modify it under the terms of the GNU General Public License                           #
+# as published by the Free Software Foundation; either version 2                        #
+# of the License, or (at your option) any later version.                                #
+#                                                                                       #
+# This program is distributed in the hope that it will be useful,                       #
+# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
+# GNU General Public License for more details.                                          #
+#                                                                                       #
+# You should have received a copy of the GNU General Public License                     #
+# along with this program; if not, write to the Free Software                           #
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
+#########################################################################################
+
+################
+# Variables    #
+################
+basedir="/cdrom/scripts"
+. $basedir/scripts.conf
+
+################
+# Start script #
+################
+# Setting some empty variables.
+ipsensor=""
+iphoney=""
+netmask=""
+gateway=""
+domain=""
+broad=""
+primary=""
+
+# Check for a valid IP address
+valid_ip() {
+  if [ ! "$(echo $1 | grep '^[0-9]\{1,3\}[.][0-9]\{1,3\}[.][0-9]\{1,3\}[.][0-9]\{1,3\}$')"  ]
+    then return 0
+    else return 1
+  fi
+}
+
+# Set a static IP address
+set_static_ip() {
+  sh $basedir/stopclient
+  while :
+  do
+
+    #####################
+    clear
+    echo "Please enter the IP configuration for this network.";
+    echo "Each item should be entered as an IP address in dotted-decimal notation"
+    echo " (for example, 1.2.3.4).";
+    echo
+    valid_ip 0
+    while [ $? == 0 ]; do
+      if [ -r $networkconf ]; then
+        ipsensor=`cat $networkconf | grep "IP_sensor: " | awk '{print $2}'`
+      fi
+      echo -e "${NORMAL}IP address 1 (sensor) [$ipsensor]: ${YELLOW}"
+      read ip_sensor
+      if [ -z $ip_sensor ]; then
+        ip_sensor=$ipsensor
+      fi
+      valid_ip $ip_sensor
+    done
+    valid_ip 0
+
+    valid_ip 0
+    while [ $? == 0 ]; do
+      if [ -r $networkconf ]; then
+        netmask=`cat $networkconf | grep "Netmask: " | awk '{print $2}'`
+      fi
+      echo -e "${NORMAL}Netmask [$netmask]: ${YELLOW}"
+      read mask
+      if [ -z $mask ]; then
+        mask=$netmask
+      fi
+      valid_ip $mask
+    done
+    valid_ip 0
+    while [ $? == 0 ]; do
+      if [ -r $networkconf ]; then
+        gateway=`cat $networkconf | grep "Gateway: " | awk '{print $2}'`
+      fi
+      echo -e "${NORMAL}Default gateway (IP) [$gateway]: ${YELLOW}"
+      read gw
+      if [ -z $gw ]; then
+        gw=$gateway
+      fi
+      valid_ip $gw
+    done
+    valid_ip 0
+    while [ $? == 0 ]; do
+      if [ -r $networkconf ]; then
+        broad=`cat $networkconf | grep "Broadcast: " | awk '{print $2}'`
+      fi
+      echo -e "${NORMAL}Broadcast address [$broad]: ${YELLOW}"
+      read broadcast
+      if [ -z $broadcast ]; then
+        broadcast=$broad
+      fi
+      valid_ip $broadcast
+    done
+    valid_ip 0
+    while [ $? == 0 ]; do
+      if [ -r $networkconf ]; then
+        primary=`cat $networkconf | grep "Nameserver: " | awk '{print $2}'`
+      fi
+      echo -e "${NORMAL}Primary nameserver [$primary]: ${YELLOW}"
+      read ns
+      if [ -z $ns ]; then
+        ns=$primary
+      fi
+      valid_ip $ns
+    done
+    dom=0
+    if [ -r $networkconf ]; then
+      domain=`cat $networkconf | grep "Domain: " | awk '{print $2}'`
+    fi
+    while [ $dom == 0 ]; do
+      echo -e "${NORMAL}Domain (no IP) [$domain]: ${YELLOW}"
+      read domain
+      if [ -z $domain ]; then
+        if [ -r $networkconf ]; then
+          domain=`cat $networkconf | grep "Domain: " | awk '{print $2}'`
+        fi
+        if [ -n $domain ]; then
+          dom=1
+        fi
+      else
+        dom=1
+      fi
+    done
+
+    # Set configuration in network_if.conf:
+    echo "# network.conf -- configuration file for the network interface" > $networkconf
+    echo "Method: static" >> $networkconf
+    echo "IP_sensor: $ip_sensor" >> $networkconf
+    echo "Netmask: $mask" >> $networkconf
+    echo "Gateway: $gw" >> $networkconf
+    echo "Broadcast: $broadcast" >> $networkconf
+    echo "Domain: $domain" >> $networkconf
+    echo "Nameserver: $ns" >> $networkconf
+
+    clear
+    echo -e "${NORMAL}"
+    echo -e "Method: \t\tstatic"
+    echo -e "IP_sensor: \t\t$ip_sensor"
+    echo -e "Netmask: \t\t$mask"
+    echo -e "Gateway: \t\t$gw"
+    echo -e "Broadcast: \t\t$broadcast"
+    echo -e "Domain: \t\t$domain"
+    echo -e "Nameserver: \t\t$ns"
+    ###############
+
+    echo -e "Is this information correct? [Y/n]"
+    read choice
+    case $choice
+    in
+      Y|y)
+        break;;
+      N|n) clear
+        ;;
+      *) clear
+         echo -e "${YELLOW}Unkown choice. Try again.${NORMAL}";;
+    esac
+  done
+
+  if [ "$1" != "first"  ]; then
+    # Stop client
+    $basedir/stopclient
+    echo -e "${YELLOW}Stopping/starting client.${NORMAL}" 
+    # Start client
+    $basedir/startclient
+  fi
+}
+
+# Set dynamic IP
+set_dynamic_ip() {
+  if [ "$1" != "first" ]; then
+    # Stop client first
+    $basedir/stopclient
+  fi
+
+  # Set DHCP networking in network_if.conf:
+  checkconf=`cat $networkconf | grep -i Method | wc -l`
+  if [ $checkconf != 0 ]; then
+    sed 's/^Method:.*$/Method: dhcp/' $networkconf > $basedir/networkconf.tmp
+    mv $basedir/networkconf.tmp $networkconf
+  else
+    echo "# network.conf -- configuration file for the network interface" >> $networkconf
+    echo "Method: dhcp" >> $networkconf
+  fi
+
+  if [ "$1" != "first"  ]; then
+    # Start client
+    $basedir/startclient
+  fi
+}
+
+# Show menu
+clear
+ok=0
+while :
+do
+  echo
+  echo "Do you want to use static IP configuration or DHCP?
+		S. Use static IP
+		D. Use DHCP"
+  if [ "$1" == "first" ]; then
+    echo "
+    Please select one of the above (S/D): "
+  else
+    echo "		C. Cancel"
+    echo "
+		Please select one of the above (S/D/C): "
+  fi
+  read choice
+  echo
+  case $choice 
+  in
+    S|s) set_static_ip $1
+       exit;;
+    D|d) set_dynamic_ip $1
+       exit;;
+    C|c) if [ "$1" != "first" ] 
+       then 
+         exit
+       else 
+         clear
+       fi;;
+    *) clear
+       echo -e "${YELLOW}Unkown choice. Try again.${NORMAL}";;
+  esac
+done
