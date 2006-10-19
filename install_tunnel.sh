@@ -244,6 +244,22 @@ fi
 ####### Restarting apache-ssl
 /etc/init.d/apache-ssl restart
 
+####### Setting up the tunnelserver configuration ##########
+if [ ! -d $CONFDIR ]; then
+  echo -e "Setting up configuration at $CONFDIR"
+  mkdir -p $CONFDIR
+  cp $PREFIX/surfnetids-tn.conf $CONFDIR/
+elif [ -e $CONFDIR/surfnetids-tn.conf ]; then
+  echo -e "$CONFDIR/surfnetids-tn.conf already exists, copieng new"
+  echo -e "configuration to $CONFDIR/surfnetids-tn.conf.new"
+  cp $CONFDIR/surfnetids-tn.conf $CONFDIR/surfnetids-tn.conf.new
+elif [ -d $CONFDIR ]; then
+  if [ ! -e $CONFDIR/surfnetids-tn.conf ]; then
+    echo -e "Creating new configuration file in $CONFDIR"
+    cp $PREFIX/surfnetids-tn.conf $CONFDIR/
+  fi
+fi
+
 ####### Setting up permissions ###########
 chmod 777 $PREFIX/clientkeys/
 chmod 777 $PREFIX/serverkeys/
