@@ -1,5 +1,9 @@
 #!/bin/sh
-
+## Comments
+# 	Freek Kauffmann 2006-10-19
+# 	-State and Locality now handles whitespaces correctly.
+#	-Modified the location of the crontab
+# 
 # Defaults
 CRONTAB=/etc/crontab
 PREFIX=/opt/surfnetids
@@ -52,7 +56,7 @@ if [ $CHOICE == "N" -o $CHOICE == "n" ]; then
   while :
   do
     read keyprovince
-    if [ ! -z $keyprovince ]; then
+    if [ ! -z "$keyprovince" ]; then
       break
     else
       echo -ne "Enter the province: "
@@ -63,7 +67,7 @@ if [ $CHOICE == "N" -o $CHOICE == "n" ]; then
   while :
   do
     read keycity
-    if [ ! -z $keycity ]; then
+    if [ ! -z "$keycity" ]; then
       break
     else
       echo -ne "Enter the city: "
@@ -143,7 +147,7 @@ fi
 ####### Modifying dhcp3 files ###########
 if [ -r /etc/dhcp3/dhclient.conf ]; then
   mv -f /etc/dhcp3/dhclient.conf /etc/dhcp3/dhclient.conf.old
-  mv -f $PREFIX/dhclient.conf /etc/dhcp3/
+  mv -f $PREFIX/scripts/surfnetids-dhclient /etc/dhcp3/dhclient.conf
 fi
 
 ####### Setting up xinetd configuration for OpenVPN ##############
