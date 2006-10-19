@@ -1,9 +1,20 @@
 #!/bin/sh
-## Comments
-# 	Freek Kauffmann 2006-10-19
-# 	-State and Locality now handles whitespaces correctly.
-#	-Modified the location of the crontab
-# 
+
+####################################
+# SURFnet IDS tunnel installer     #
+# Version 1.02.03                  #
+# 19-10-2006                       #
+# Jan van Lith & Kees Trippelvitz  #
+# Modified by Freek Kauffmann      #
+####################################
+
+#############################################
+# Changelog:
+# 1.02.03 Changed the surfnetids-dhclient mv back to normal
+# 1.02.02 State and Locality now handles whitespace correctly
+# 1.02.01 Initial release
+#############################################
+
 # Defaults
 CRONTAB=/etc/crontab
 PREFIX=/opt/surfnetids
@@ -147,7 +158,7 @@ fi
 ####### Modifying dhcp3 files ###########
 if [ -r /etc/dhcp3/dhclient.conf ]; then
   mv -f /etc/dhcp3/dhclient.conf /etc/dhcp3/dhclient.conf.old
-  mv -f $PREFIX/scripts/surfnetids-dhclient /etc/dhcp3/dhclient.conf
+  mv -f $PREFIX/dhclient.conf /etc/dhcp3/
 fi
 
 ####### Setting up xinetd configuration for OpenVPN ##############
