@@ -264,6 +264,7 @@ fi
 chmod 777 $PREFIX/clientkeys/
 chmod 777 $PREFIX/serverkeys/
 chmod +r $PREFIX/serverkeys/ca.key
+chmod 600 $CONFDIR/surfnetids-tn.conf
 
 ####### Setting up iproute2 ###########
 if [ -r /etc/iproute2/rt_tables ]; then
