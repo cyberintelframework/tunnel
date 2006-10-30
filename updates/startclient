@@ -1,0 +1,373 @@
+#!/bin/sh
+
+#########################################
+# Startup script for SURFnet IDS Sensor	#
+# SURFnet IDS		                #
+# Version 1.03.01                        #
+# 17-10-2006		                #
+# Jan van Lith & Kees Trippelvitz	#
+# Modified by Peter Arts                #
+#########################################
+
+#########################################################################################
+# Copyright (C) 2005 SURFnet                                                            #
+# Authors Jan van Lith & Kees Trippelvitz                                               #
+# Modified by Peter Arts                                                                #
+#                                                                                       #
+# This program is free software; you can redistribute it and/or                         #
+# modify it under the terms of the GNU General Public License                           #
+# as published by the Free Software Foundation; either version 2                        #
+# of the License, or (at your option) any later version.                                #
+#                                                                                       #
+# This program is distributed in the hope that it will be useful,                       #
+# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
+# GNU General Public License for more details.                                          #
+#                                                                                       #
+# You should have received a copy of the GNU General Public License                     #
+# along with this program; if not, write to the Free Software                           #
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
+#                                                                                       #
+# Contact ids@surfnet.nl                                                                #
+#########################################################################################
+
+################
+# Changelog:
+# 1.03.01 Released as part of the 1.03 package
+# 1.02.11 Ethernet loop prevention
+# 1.02.10 Fixed a bug with the generation of the sensor key
+# 1.02.09 Added a check for the starthook.sh script
+# 1.02.08 Added hook to the starthook.sh script
+# 1.02.07 Initial release
+################
+
+################
+# Variables    #
+################
+basedir="/cdrom/scripts"
+. $basedir/scripts.conf
+
+################
+# Start script #
+################
+
+# Ethernet / multicast routing loop prevention
+`iptables -F >/dev/null`
+`iptables -A OUTPUT -p TCP -m physdev --physdev-out tap0 --dport 1194 -j DROP >/dev/null`
+
+# Added a link to userdefined.sh. This script can be used to add some extra commands you might want to do
+# when the sensor is starting.
+if [ -e $basedir/starthook.sh ]; then
+  `$basedir/starthook.sh`;
+fi
+
+if [ ! -e $basedir/ca.crt ]; then
+  echo -e "${RED}ERROR: No root certificate present.${NORMAL}"
+  exit 1
+fi
+
+checkkey=`ls $basedir | grep "sensor" | grep -v "bcrt" | grep "crt" | wc -l`
+if [ $checkkey -gt 0 ]; then
+  # Get the keyname.
+  keyname=`ls $basedir | grep "sensor" | grep "crt" | grep -v "bcrt" | cut -d "." -f1`
+  # Check if the sensor is disabled.
+  checkcert=`grep "DISABLED" $basedir/$keyname.crt | wc -l`
+  if [ $checkcert -eq 1 ]; then
+    echo -e "${YELLOW}Sensor is disabled by admin.${NORMAL}"
+    exit 0
+  fi
+fi
+
+# Check if the sensor isn't read-only.
+`touch $basedir/touchstart.tmp`
+if [ $? != 0 ]; then
+  echo -e "${YELLOW}The sensor cannot be started. The disk is readonly.${NORMAL}"
+  exit 1
+else
+  `rm -f $basedir/touchstart.tmp`
+fi
+
+# Check network configuration (static or dhcp)
+netconfig_ok=`cat $basedir/network_if.conf | wc -l`
+while [ $netconfig_ok == 0 ]; do
+  echo -e "${YELLOW}Network configuration unknown, starting network setup ${NORMAL}"
+  $basedir/network_config first
+  netconfig_ok=`cat $basedir/network_if.conf | wc -l`
+done
+ifmethod=`cat $basedir/network_if.conf | grep -i "Method: " | cut -f2 -d: | cut -f2 -d " "`
+
+# Check whick interface is active
+NETDEVICES="$(awk -F: '/eth.:|tr.:/{print $1}' /proc/net/dev )"
+for DEVICE in $NETDEVICES
+do
+  active=`ifconfig $DEVICE | grep -i "RUNNING" | wc -l`
+  if [ $active == 1 ]; then
+    s_eth=$DEVICE
+    break
+  fi
+done
+
+if [ $active -eq 0 ]; then
+  echo -e "${YELLOW}No running interface was found.${NORMAL}"
+  if [ $1 ]; then
+    if [ $1 == "1" -o $1 == "start" ]; then
+      sh $basedir/idsmenu
+    fi
+  fi
+  exit 1
+else
+  echo -e "${YELLOW}Using device: $s_eth${NORMAL}"
+fi
+
+if [ $ifmethod == "static" ]; then
+  # No need for dhcp
+  echo -e "${YELLOW}Network configuration: static${NORMAL}"
+  checkpump=`ps -ef | grep pump | grep -v grep | wc -l`
+  if [ $checkpump == 1 ]; then
+    killall pump
+  fi
+
+  # Get network configuration from network_if.conf
+  s_ip=`cat $basedir/network_if.conf | grep -i "IP_sensor: " | cut -f2 -d: | cut -f2 -d " "`
+  s_mask=`cat $basedir/network_if.conf | grep -i "Netmask: " | cut -f2 -d: | cut -f2 -d " "`
+  s_gw=`cat $basedir/network_if.conf | grep -i "Gateway: " | cut -f2 -d: | cut -f2 -d " "`
+  s_broadcast=`cat $basedir/network_if.conf | grep -i "Broadcast: " | cut -f2 -d: | cut -f2 -d " "`
+  s_domain=`cat $basedir/network_if.conf | grep -i "Domain: " | cut -f2 -d: | cut -f2 -d " "`
+  s_ns=`cat $basedir/network_if.conf | grep -i "Nameserver: " | cut -f2 -d: | cut -f2 -d " "`
+
+  # Activate network configuration:
+  echo -e "${YELLOW}Setting IP, netmask and broadcast for $s_eth.${NORMAL}"
+  ifconfig $s_eth $s_ip netmask $s_mask broadcast $s_broadcast
+  echo -e "${YELLOW}Adding default gateway.${NORMAL}"
+  route add -net default gw $s_gw
+  echo -e "${YELLOW}Setting domain and nameserver.${NORMAL}"
+  echo "nameserver $s_ns" > /etc/resolv.conf
+  echo "domain $s_domain" >> /etc/resolv.conf
+else
+  echo -e "${YELLOW}Network configuration: dhcp${NORMAL}"
+  # Start pump if needed
+  checkpump=`ps -ef | grep pump | grep -v grep | wc -l`
+  if [ $checkpump == 0 ]; then
+    echo -e "${YELLOW}Starting pump for device $s_eth.${NORMAL}"
+    pump -i $s_eth
+  fi 
+fi
+
+checkbr=`ip link show | grep $br | wc -l`
+checkopenvpn=`ps -ef | grep openvpn | grep -v grep | wc -l`
+# If bridge and openvpn are already started, don't try to start the sensor again.
+if [ $checkbr == 1 ] &&  [ $checkopenvpn == 1 ]; then
+  echo -e "${YELLOW}Sensor already started.${NORMAL}"
+  exit
+else
+  # Check wich interface is active
+  NETDEVICES="$(awk -F: '/eth.:|tr.:/{print $1}' /proc/net/dev )"
+  conn=0
+  i=0
+  err=0
+  while [ $conn == 0 ]
+  do
+    # Loop through the interfaces.
+    for DEVICE in $NETDEVICES
+    do
+      # Skip local loopback.
+      if [ $DEVICE != "lo" ]; then
+        echo -e "${YELLOW}Checking device: $DEVICE${NORMAL}"
+        ipcheck=`ifconfig $DEVICE | grep -i "inet addr" | wc -l`
+        # Check if the interface has an IP address.
+        if [ $ipcheck == 1 ]; then
+          echo -e "${YELLOW}Found IP address on $DEVICE${NORMAL}"
+          # Check if the interface has connectivity to the server on the OpenVPN port.
+	  checknmap=`nmap -e $DEVICE -p 1194 $server -P0 2>/dev/null | grep 1194 | wc -l`
+	  if [ $checknmap == 1 ]; then
+            # All connectivity is present, set the interface and continue the script.
+            eth=$DEVICE
+	    conn=1
+	  fi
+        fi
+      fi
+    done
+    i=`echo $i + 1 | bc`
+    if [ $i == $dhcp_retries ]; then
+      # No active interface or connection to the server could be found.
+      conn=1
+      err=1
+      echo -e "${YELLOW}An error occurred. Either unable to get an IP or connect to the server.${NORMAL}"
+      if [ $1 ]; then
+        if [ $1 == "1" -o $1 == "start" ]; then
+          sh $basedir/idsmenu
+        fi
+      fi
+    else
+      if [ $conn != 1 ]; then
+        sleep 5
+      fi
+    fi
+  done
+
+  # If no errors occurred previously, continue the script.
+  if [ $err == 0 ]; then
+    # Check the wget version.
+    wgetversion=`wget -V | head -n1 | awk '{print $3}'`
+    if [ $wgetversion != "1.9.1" ]; then
+      wgetarg="--no-check-certificate"
+    else
+      wgetarg=""
+    fi
+
+    # Check for the existance of sensor keys.
+    if [ ! -e $basedir/*.key ]; then
+      # Check if wget authentication is correct.
+      echo -en "${YELLOW}Wget authentication: ${NORMAL}"
+      wgetauth=`wget -q $wgetarg --spider $http://$server:$port/updates/server_version.txt`
+      if [ $? == 1 ]; then
+        echo -e "${RED}Failed${NORMAL}"
+        echo -e "${RED}This needs to be fixed before the sensor can be started.${NORMAL}"
+      else
+        echo -e "${YELLOW}Ok${NORMAL}"
+      fi
+
+      # Get the localip.
+      echo -en "${YELLOW}Retrieved local IP address: ${NORMAL}"
+      localip=`ifconfig $eth | grep "inet addr" | cut -d ":" -f2 | cut -d " " -f1`
+      echo -e "${YELLOW}$localip${NORMAL}"
+      echo -e "${YELLOW}Retrieving certificates from server.${NORMAL}"
+
+      md5cert=`md5sum $basedir/ca.crt | awk '{print $1}'`
+      header="Accept: $md5cert"
+
+      # Get the certificates.
+      wget=`wget -q $wgetarg --header="$header" -O $basedir/cert.php $http://$server:$port/cert.php?localip=$localip`
+      # Get the keyname.
+      echo -en "${YELLOW}Updating openVPN config with keyname: ${NORMAL}"
+      keyname=`tail -n1 $basedir/cert.php`
+      echo -e "${YELLOW}$keyname${NORMAL}"
+      # Edit the client config.
+      echo "ca $basedir/ca.crt" >> $basedir/client.conf
+      echo "key $basedir/$keyname.key" >> $basedir/client.conf
+      echo "cert $basedir/$keyname.crt" >> $basedir/client.conf
+  
+      # Get the total number of lines in cert.php.
+      count=`wc -l $basedir/cert.php | cut -d " " -f1`
+      withoutkey=`echo $count - 1 | bc`
+      # Remove the keyname from cert.php.
+      head -n $withoutkey $basedir/cert.php > $basedir/temp.file
+
+      # Calculate the key size.
+      eof=`grep -n "EOF" $basedir/temp.file | cut -d":" -f1`
+      rest=`expr $eof - 1`
+
+      # Get the .key file.
+      head -n $rest $basedir/temp.file > $basedir/$keyname.key
+      echo -e "${YELLOW}Saving key file $keyname.key.${NORMAL}"
+      # Calculate the remaining lines for the .crt file.
+      eof=`grep -n "EOF" $basedir/temp.file | cut -d ":" -f1`
+      rest=`expr $count - $eof - 1`
+
+      # Get the .crt file.
+      tail -n $rest $basedir/temp.file > $basedir/$keyname.crt
+      echo -e "${YELLOW}Saving crt file $keyname.crt.${NORMAL}"
+      # Remove the temp file.
+      rm -f $basedir/temp.file
+
+      # CHMOD keys.
+      chmod 600 $basedir/$keyname.key
+      chmod 644 $basedir/$keyname.crt
+      # Remove cert.php.
+      rm -f $basedir/cert.php
+    else
+      # Check if wget authentication is correct.
+      echo -en "${YELLOW}Wget authentication: ${NORMAL}"
+      wgetauth=`wget -q $wgetarg --spider $http://$server:$port/updates/server_version.txt`
+      if [ $? == 1 ]; then
+        echo -e "${RED}Failed${NORMAL}"
+        echo -e "${RED}This needs to be fixed before the sensor can be started.${NORMAL}"
+      else
+        echo -e "${YELLOW}Ok${NORMAL}"
+      fi
+
+      # Get the keyname.
+      echo -en "${YELLOW}Keyname: ${NORMAL}"
+      keyname=`ls $basedir | grep "sensor" | grep "crt" | grep -v "bcrt" | cut -d "." -f1`
+      echo -e "${YELLOW}$keyname${NORMAL}"
+      # CHMOD the keys.
+      chmod 600 $basedir/$keyname.key	
+      chmod 644 $basedir/$keyname.crt
+    fi
+
+    # Update localip and tapip to the server.
+    if [ $ifmethod == "dhcp" ]; then
+      ifmethod="dhcp"
+    else
+      ifmethod="$s_mask|$s_gw|$s_broadcast"
+    fi
+
+    md5cert=`md5sum $basedir/ca.crt | awk '{print $1}'`
+    header="Accept: $md5cert"
+
+    localip=`ifconfig $eth | grep "inet addr" | cut -d ":" -f2 | cut -d " " -f1`
+    echo -e "${YELLOW}Updating configuration to the server${NORMAL}"
+    wget=`wget -q $wgetarg --header="$header" -O $basedir/startclient.php "$http://$server:$port/startclient.php?localip=$localip&ifmethod=$ifmethod&keyname=$keyname"`
+
+    # Check for errors with the localip and tapip update.
+    check=`cat $basedir/startclient.php | grep "ERROR" | wc -l`
+    if [ $check -gt 0 ]; then
+      # Errors occured while updating localip and tapip.
+      errors=`cat $basedir/startclient.php | grep "ERROR"`
+      echo -e "${YELLOW}Error occured while updating localip and tapip.${NORMAL}"
+      echo -e "${RED}$errors${NORMAL}"
+    fi
+    checknetworkconf=`cat $basedir/startclient.php | grep "CLIENTCONF:" | cut -d" " -f2`
+    if [ $checknetworkconf == "dhcp" ]; then
+      # Synchronizing the time.
+      echo -en "${YELLOW}Syncing time: ${NORMAL}"
+      startntp=`ntpdate -b $ntpserver 2>/dev/null`
+      if [ $? == 0 ]; then
+        echo -e "${YELLOW}Ok${NORMAL}"
+      else
+        startntp=`ntpdate -u -b $ntpserver 2>/dev/null`
+        if [ $? == 0 ]; then
+          echo -e "${YELLOW}Ok${NORMAL}"
+        else
+          echo -e "${RED}Failed${NORMAL}"
+        fi
+      fi
+
+      # Create the tap device and start OpenVPN.
+      echo -e "${YELLOW}Creating tap device${NORMAL}"
+      createtap=`openvpn --mktun --dev $tap`
+      echo -e "${YELLOW}Starting openVPN${NORMAL}"
+      startopenvpn=`openvpn --config $basedir/client.conf --daemon`
+    else
+      checktapip=`cat $basedir/startclient.php | grep "TAPIP:" | cut -d" " -f2`
+      if [ $checktapip == "NULL" ]; then
+        echo -e "${RED}Tap IP address needs to be configured in the webinterface.${NORMAL}"
+      else
+        echo -en "${YELLOW}Syncing time: ${NORMAL}"
+        startntp=`ntpdate -b $ntpserver`
+        if [ $? == 0 ]; then
+          echo -e "${YELLOW}Ok${NORMAL}"
+        else
+          startntp=`ntpdate -u -b $ntpserver`
+          if [ $? == 0 ]; then
+            echo -e "${YELLOW}Ok${NORMAL}"
+          else
+            echo -e "${RED}Failed${NORMAL}"
+          fi
+        fi
+
+        # Create the tap device and start OpenVPN.
+        echo -e "${YELLOW}Creating tap device${NORMAL}"
+        createtap=`openvpn --mktun --dev $tap`
+        echo -e "${YELLOW}Starting openVPN${NORMAL}"
+        startopenvpn=`openvpn --config $basedir/client.conf --daemon`
+      fi
+    fi
+  fi
+fi
+if [ $1 ]; then
+  if [ $1 == "1" -o $1 == "start" ]; then
+    # Start the IDSmenu.
+    sh $basedir/idsmenu
+  fi
+fi

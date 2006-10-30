@@ -1,0 +1,10 @@
+####
+# SURFnet IDS crontab logging rules
+# crontun
+####
+
+*/5 * * * * root /opt/surfnetids/scripts/rrd_traffic.pl >/dev/null
+59 23 * * * root /opt/surfnetids/scripts/scanbinaries.pl >/dev/null
+
+# Routecheck keeps a log of any errors that might occur with source-based routing rules. (DEBUG option)
+#*/5 * * * * root /opt/surfnetids/scripts/routecheck.pl -f >/dev/null
