@@ -22,7 +22,9 @@
 ################
 $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
-require "$basedir/functions.inc.pl";
+do "$basedir/functions.inc.pl";
+do "$basedir/network_if.conf";
+
 
 ################
 # Start script #
@@ -40,20 +42,19 @@ if ($chkrw != 0) {
   exit;
 }
 
-# Check the wget version.
-$wgetv = getwgetversion();
-if ($wgetv ne "1.9.1") {
+# Check if wget needs to authenticate the server certificate.
+if ($checkcert == 0) {
   $wgetarg = "--no-check-certificate";
 } else {
   $wgetarg = "";
 }
 
 # Check if wget authentication is correct.
-$chkwgetauth = chkwgetauth($wgetarg);
-printmsg("Checking wget authentication:", $chkwgetauth);
-if ($chkwgetauth != 0) {
-  exit;
-}
+#$chkwgetauth = chkwgetauth($wgetarg);
+#printmsg("Checking wget authentication:", $chkwgetauth);
+#if ($chkwgetauth != 0) {
+#  exit;
+#}
 
 ############
 # Updating #
@@ -66,224 +67,261 @@ if ($sensor eq "false") {
   exit;
 }
 
-$chksensor = chksensorstatus();
-if ($chksensor == 0) {
-  $if = $br;
-} else {
-  $if = getif();
-}
-printmsg("Checking active interface:", $if);
-
-$if_ip = getifip($if);
-printmsg("Checking ip address:", $if_ip);
-
-# Check if SSH is running.
-$chkssh = chkssh();
-
-# Creating the serverurl
-$serverurl = "$http://$server:$port";
-
-# Updating sensor information to the server
-`wget -q $wgetarg -O $basedir/update.php "$serverurl/update.php?localip=$if_ip&keyname=$sensor&ssh=$chkssh"`;
-printmsg("Updating status information:", $?);
-
-# Check for errors with the localip and tapip update.
-$checkerror = `cat $basedir/update.php | grep "ERROR" | wc -l`;
-if ($checkerror > 0) {
-  # Errors occured while updating localip and tapip.
-  $errors = `cat $basedir/update.php | grep "ERROR"`;
-  chomp($errors);
-  print "${y}An error occurred while updating status information.${n}\n";
-  print "${r}$errors${n}\n";
-}
-
-# Check if any action was requested.
-$action = `cat $basedir/update.php | grep "ACTION:" | awk '{print \$2}'`;
-chomp($action);
-
-##########################
-# Checking for update    #
-##########################
-
-$update_remove = 0;
-
-`wget -q $wgetarg -O $basedir/server_version.txt "$serverurl/updates/server_version.txt"`;
-printmsg("Retrieving version information:", $?);
-
-# Creating temporary version file
-$tempvers = `mktemp -p $basedir`;
-chomp($tempvers);
-open(VERS, "> $tempvers");
-
-open(SERVER, "$basedir/server_version.txt");
-while(<SERVER>) {
-  $line = $_;
-  @line_ar = split(/:/, $line);
-  $file = $line_ar[0];
-  $newversion = $line_ar[1];
-  chomp($newversion);
-  $check = `grep ${file}: $basedir/sensor_version.txt | wc -l`;
-  chomp($check);
-
-  if ($check == 0) {
-    # new file
-    $update = updatefile($file, 0);
-    printmsg("Updating $file:", $update);
-    if ($update == 0) {
-      print VERS "${file}:${newversion}\n";
+if ($netconf eq "vlan") {
+  $i = 1;
+  for my $key ( keys %vlan ) {
+    $vlanid = $key;	
+    $br = "br$i";
+    $vlan_method = $vlan{$vlanid}{method};
+    $chksensor = chksensorstatus($br);
+    if ($chksensor == 0) {
+      printmsg("Active interface:", $br);
+      $if = "br$i";
+      if ($vlan_method eq "dhcp") {			 
+        $if_gw = `pump -i $if -s | grep "Gateway:" | awk '{print \$2}'`;
+        printmsg("Gateway:", $if_gw);
+        `ip route add default via $if_gw`;
+        update_process($if, $vlanid);
+        sleeptimer("Preparing for next VLAN:", 10);
+        `ip route del default via $if_gw`;
+      } else{
+        $if_gw = $vlan{$vlanid}{if_gw};
+        printmsg("Gateway:", $if_gw);
+        `ip route add default via $if_gw`; 
+        update_process($if, $vlanid);
+        sleeptimer("Preparing for next VLAN:", 10);
+        `ip route del default via $if_gw`;
+      }
     }
+    $i++	
+  }
+} else {
+  $vlanid = 0;
+  $chksensor = chksensorstatus($br);
+  if ($chksensor == 0) {
+    $if = $br;
   } else {
-    # existing file
-    $checkline = `grep ^${file}:.*\$ $basedir/sensor_version.txt`;
-    chomp($checkline);
-    @checkline_ar = split(/:/, $checkline);
-    $oldversion = $checkline_ar[1];
-    chomp($oldversion);
-    if ($newversion ne $oldversion) {
-      # server file is newer
+    $if = getif();
+  }
+  printmsg("Active interface:", $if);
+  update_process($if, $vlanid);
+}
 
-      # The file to be updated is 'update'.
-      if ($file eq "update") {
-        $tempupdate = updatefile($file, 1);
-        printmsg("Updating $file:", $update);
-        if ($update == 0) {
-          print VERS "${file}:${newversion}\n";
-        } else {
-          print VERS "${file}:${oldversion}\n";
-        }
-        $update_remove = 1;
+sub update_process(){
+  $if=$_[0];
+  $vlanid=$_[1];
 
-      # The file to be updated 'client.conf'.
-      } elsif ($file eq "client.conf") {
-        $update = updatefile($file, 0);
-        printmsg("Updating $file:", $update);
-        $fixclient = fixclientconf();
-        printmsg("Reconfiguring client.conf:", $fixclient);
-        if ($update == 0) {
-          print VERS "${file}:${newversion}\n";
-        } else {
-          print VERS "${file}:${oldversion}\n";
-        }
+  $if_ip = getifip($if);
+  printmsg("Checking ip address:", $if_ip);
 
-      # The file to be updated not 'idsmenu'.
-      } elsif ($file ne "wgetrc") {
-        $update = updatefile($file, 0);
-        printmsg("Updating $file:", $update);
-        if ($update == 0) {
-          print VERS "${file}:${newversion}\n";
-        } else {
-          print VERS "${file}:${oldversion}\n";
-        }
+  # Check if SSH is running.
+  $chkssh = chkssh();
 
-      # The file to be updated is 'wgetrc'.
-      } elsif ($file eq "wgetrc") {
-        $update = updatefile($file, 0);
-        printmsg("Updating $file:", $update);
-        if ($update == 0) {
-          print VERS "${file}:${newversion}\n";
-        } else {
-          print VERS "${file}:${oldversion}\n";
-        }
+  # Creating the serverurl
+  $serverurl = "$http://$server:$port";
+
+  # Updating sensor information to the server
+  `wget -q $wgetarg -O $basedir/update.php "$serverurl/update.php?localip=$if_ip&keyname=$sensor&vlanid=$vlanid&ssh=$chkssh"`;
+  printmsg("Updating status information:", $?);
+
+  # Check for errors with the localip and tapip update.
+  $checkerror = `cat $basedir/update.php | grep "ERROR" | wc -l`;
+  if ($checkerror > 0) {
+    # Errors occured while updating localip and tapip.
+    $errors = `cat $basedir/update.php | grep "ERROR"`;
+    chomp($errors);
+    print "${y}An error occurred while updating status information.${n}\n";
+    print "${r}$errors${n}\n";
+  }
+
+  # Check if any action was requested.
+  $action = `cat $basedir/update.php | grep "ACTION:" | awk '{print \$2}'`;
+  chomp($action);
+
+  ##########################
+  # Checking for update    #
+  ##########################
+
+  $update_remove = 0;
+
+  `wget -q $wgetarg -O $basedir/server_version.txt "$serverurl/updates/server_version.txt"`;
+  printmsg("Retrieving version information:", $?);
+
+  # Creating temporary version file
+  $tempvers = `mktemp -p $basedir`;
+  chomp($tempvers);
+  open(VERS, "> $tempvers");
+
+  open(SERVER, "$basedir/server_version.txt");
+  while(<SERVER>) {
+    $line = $_;
+    @line_ar = split(/:/, $line);
+    $file = $line_ar[0];
+    $newversion = $line_ar[1];
+    chomp($newversion);
+    $check = `grep ${file}: $basedir/sensor_version.txt | wc -l`;
+    chomp($check);
+
+    if ($check == 0) {
+      # new file
+      $update = updatefile($file, 0);
+      printmsg("Updating $file:", $update);
+      if ($update == 0) {
+        print VERS "${file}:${newversion}\n";
       }
     } else {
-      print VERS "${file}:${oldversion}\n";
+      # existing file
+      $checkline = `grep ^${file}:.*\$ $basedir/sensor_version.txt`;
+      chomp($checkline);
+      @checkline_ar = split(/:/, $checkline);
+      $oldversion = $checkline_ar[1];
+      chomp($oldversion);
+      if ($newversion ne $oldversion) {
+        # server file is newer
+
+        # The file to be updated is 'update'.
+        if ($file eq "update") {
+          $tempupdate = updatefile($file, 1);
+          printmsg("Updating $file:", $update);
+          if ($update == 0) {
+            print VERS "${file}:${newversion}\n";
+          } else {
+            print VERS "${file}:${oldversion}\n";
+          }
+          $update_remove = 1;
+
+        # The file to be updated 'client.conf'.
+        } elsif ($file eq "client.conf") {
+          $update = updatefile($file, 0);
+          printmsg("Updating $file:", $update);
+          $fixclient = fixclientconf();
+          printmsg("Reconfiguring client.conf:", $fixclient);
+          if ($update == 0) {
+            print VERS "${file}:${newversion}\n";
+          } else {
+            print VERS "${file}:${oldversion}\n";
+          }
+
+        # The file to be updated not 'idsmenu'.
+        } elsif ($file ne "wgetrc") {
+          $update = updatefile($file, 0);
+          printmsg("Updating $file:", $update);
+          if ($update == 0) {
+            print VERS "${file}:${newversion}\n";
+          } else {
+            print VERS "${file}:${oldversion}\n";
+          }
+
+        # The file to be updated is 'wgetrc'.
+        } elsif ($file eq "wgetrc") {
+          $update = updatefile($file, 0);
+          printmsg("Updating $file:", $update);
+          if ($update == 0) {
+            print VERS "${file}:${newversion}\n";
+          } else {
+            print VERS "${file}:${oldversion}\n";
+          }
+        }
+      } else {
+        print VERS "${file}:${oldversion}\n";
+      }
     }
   }
-}
-close(SERVER);
-close(VERS);
+  close(SERVER);
+  close(VERS);
 
-# Update sensor_version.txt.
-`mv -f $tempvers $basedir/sensor_version.txt`;
-printmsg("Updating sensor version information:", $?);
+  # Update sensor_version.txt.
+  `mv -f $tempvers $basedir/sensor_version.txt`;
+  printmsg("Updating sensor version information:", $?);
 
-################
-# Action check #
-################
+  ################
+  # Action check #
+  ################
 
-if ($checkerror == 0) {
-  if ($action eq "SSHON") {
-    `/etc/init.d/ssh start`;
-    printmsg("Server request - start SSH:", $?);
-  } elsif ($action eq "SSHOFF") {
-    `killall sshd`;
-    printmsg("Server request - stop SSH:", $?);
-  } elsif ($action eq "CLIENT") {
-    $status = `cat $basedir/update.php | grep "STATUS: " | awk '{print \$2}'`;
-    chomp($status);
-    if ($status == 0) {
-      `sh $basedir/startclient 0`;
+  if ($checkerror == 0) {
+    if ($action eq "SSHON") {
+      `/etc/init.d/ssh start`;
+      printmsg("Server request - start SSH:", $?);
+    } elsif ($action eq "SSHOFF") {
+      `killall sshd`;
+      printmsg("Server request - stop SSH:", $?);
+    } elsif ($action eq "START") {
+      `$basedir/startclient 0`;
       printmsg("Server request - start sensor:", $?);
-    } else {
-      `sh $basedir/stopclient`;
-      printmsg("Server request - stop sensor:", $?);
-    }
-  } elsif ($action eq "RESTART") {
-    `sh $basedir/stopclient`;
-    printmsg("Server request - restart sensor - stopping:", $?);
-    `sh $basedir/startclient 0`;
-    printmsg("Server request - restart sensor - starting:", $?);
-  } elsif ($action eq "BLOCK") {
-    $status = `cat $basedir/update.php | grep "STATUS: " | awk '{print \$2}'`;
-    chomp($status);
-    $i = 0;
-    if ($status == "2") {
-      `mv $basedir/$keyname.bcrt $basedir/$keyname.crt`;
-      if ($? != 0) { $i++ };
-      `mv $basedir/$keyname.bkey $basedir/$keyname.key`;
-      if ($? != 0) { $i++ };
-      `chmod 600 $basedir/$keyname.key`;
-      if ($? != 0) { $i++ };
-      `chmod 644 $basedir/$keyname.crt`;
-      if ($? != 0) { $i++ };
-      printmsg("Server request - enable client:", $i);
-    } else {
+    } elsif ($action eq "STOP") {
       `$basedir/stopclient`;
-      if ($? != 0) { $i++ };
-      `cp $basedir/$keyname.crt $basedir/$keyname.bcrt`;
-      if ($? != 0) { $i++ };
-      `cp $basedir/$keyname.key $basedir/$keyname.bkey`;
-      if ($? != 0) { $i++ };
-      `echo "DISABLED" > $basedir/$keyname.crt`;
-      if ($? != 0) { $i++ };
-      `echo "DISABLED" > $basedir/$keyname.key`;
-      if ($? != 0) { $i++ };
-      `chmod 600 $basedir/$keyname.bkey`;
-      if ($? != 0) { $i++ };
-      `chmod 600 $basedir/$keyname.bcrt`;
-      if ($? != 0) { $i++ };
-      printmsg("Server request - disable client:", $i);
-    }    
+      printmsg("Server request - stop sensor:", $?);
+    } elsif ($action eq "RESTART") {
+      `$basedir/stopclient`;
+      printmsg("Server request - restart - stopping:", $?);
+      `$basedir/startclient 0`;
+      printmsg("Server request - restart - starting:", $?);
+    } elsif ($action eq "BLOCK") {
+      if (! -e "$basedir/$sensor.bcrt") { 
+        $i = 0;
+     	`$basedir/stopclient`;
+      	if ($? != 0) { $i++ };
+      	`cp $basedir/$sensor.crt $basedir/$sensor.bcrt`;
+      	if ($? != 0) { $i++ };
+      	`cp $basedir/$sensor.key $basedir/$sensor.bkey`;
+      	if ($? != 0) { $i++ };
+      	`echo "DISABLED" > $basedir/$sensor.crt`;
+      	if ($? != 0) { $i++ };
+      	`echo "DISABLED" > $basedir/$sensor.key`;
+      	if ($? != 0) { $i++ };
+     	`chmod 600 $basedir/$sensor.bkey`;
+      	if ($? != 0) { $i++ };
+      	`chmod 600 $basedir/$sensor.bcrt`;
+      	if ($? != 0) { $i++ };
+      	printmsg("Server request - disable client:", $i);
+      } else {
+      	printmsg("Client already disabled:", "info");
+      } 
+    } elsif ($action eq "UNBLOCK") {    
+      if (-e "$basedir/$sensor.bcrt") { 
+        $i = 0;
+      	`mv $basedir/$sensor.bcrt $basedir/$sensor.crt`;
+      	if ($? != 0) { $i++ };
+      	`mv $basedir/$sensor.bkey $basedir/$sensor.key`;
+      	if ($? != 0) { $i++ };
+      	`chmod 600 $basedir/$sensor.key`;
+      	if ($? != 0) { $i++ };
+      	`chmod 644 $basedir/$sensor.crt`;
+      	if ($? != 0) { $i++ };
+      	printmsg("Server request - enable client:", $i);
+      } else {
+      	printmsg("Client already enabled:", "info");
+      }
+    } 
   }
-}
 
-if ($checkerror == 0) {
-  $oldserver = `cat $basedir/client.conf | grep "remote " | awk '{print \$2}'`;
-  $newserver = `cat $basedir/update.php | grep "SERVER: " | awk '{print \$2}'`;
-  chomp($oldserver);
-  chomp($newserver);
-  if ($newserver) {
-    if ("$newserver" ne "$oldserver") {
-      $touchconf = `mktemp -p $basedir`;
-      chomp($touchconf);
-      `sed "s/^remote.*\$/remote $newserver/" $basedir/client.conf > $touchconf`;
-      `mv -f $touchconf $basedir/client.conf`;
+  if ($checkerror == 0) {
+    $oldserver = `cat $basedir/client.conf | grep "remote " | awk '{print \$2}'`;
+    $newserver = `cat $basedir/update.php | grep "SERVER: " | awk '{print \$2}'`;
+    chomp($oldserver);
+    chomp($newserver);
+    if ($newserver) {
+      if ("$newserver" ne "$oldserver") {
+        $touchconf = `mktemp -p $basedir`;
+        chomp($touchconf);
+        `sed "s/^remote.*\$/remote $newserver/" $basedir/client.conf > $touchconf`;
+        `mv -f $touchconf $basedir/client.conf`;
+      }
     }
   }
-}
 
-if ($update_remove == 1) {
-  # If there is a newer version of the update script start update_remove.
-  exec("$basedir/removeupdate $tempupdate");
-} else {
-  # Remove trash files.
-  `rm -f $basedir/tmp.*`;
-  `rm -f $basedir/server_version.txt`;
-  printmsg("Removing temporary files:", $?);
-
-  printmsg("Updates complete!", "info");
-}
-if ("$action" eq "REBOOT") {
-  printmsg("Server request - Reboot", "info");
-  `init 6`;
+  if ($update_remove == 1) {
+    # If there is a newer version of the update script start update_remove.
+    exec("$basedir/removeupdate $tempupdate");
+  } else {
+    # Remove trash files.
+    `rm -f $basedir/tmp.*`;
+    `rm -f $basedir/server_version.txt`;
+    printmsg("Removing temporary files:", $?);
+    printmsg("Updates complete!", "info");
+  }
+  if ($action eq "REBOOT") {
+    printmsg("Server request - Reboot", "info");
+    `init 6`;
+  }
 }

@@ -3,14 +3,14 @@
 ###############################################
 # Network setup script for SURFnet IDS sensor #
 # SURFnet IDS                                 #
-# Version 1.02.03                             #
-# 04-09-2006                                  #
-# Peter Arts & Kees Trippelvitz               #
+# Version 1.04.01                             #
+# 07-11-2006                                  #
+# Jan van Lith & Kees Trippelvitz             #
 ###############################################
 
 #########################################################################################
 # Copyright (C) 2005 SURFnet                                                            #
-# Authors Peter Arts & Kees Trippelvitz                                                 #
+# Authors Jan van Lith & Kees Trippelvitz                                               #
 #                                                                                       #
 # This program is free software; you can redistribute it and/or                         #
 # modify it under the terms of the GNU General Public License                           #
@@ -29,6 +29,7 @@
 
 #############################################
 # Changelog:
+# 1.04.01 Rereleased as 1.04.01
 # 1.02.03 Rerelease as perl script
 # 1.02.02 Initial release
 #############################################
@@ -39,6 +40,7 @@
 $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
 require "$basedir/functions.inc.pl";
+do "$basedir/network_if.conf";
 
 ################
 # Start script #
@@ -52,9 +54,20 @@ $domain = "";
 $broad = "";
 $primary = "";
 
+if ($netconf eq "vlan"){
+$statusif = "br1";
+}
+else {
+$statusif = $br;
+}
+
 # Set a static IP address
 sub set_static_ip() {
-  system("$basedir/stopclient");
+  $chkstatus = chksensorstatus($statusif);
+  if ($chkstatus == 0) {
+    # Stop client first
+    system("$basedir/stopclient");
+  }
   $done = 1;
   while ($done != 0) {
     #####################
@@ -65,91 +78,47 @@ sub set_static_ip() {
 
     ### Reading sensor IP address
     $valid_ip = 1;
-    $default = "";
     while ($valid_ip != 0) {
-      if (-r $networkconf) {
-        $default = `cat $networkconf | grep "IP_sensor: " | awk '{print \$2}'`;
-      }
-      chomp($default);
-      $sensorip = &prompt("IP address sensor [$default]: ", $default);
+      $sensorip = &prompt("IP address sensor: ");
       $valid_ip = validip($sensorip);
     }
     
     ### Reading netmask
     $valid_ip = 1;
-    $default = "";
     while ($valid_ip != 0) {
-      if (-r "$networkconf") {
-        $default = `cat $networkconf | grep "Netmask: " | awk '{print \$2}'`;
-      }
-      chomp($default);
-      $netmask = &prompt("Netmask [$default]: ", $default);
+      $netmask = &prompt("Netmask: ");
       $valid_ip = validip($netmask);
     }
     
     ### Reading gateway
     $valid_ip = 1;
-    $default = "";
     while ($valid_ip != 0) {
-      if (-r $networkconf) {
-        $default = `cat $networkconf | grep "Gateway: " | awk '{print \$2}'`;
-      }
-      chomp($default);
-      $gw = &prompt("Default gateway [$default]: ", $default);
+      $gw = &prompt("Default gateway: ");
       $valid_ip = validip($gw);
     }
 
     ### Reading broadcast address
     $valid_ip = 1;
-    $default = "";
     while ($valid_ip != 0) {
-      if (-r $networkconf) {
-        $default = `cat $networkconf | grep "Broadcast: " | awk '{print \$2}'`;
-      }
-      chomp($default);
-      $bc = &prompt("Broadcast address [$default]: ", $default);
+      $bc = &prompt("Broadcast address: ");
       $valid_ip = validip($bc);
     }
 
     ### Reading primary nameserver
     $valid_ip = 1;
-    $default = "";
     while ($valid_ip != 0) {
-      if (-r $networkconf) {
-        $default = `cat $networkconf | grep "Nameserver: " | awk '{print \$2}'`;
-      }
-      chomp($default);
-      $ns = &prompt("Primary nameserver [$default]: ", $default);
+      $ns = &prompt("Primary nameserver: ");
       $valid_ip = validip($ns);
-    }
-    
-    ### Reading domain
-    $valid_ip = 1;
-    $default = "";
-    while ($valid_ip != 0) {
-      if (-r $networkconf) {
-        $default = `cat $networkconf | grep "Domain: " | awk '{print \$2}'`;
-      }
-      chomp($default);
-      $domain = &prompt("Domain (no IP) [$default]: ", $default);
-      chomp($domain);
-      if ($domain eq "") {
-        $valid_ip = 1;
-      } else {
-        $valid_ip = 0;
-      }
     }
 
     # Set configuration in network_if.conf:
     open(NCONF, "> $networkconf");
-    print NCONF "# network.conf -- configuration file for the network interface\n";
-    print NCONF "Method: static\n";
-    print NCONF "IP_sensor: $sensorip\n";
-    print NCONF "Netmask: $netmask\n";
-    print NCONF "Gateway: $gw\n";
-    print NCONF "Broadcast: $bc\n";
-    print NCONF "Domain: $domain\n";
-    print NCONF "Nameserver: $ns\n";
+    print NCONF "\$netconf = \"static\";\n";
+    print NCONF "\$if_ip = \"$sensorip\";\n";
+    print NCONF "\$if_nm = \"$netmask\";\n";
+    print NCONF "\$if_gw = \"$gw\";\n";
+    print NCONF "\$if_bc = \"$bc\";\n";
+    print NCONF "\$if_ns = \"$ns\";\n";
     close(NCONF);
 
     system("/usr/bin/clear");
@@ -158,7 +127,6 @@ sub set_static_ip() {
     printmsg("Netmask:", $netmask);
     printmsg("Gateway:", $gw);
     printmsg("Broadcast:", $bc);
-    printmsg("Domain:", $domain);
     printmsg("Nameserver:", $ns);
     ###############
 
@@ -175,7 +143,7 @@ sub set_static_ip() {
       if ($checkstart == 0) {
         # Stop client
 	system("$basedir/stopclient");
-	print "${y}Stopping/starting client.${n}\n";
+	print "${y}Restarting client.${n}\n";
 	system("$basedir/startclient");
 	$done = 0;
       }
@@ -185,24 +153,16 @@ sub set_static_ip() {
 
 # Set dynamic IP
 sub set_dynamic_ip() {
-  $chksensor = chksensorstatus();
-  if ($chksensor == 0) {
+  $chkstatus = chksensorstatus($statusif);
+  if ($chkstatus == 0) {
     # Stop client first
     system("$basedir/stopclient");
   }
 
   # Set DHCP networking in network_if.conf:
-  $checkconf = `cat $networkconf | grep -i Method | wc -l`;
-  if ($checkconf != 0) {
-    $tempfile = `mktemp -p $basedir`;
-    `sed 's/^Method:.*\$/Method: dhcp/' $networkconf > $tempfile`;
-    `mv $tempfile $networkconf`;
-  } else {
     open(NCONF, "> $networkconf");
-    print NCONF "# network.conf -- configuration file for the network interface\n";
-    print NCONF "Method: dhcp\n";
+    print NCONF "\$netconf = \"dhcp\";\n";
     close(NCONF);
-  }
 
   $checkstart = `ps -ef | grep startclient | grep -v grep | wc -l`;
   if ($checkstart == 0) {
@@ -211,33 +171,180 @@ sub set_dynamic_ip() {
   }
 }
 
+# Set VLAN
+sub set_vlan() {
+  $chkstatus = chksensorstatus($statusif);
+  if ($chkstatus == 0) {
+    # Stop client first
+   system("$basedir/stopclient");
+  }
+  $done = 1;
+  while ($done != 0) {
+    #####################
+    system("/usr/bin/clear");
+    print "Please enter the VLAN configuration for the VLAN networks.\n";
+    
+    ### Reading primary nameserver
+    $valid_ip = 1;
+    while ($valid_ip != 0) {
+      $ns = &prompt("Primary nameserver : ", $ns);
+      $valid_ip = validip($ns);
+    }
+    
+    open(NCONF, "> $networkconf");
+    print NCONF "\$if_ns = \"$ns\";\n";
+    
+    
+    ### Reading amount of vlans to be added
+    $valid_vlancount = 1;
+    while ($valid_vlancount != 0) {
+   	$vlancount = &prompt("How many vlans do you want to add? ");
+    	$valid_vlancount = validvlancount($vlancount);
+    	if ($valid_vlancount == 0) {
+    		print NCONF "\$netconf = \"vlan\";\n";
+		print NCONF "\%vlan = ( \n";
+	}
+    	else {
+		print "Our maximum amount of vlans are 7. \n";
+    	}
+    }
+    $valid_vlanid = 1;
+    my $vlan = 1;
+    my @vlanid;
+    while ($vlancount != 0) {
+      $vlanid = &prompt("set ID of vlan $vlan: ");
+      $valid_vlanid = validvlanid($vlanid);
+      if (exists $used_vlanid{"$vlanid"}) {
+        print "This VLAN ID is already used\n";
+      	$valid_vlanid = 1;
+	}
+      else {
+      	$used_vlanid{"$vlanid"} = "1";
+      }
+      if ($valid_vlanid == 0){ 
+    	$setvlan = 1;
+	while ($setvlan != 0) {
+      		$vlan_method = &prompt("VLAN[$vlanid]: Method: ");
+		if ($vlan_method eq "static") {
+    		   	$valid_ip = 1;
+		    	while ($valid_ip != 0) {
+      				$sensorip = &prompt("VLAN[$vlanid]: IP address sensor: ");
+      				$valid_ip = validip($sensorip);
+   	 		}
+    			## Reading netmask
+    			$valid_ip = 1;
+    			while ($valid_ip != 0) {
+     				$netmask = &prompt("VLAN[$vlanid]: Netmask: ");
+      				$valid_ip = validip($netmask);
+    			}
+    		
+			### Reading gateway
+    			$valid_ip = 1;
+   			while ($valid_ip != 0) {
+      				$gw = &prompt("VLAN[$vlanid]: Default gateway: ");
+      				$valid_ip = validip($gw);
+    			}
+
+			### Reading broadcast address
+			$valid_ip = 1;
+			while ($valid_ip != 0) {
+				$bc = &prompt("VLAN[$vlanid]: Broadcast address: ");
+				$valid_ip = validip($bc);
+			}
+			
+			
+
+    			system("/usr/bin/clear");
+			   printmsg("VLAN Method:", "static");
+			   printmsg("IP_sensor:", $sensorip);
+    			printmsg("Netmask:", $netmask);
+    			printmsg("Gateway:", $gw);
+    			printmsg("Broadcast:", $bc);
+    			###############
+
+   			 $check = 1;
+   			 while ($check != 0) {
+			      $input = &prompt("Is this information correct [Y/n] ?: ");
+			      if ($input =~ /^(Y|y|N|n)$/) {
+			        $check = 0;
+      			      }
+		         }
+		        if ($input =~ /^(Y|y)$/) {
+				   print NCONF "\t$vlanid => {\n";
+				   print NCONF "\t\tmethod => \"static\",\n";
+    				print NCONF "\t\tif_ip => \"$sensorip\",\n";
+    				print NCONF "\t\tif_nm => \"$netmask\",\n";
+    				print NCONF "\t\tif_gw => \"$gw\",\n";
+	    			print NCONF "\t\tif_bc => \"$bc\",\n";
+    				print NCONF "\t},\n";
+		         	$setvlan = 0;
+    		        }
+		}
+		elsif ($vlan_method eq "dhcp"){
+			print NCONF "\t$vlanid => {\n";
+			print NCONF "\t\tmethod => \"dhcp\",\n";
+    		print NCONF "\t},\n";
+			$setvlan = 0;
+		}
+		else {
+		print "Wrong input: Enter static or dhcp.\n";
+		}
+	}		
+	$vlancount--;
+   $vlan++;
+  }
+  else {
+   	print "Enter a vlan that's between 0 and 4096 \n";	
+  }
+  } 	
+  print NCONF ");\n";
+  close(NCONF);
+  $done = 0;
+   
+  $checkstart = `ps -ef | grep startclient | grep -v grep | wc -l`;
+  if ($checkstart == 0) {
+    # Start client
+    system("$basedir/startclient");
+  }
+  
+ }   
+ 
+}
+
 # Show menu
 while (1) {
   system("/usr/bin/clear");
-  print "Do you want to use static IP configuration or DHCP?\n";
+  print "What sort of network configuration you want\n";
   print "\t\tS. Use static IP\n";
   print "\t\tD. Use DHCP\n";
+  print "\t\tV. Use VLAN\n";
   $checkstart = `ps -ef | grep startclient | grep -v grep | wc -l`;
   if ($checkstart != 0) {
     print "\n";
-    $choice = &prompt("Please select one of the above (S/D): ");
+    $choice = &prompt("Please select one of the above (S/D/V): ");
     if ($choice =~ /^(S|s)$/) {
       set_static_ip();
       exit;
     } elsif ($choice =~ /^(D|d)$/) {
       set_dynamic_ip();
+      exit;
+    } elsif ($choice =~ /^(V|v)$/) {
+      set_vlan();
       exit;
     } else {
       print "Unknown option!\n";
     }
   } else {
     print "\t\tC. Cancel\n\n";
-    $choice = &prompt("Please select one of the above (S/D/C): ");
+    $choice = &prompt("Please select one of the above (S/D/V/C): ");
     if ($choice =~ /^(S|s)$/) {
       set_static_ip();
       exit;
     } elsif ($choice =~ /^(D|d)$/) {
       set_dynamic_ip();
+      exit;
+    } elsif ($choice =~ /^(V|v)$/) {
+      set_vlan();
       exit;
     } elsif ($choice =~ /^(C|c)$/) {
       exit;

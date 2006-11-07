@@ -1,11 +1,13 @@
-bridgestart:1.02.05
-client.conf:1.02.01
-confignetwork:1.02.03
+bridgestart:1.04.01
+client.conf:1.04.01
+client.conf.temp:1.02.02
+confignetwork:1.04.01
 functions.inc.pl:1.02.02
 idsmenu:1.02.05
 removeupdate:1.02.03
 sensor.conf:1.02.04
-startclient:1.02.13
+showstatus:1.04.02
+startclient:1.04.01
 stopclient:1.02.06
 update:1.02.18
 wgetrc:1.02.01

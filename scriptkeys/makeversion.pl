@@ -1,18 +1,16 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
-#########################################
-# Bridging script for IDS sensor	#
-# SURFnet IDS		                #
-# Version 1.04.01                       #
-# 07-11-2006		                #
-# Jan van Lith & Kees Trippelvitz	#
-# Modified by Peter Arts                #
-#########################################
+#####################################
+# Makeversion script for IDS server #
+# SURFnet IDS                       #
+# Version 1.04.01                   #
+# 07-11-2006                        #
+# Jan van Lith & Kees Trippelvitz   #
+#####################################
 
 #########################################################################################
 # Copyright (C) 2005 SURFnet                                                            #
 # Authors Jan van Lith & Kees Trippelvitz                                               #
-# Modified by Peter Arts                                                                #
 #                                                                                       #
 # This program is free software; you can redistribute it and/or                         #
 # modify it under the terms of the GNU General Public License                           #
@@ -27,39 +25,49 @@
 # You should have received a copy of the GNU General Public License                     #
 # along with this program; if not, write to the Free Software                           #
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
+#                                                                                       #
+# Contact ids@surfnet.nl                                                                #
 #########################################################################################
 
-# This script is started by OpenVPN when the tunnel comes up.
+##################
+# Modules used
+##################
+use Time::localtime;
 
-#####################
-# Changelog:
-# 1.04.01 Obsolete in 1.04
-# 1.02.05 Rereleased script in perl
-# 1.02.04 Disabled STP for the bridge and fixed pump bug
-# 1.02.03 Changed pump to run on the bridge instead of the eth interface
-# 1.02.02 Initial release
-#####################
+##################
+# Variables used
+##################
+do '/etc/surfnetids/surfnetids-tn.conf';
 
-################
-# Variables    #
-################
+##################
+# Main script
+##################
 
-  # Setup bridge.
-  `brctl addbr br0 >/dev/null`;
-  #printmsg("Creating bridge device:", $?);
-  `brctl addif br0 eth0.10 >/dev/null`;
-  #printmsg("Adding $if to $br:", $?);
-  `brctl addif br0 tap0 >/dev/null`;
-  #printmsg("Adding $tap to $br:", $?);
-  `brctl stp br0 off >/dev/null`;
-  #printmsg("Disabling STP on $br:", $?);
-  
+`rm -f $surfidsdir/updates/server_version.txt`;
 
-   `ifconfig eth0.10 0.0.0.0 promisc up >/dev/null`;
-    #printmsg("Starting interface $if promisc:", $?);
-   `ifconfig tap0 0.0.0.0 promisc up >/dev/null`;
-    #printmsg("Starting interface $tap promisc:", $?);
-  `ifconfig br0 192.168.10.2 netmask 255.255.255.0 broadcast 192.168.10.255`;
-  #printmsg("Configuring bridge interface:", $?);
- `ip route add default via 192.168.10.1 table vlan1 >/dev/null`;
-  
+# Setting up ignored files
+%ignore = ("client.conf.dist", 0, "wgetrc.dist", 0);
+
+# Opening server_version.txt for writing
+open(VERS, "> $surfidsdir/updates/server_version.txt");
+
+# Looping through the updates directory
+@file_ar = `grep -I Version $surfidsdir/updates/* | grep -v ".sig" | awk '{print \$1}' | cut -d":" -f1`;
+foreach $file (@file_ar) {
+  chomp($file);
+  $version = `grep -I Version $surfidsdir/updates/* | grep "^${file}:" | awk '{print \$3}'`;
+  chomp($version);
+  $file = `echo $file | awk -F / '{print \$NF}'`;
+  chomp($file);
+  if (!exists $ignore{$file}) {
+    # Signing file
+    `$surfidsdir/scripts/sign_file.pl $file`;
+    # Updating the server_version.txt
+    print "$file:$version\n";
+    print VERS "${file}:${version}\n";
+  }
+}
+close(VERS);
+
+print "Creation of $surfidsdir/updates/server_version.txt done!\n";
+

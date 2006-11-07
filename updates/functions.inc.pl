@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 #########################################
 # Function library for the sensor scripts
@@ -10,11 +10,13 @@
 
 use POSIX;
 
+$| = 1;
+
 ###############################################
 # INDEX
 ###############################################
 # 1 		All CHK functions
-# 1.01		chkbridge
+# 1.01		chkif
 # 1.02		chkopenvpn
 # 1.03		chksensorstatus
 # 1.04		chkrw
@@ -35,7 +37,7 @@ use POSIX;
 # 2.05		getifip
 # 2.06		getportstatus
 # 2.07		getresolv
-# 2.08		getwgetversion
+# 2.08		getcerts
 # 3		MISC functions
 # 3.01		prompt
 # 3.02		printmsg
@@ -43,19 +45,25 @@ use POSIX;
 # 3.04		validip
 # 3.05		fixclientconf
 # 3.06		updatefile
+# 3.07    	setiptables
+# 3.08    	setbridge
+# 3.09		validvlanid
+# 3.10		validvlancount
+# 3.11		sleeptimer
 ###############################################
 
 #########################
 # 1 All CHK functions
 #########################
 
-# 1.01 chkbridge
+# 1.01 chkif
 # Function to check if there is a bridge interface
-# Returns 1 if the bridge is present
+# Returns 1 if the interface is present
 # Returns 0 if not
-sub chkbridge() {
-  my $checkbr = `ip link show | grep $br | wc -l`;
-  if ($checkbr == 0) {
+sub chkif() {
+  my $if=$_[0];
+  my $checkif = `ip link show | grep $if | wc -l`;
+  if ($checkif == 0) {
     return 1;
   } else {
     return 0;
@@ -81,13 +89,20 @@ sub chkopenvpn() {
 # Checking the status of the sensor.
 # Returns 0 if both the bridge and openvpn are running
 # Returns 1 if the sensor has not been started yet
+# Returns 2 if the sensor was disabled by admin
 sub chksensorstatus() {
-  my $checkbr = chkbridge();
+  my $if = $_[0];
+  my $checkif = &chkif($if);
   my $checkopenvpn = chkopenvpn();
-  if ($checkbr == 0 && $checkopenvpn == 0) {
-    return 0;
+  my $chkdisabled = chkdisabled();
+  if ($chkdisabled == 0) {
+    if ($checkif == 0 && $checkopenvpn == 0) {
+      return 0;
+    } else {
+      return 1;
+    }
   } else {
-    return 1;
+    return 2;
   }
   return 1;
 }
@@ -237,7 +252,8 @@ sub chksensorkey() {
 # Returns 0 if an SSH daemon was found running.
 # Returns 1 if no SSH daemon was found running.
 sub chkssh() {
-  my $checkssh = `ps -ef | grep -i sshd | grep -v grep | wc -l`;
+  my $chechssh;
+  $checkssh = `ps -ef | grep -i sshd | grep -v grep | wc -l`;
   if ($checkssh > 0) {
     return 0;
   } else {
@@ -297,6 +313,7 @@ sub chkclientconf() {
   return 4;
 }
 
+# 1.13 chkreach
 # Function to check the reachability of an IP address
 # Dependencies: ping
 # Returns 0 if the IP address was reachable
@@ -324,94 +341,55 @@ sub chkreach() {
 # Attr: IP_sensor | Netmask | Gateway | Broadcast | Nameserver | Domain
 sub getnetinfo() {
   my ($method, $attr, $if, $domain, $name, $i);
-  $method = $_[0];
-  $attr = $_[1];
-  $if = $_[2];
+  $attr = $_[0];
+  $if = $_[1];
 
-  # If the method is config and the configuration file does not exist
-  # start the configuration script.
-  # This is just a failsafe and should theoratically never happen.
-  if (! -e "$basedir/network_if.conf" && $method eq "config") {
-    `$basedir/network_config first`;
-  }
-  
   # Check if the correct attribute was asked
-  if ($attr !~ /^(IP_sensor|Netmask|Gateway|Broadcast|Nameserver|Domain)$/) {
+  if ($attr !~ /^(inet|nm|gw|bc|ns)$/) {
     return 1;
   }
-  if ($method !~ /^(config|interface)$/) {
+  `ifconfig $if`;
+  if ($? != 0) {
     return 2;
   }
-  
   # Check which method
-  if ($method eq "config") {
-    ### Method = config
-    $attr = `grep -i "${attr}: " $basedir/network_if.conf | cut -f2 -d: | cut -f2 -d " "`;
-    chomp($attr);
-    return $attr;
-  } elsif ($method eq "interface") {
-    ### Method = interface
-    if ($attr eq "Nameserver" || $attr eq "Domain") {
-      $i = 0;
-      open(RESOLV, "/etc/resolv.conf");
-      while (<RESOLV>) {
-        $line = $_;
-        $i++;
-        if ($i == 1 && $attr eq "Domain") {
-	  chomp($line);
-	  @line_ar = split(/ /, $line);
-	  $domain = $line_ar[1];
-	  close(RESOLV);
-          return $domain;
-	} elsif ($i == 2 && $attr eq "Nameserver") {
-          chomp($line);
-	  @line_ar = split(/ /, $line);
-	  $name = $line_ar[1];
-	  close(RESOLV);
-	  return $name;
-	}
-      }
-      close(RESOLV);
-      return 3;
-    } elsif ($attr eq "IP_sensor") {
-      $attr = `ifconfig $if | grep "inet addr:" | cut -d":" -f2 | cut -d" " -f1`;
-      chomp($attr);
-      return $attr;
-    } elsif ($attr eq "Broadcast") {
-      $attr = `ifconfig $if | grep "Bcast:" | cut -d":" -f3 | cut -d" " -f1`;
-      chomp($attr);
-      return $attr;
-    } elsif ($attr eq "Netmask") {
-      $attr = `ifconfig $if | grep "Mask:" | cut -d":" -f4`;
-      chomp($attr);
-      return $attr;
-    } elsif ($attr eq "Gateway") {
-      $attr = `route -n | grep UG | awk '{print \$2}'`;
-      chomp($attr);
-      return $attr;
-    }
+  if ($attr eq "ns") {
+    $attr = `cat /etc/resolv.conf | grep nameserver | head -n1 | awk '{print \$2}'`;
+  } elsif ($attr eq "inet") {
+    $attr = `ifconfig $if | grep "inet addr:" | cut -d":" -f2 | cut -d" " -f1`;
+  } elsif ($attr eq "bc") {
+    $attr = `ifconfig $if | grep "Bcast:" | cut -d":" -f3 | cut -d" " -f1`;
+  } elsif ($attr eq "nm") {
+    $attr = `ifconfig $if | grep "Mask:" | cut -d":" -f4`;
+  } elsif ($attr eq "gw") {
+    $attr = `route -n | grep UG | awk '{print \$2}'`;
   }
-  return 3;
+  chomp($attr);
+  if ($attr eq "") {
+    return 3;
+  } else {
+    return $attr;
+  }
 }
 
 # 2.02 getnetconf
 # Function to get the network configuration method
-sub getnetconf() {
-  my $netconf = "false";
-  while ($netconf eq "false") {
-    if (-e "$basedir/network_if.conf") {
-      $netconf = `cat $basedir/network_if.conf | grep "Method: " | cut -d" " -f2`;
-      chomp($netconf);
-      if (!$netconf =~ /^(dhcp|static)$/) {
-        $netconf = "false";
-      }
-    } else {
-      `$basedir/network_config first`;
-      $netconf = "false";
-    }
-  }
-  return $netconf;
-}
+#sub getnetconf() {
+#  my $netconf = "false";
+#  while ($netconf eq "false") {
+#    if (-e "$basedir/network_if.conf") {
+#      $netconf = `cat $basedir/network_if.conf | grep "Method: " | cut -d" " -f2`;
+#      chomp($netconf);
+#      if (!$netconf =~ /^(dhcp|static)$/) {
+#        $netconf = "false";
+#      }
+#    } else {
+#      `$basedir/network_config first`;
+#      $netconf = "false";
+#    }
+#  }
+#  return $netconf;
+#}
 
 # 2.03 getsensor
 # Function to get the sensor name
@@ -436,7 +414,7 @@ sub getif() {
   $found_if = "none";
   open(DEVNET, "/proc/net/dev");
   while(<DEVNET>) {
-    if ($_ =~ /(eth.|tr.)/) {
+    if ($_ =~ /(eth.:|tr.:)/) {
       @if_ar = split(/ +/, $_);
       @if_ar = split(/:/, $if_ar[1]);
       $if = $if_ar[0];
@@ -488,7 +466,7 @@ sub getportstatus() {
   my ($if, $port, $nmapcheck, $nmapcount, @nmapresult, $state);
   $if = $_[0];
   $port = $_[1];
-  $nmapcheck = `nmap -e $if -p $port $server -P0 2>/dev/null | grep $port`;
+  $nmapcheck = `nmap -e $if -p $port $server -P0 | grep $port`;
   chomp($nmapcheck);
   @nmapresult = split(/ +/, $nmapcheck);
   $nmapcount = @nmapresult;
@@ -528,18 +506,73 @@ sub getresolv() {
   return "false";
 }
 
-# 2.08 getwgetversion
-# Function to determine the wget version
+# 2.08 getcerts
+# Function to get the sensor certificates
 # Dependencies: wget
-sub getwgetversion() {
-  my $wgetv = `wget -V | head -n1 | awk '{print \$3}'`;
-  chomp($wgetv);
-  if ("$wgetv" eq "") {
-    return "false";
-  } else {
-    return "$wgetv";
+# Returns sensor name on success
+# Returns false on failure
+sub getcerts() {
+  $if_ip = $_[0];
+  $vlanid = $_[1];
+  my ($certfile, $sensor, $eof, $line, $chkclientconf, $fixclient);
+  $certfile = `mktemp -p $basedir`;
+  chomp($certfile);
+  `rm -f $certfile 2>/dev/null`;
+  `wget -q $wgetarg -O "$certfile" "$serverurl/cert.php?localip=$if_ip&vlanid=$vlanid"`;
+  printmsg("Retrieving sensor certificates:", $?);
+  if ($? != 0) {
+    `rm -f $certfile 2>/dev/null`;
+    exit;
   }
-  return "false";
+
+  # Parsing the sensor name from the downloaded certificate file
+  $sensor = `tail -n1 $certfile`;
+  chomp($sensor);
+  
+  # Updating client.conf
+  printmsg("Updating client.conf:", "info");
+  open(CLIENT, "> $basedir/client.conf");
+  print CLIENT "ca $basedir/ca.crt\n";
+  print CLIENT "key $basedir/$sensor.key\n";
+  print CLIENT "cert $basedir/$sensor.crt\n";
+  close(CLIENT);
+
+  # Parsing the .key and .crt file from the downloaded certificate file
+  printmsg("Parsing the certificates:", "info");
+  open(PHP, "$certfile");
+  open(KEY, "> $basedir/$sensor.key");
+  open(CERT, "> $basedir/$sensor.crt");
+  $eof = 0;
+  while(<PHP>) {
+    $line = $_;
+    chomp($line);
+    if ($line =~ /^EOF$/) {
+      $eof++;
+    } elsif ($eof == 0) {
+      print KEY "$line\n";
+    } elsif ($eof == 1) {
+      print CERT "$line\n";
+    } elsif ($eof == 2) {
+      printmsg("Finished parsing certificates:", "info");
+    } else {
+      print "${r}Could not parse the following line:\n";
+      print "$line${n}\n";
+    }
+  }
+  close(PHP);
+  close(KEY);
+  close(CERT);
+
+  # Finished parsing the certificate file
+  $chkclientconf = chkclientconf();
+  printmsg("Checking client.conf:", $chkclientconf);
+  if ($chkclientconf != 0) {
+    $fixclient = fixclientconf();
+    printmsg("Fixing client.conf:", $fixclient);
+  }
+  #`rm -f $certfile 2>/dev/null`;
+  $sensor = getsensor();
+  return $sensor;
 }
 
 #########################
@@ -589,7 +622,7 @@ sub printmsg() {
     print $msg . $tabstring . "[${g}OK${n}]\n";
   } elsif ($ec eq "false" || $ec eq "filtered") {
     print $msg . $tabstring . "[${r}Failed${n}]\n";
-  } elsif ($ec =~ /^([0-9]*)$/) {
+  } elsif ($ec =~ /^[-]?(\d+)$/) {
     print $msg . $tabstring . "[${r}Failed (error: $ec)${n}]\n";
   } elsif ($ec eq "ignore") {
     print $msg . $tabstring . "[${y}ignore${n}]\n";
@@ -636,25 +669,29 @@ sub dossh() {
 sub validip() {
   my ($ip, @ip_ar, $i, $count, $dec);
   $ip = $_[0];
+  $countdots = ($ip =~ tr/\.//);
+  if ($countdots != 3) {
+    return 1;
+  }
   @ip_ar = split(/\./, $ip);
   $count = @ip_ar;
   if ($count != 4) {
-    return 1;
+    return 2;
   }
   $i = 0;
   foreach $dec (@ip_ar) {
     if ($dec =~ /^(\d+)$/) {
       if ($i == 0) {
         if ($dec <= 0 || $dec > 255) {
-          return 2;
+          return 3;
 	}
       } else {
         if ($dec < 0 || $dec > 255) {
-          return 3;
+          return 4;
 	}
       }
     } else {
-      return 4;
+      return 5;
     }
     $i++;
   }
@@ -730,6 +767,132 @@ sub updatefile() {
     }
   }
   return 1;
+}
+
+# 3.07 setiptables
+# Function to set iptable rules
+# Returns 0 on success
+# Returns nonzero on failure
+sub setiptables() {
+  my ($dev);
+  $dev = $_[0];
+  `iptables -A OUTPUT -p TCP -m physdev --physdev-out $dev --dport 1194 -j DROP`;
+  return $?;
+}
+
+# 3.08 setbridge
+# Function to setup the bridge interface
+# Returns 0 on success
+# Returns nonzero on failure
+sub setbridge() {
+  my ($i, $chkpump, $enable_promisc, $br, $if, $tap, $netconf);
+  $br = $_[0];
+  $tap = $_[1];
+  $if = $_[2];
+  $netconf = $_[3];
+
+  $i = 0;
+
+  if ($netconf eq "dhcp") {
+    $if_ip = &getifip($if);
+    $if_gw = &getnetinfo("gw", $if);
+    $if_nm = &getnetinfo("nm", $if);
+    $if_bc = &getnetinfo("bc", $if);
+  }
+
+  # Creating and configuring bridge device
+  `brctl addbr $br >/dev/null`;
+  if ($? != 0 && $i == 0) { $i = 1; }
+  `brctl addif $br $if >/dev/null`;
+  if ($? != 0 && $i == 0) { $i = 2; }
+  `brctl addif $br $tap >/dev/null`;
+  if ($? != 0 && $i == 0) { $i = 3; }
+  `brctl stp $br off >/dev/null`;
+  if ($? != 0 && $i == 0) { $i = 4; }
+
+  # Checking for active pump instances
+  $chkpump = `ps -ef | grep -i "pump -i $br" | grep -v grep | wc -l`;
+  if ($chkpump > 0) {
+    `killall pump >/dev/null`;
+    if ($? != 0 && $i == 0) { $i = 5; }
+  }
+
+  if ($enable_promisc == 1) {
+    `ifconfig $if 0.0.0.0 promisc up 2>/dev/null`;
+    if ($? != 0 && $i == 0) { $i = 6; }
+    `ifconfig $tap 0.0.0.0 promisc up 2>/dev/null`;
+    if ($? != 0 && $i == 0) { $i = 7; }
+  } else {
+    `ifconfig $if 0.0.0.0 -promisc up 2>/dev/null`;
+    if ($? != 0 && $i == 0) { $i = 8; }
+    `ifconfig $tap 0.0.0.0 -promisc up 2>/dev/null`;
+    if ($? != 0 && $i == 0) { $i = 9; }
+  }
+  
+  if ($netconf ne "vlan") {
+    `ifconfig $br $if_ip netmask $if_nm broadcast $if_bc`;
+    if ($? != 0 && $i == 0) { $i = 10; }
+    `route add -net default gw $if_gw >/dev/null`;
+    if ($? != 0 && $i == 0) { $i = 11; }
+  }
+  return $i;
+}
+
+# 3.09 validvlanid
+# Function to check if the vlan id is valid
+# Returns 0 if not valid or exceeded
+# Returns 1 if ok
+sub validvlanid() {
+  my ($vlanid);
+  $vlanid = $_[0];
+  if ($vlanid =~ /^(\d{0,4})$/) {
+    if ($vlanid > 0 && $vlanid < 4097) {
+      return 0;
+    } else {
+      return 1; 
+    }
+  } else {
+    return 1; 
+  }
+}
+
+# 3.10 validvlancount
+# Function to check if the vlan id is valid
+# Returns 0 if not valid or exceeded
+# Returns 1 if ok
+sub validvlancount() {
+  my ($vlancount);
+  $vlancount = $_[0];
+  if ($vlancount =~ /^(\d{0,1})$/) {
+    if ($vlancount > 0 && $vlancount < 8) {
+      return 0;
+    } else {
+      return 1; 
+    }
+  } else {
+    return 1; 
+  }
+}
+
+# 3.11 sleeptimer
+# Function to sleep for a certain amount of seconds
+# while displaying progress
+sub sleeptimer() {
+  my ($msg, $count, $len, $tabcount, $tabstring);
+  $msg = $_[0];
+  $count = $_[1];
+  chomp($msg);
+  chomp($count);
+  $len = length($msg);
+  $tabcount = ceil((40 - $len) / 8);
+  $tabstring = "\t" x $tabcount;
+  print $msg . $tabstring . "[";
+  for (1 ... ($count - 1)) {
+    print ".";
+    sleep 1;
+  }
+  print "${g}OK${n}]\n";
+  return 0;
 }
 
 return "true";
