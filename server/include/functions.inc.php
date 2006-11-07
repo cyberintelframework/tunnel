@@ -55,9 +55,6 @@ function getOrg($ip, $soapurl, $soapuser, $soappass) {
     $remoteip = $ip;
     $soap_klanten = array("var_type" => "ip", "var_value" => "$remoteip", "version" => "1.0");
     $soap_result = $soap_client->call('getKlantSingle', array('invoer' => $soap_klanten));
-#      foreach ($soap_result as $key => $value) {
-#        echo "$key: $value\n";
-#      }
     $soap_org = $soap_result[klantafkorting];
     if ($soap_org == "") {
       $remotehost = $_SERVER['REMOTE_HOST'];

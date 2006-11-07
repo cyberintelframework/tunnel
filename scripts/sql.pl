@@ -3,7 +3,7 @@
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.02.02                 #
+# Version 1.02.03                 #
 # 29-02-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
@@ -33,6 +33,7 @@
 
 #####################
 # Changelog:
+# 1.02.03 Added vlan support 
 # 1.02.02 Added ARP monitoring support
 # 1.02.01 Initial release
 #####################
@@ -122,14 +123,15 @@ $err = 0;
 # Opening log file
 open(LOG, ">> $logfile");
 
-#print LOG "=================================\n";
-#foreach $key (sort keys(%ENV)) {
-#  print LOG "$key = $ENV{$key}\n";
-#}
-#print LOG "=================================\n";
+print LOG "=================================\n";
+foreach $key (sort keys(%ENV)) {
+  print LOG "$key = $ENV{$key}\n";
+}
+print LOG "=================================\n";
 
 # Get the sensor name.
 $sensor = $ARGV[1];
+$remoteip = $ARGV[2];
 
 $ts = getts();
 print LOG "[$ts - $tap] Starting sql.pl for $sensor on $tap \n";
@@ -142,9 +144,9 @@ print LOG "[$ts - $tap] Connected to $pgsql_dbname with DSN: $dsn\n";
 print LOG "[$ts - $tap] Connect result: $dbh\n";
 
 # Get the IP address configuration for the tap device from the database.
-$sth = $dbh->prepare("SELECT netconf, tapip, arp FROM sensors WHERE keyname = '$sensor'");
+$sth = $dbh->prepare("SELECT netconf, netconfdetail, tapip, arp FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'");
 $ts = getts();
-print LOG "[$ts - $tap] Prepared query: SELECT netconf, tapip, arp FROM sensors WHERE keyname = '$sensor'\n";
+print LOG "[$ts - $tap] Prepared query: SELECT netconf, netconfdetail, tapip, arp FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip' \n";
 $execute_result = $sth->execute();
 $ts = getts();
 print LOG "[$ts - $tap] Executed query: $execute_result\n";
@@ -152,8 +154,9 @@ print LOG "[$ts - $tap] Executed query: $execute_result\n";
 @row = $sth->fetchrow_array;
 $ts = getts();
 $netconf = $row[0];
-$tapip = $row[1];
-$sensor_arp = $row[2];
+$netconfdetail = $row[1];
+$tapip = $row[2];
+$sensor_arp = $row[3];
 
 # Closing database connection.
 $dbh->disconnect;
@@ -161,32 +164,31 @@ $dbh->disconnect;
 # Sleep till tunnel is fully ready 
 sleep 2;
 
-#netconf is empty or NULL for DHCP
-if ($netconf == "" || ($netconf == "dhcp")) {
-  # Use DHCP
-  $net_method = "dhcp";
-} else {
-  # Use static network configuration
-  $net_method = "static";
-}
 
 $ts = getts();
 $ec = getec();
 print LOG "[$ts - $tap - $ec] Network is using method: $net_method \n";
 
-if ($net_method eq "dhcp") {
+if ($netconf eq "dhcp" || $netconf eq "vland") {
   print LOG "[$ts - $tap] Network config method: DHCP\n";
-  # Get dhcp from remote network without setting of gateway, dns and resolv.conf
-  $checkdh = `ps -ef | grep dhclient3 | grep -v grep | grep $tap | wc -l`;
-  chomp($checkdh);
-  if ($checkdh == 1) {
-    $dhclientpid = `ps -ef | grep dhclient3 | grep -v grep | grep $tap | awk '{print \$2}'`;
-    chomp($dhclientpid);
-    `kill $dhclientpid`;
-    $ts = getts();
-    $ec = getec();
-    print LOG "[$ts - $tap - $ec] Killing old dhclient3: kill $dhclientpid\n";
+  
+   #Kill dhclient3
+   @dhclients = `ps -ef | grep dhclient3 | grep -v grep | grep "^.*$tap\$" | awk '{print \$2}'`;
+   foreach (@dhclients) {
+     $dhclient_pid = $_;
+     chomp($dhclient_pid);
+     $kill_result = `kill $dhclient_pid`;
+     $ts = getts();
+     $ec = getec();
+     print LOG "[$ts - $tap - $ec] Killed dhclient3 with pid ($dhclient_pid)\n";
   }
+  
+  # Delete .leases file
+  `rm -f /var/lib/dhcp3/$tap.leases`;
+  $ts = getts();
+  $ec = getec();
+  print LOG "[$ts - $tap - $ec] Deleted dhcp lease file /var/lib/dhcp3/$tap.leases\n";
+  
   `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $surfidsdir/scripts/surfnetids-dhclient $tap`;
   $ts = getts();
   $ec = getec();
@@ -198,7 +200,7 @@ if ($net_method eq "dhcp") {
   print LOG "[$ts - $tap] Network config method: static\n";
   # Set static network configuration without gateway, dns and resolv.conf
   # Format of netconfig: 0=>netmask|1=>gateway|2=>broadcast
-  @netconfig = split(/\|/, $netconf);
+  @netconfig = split(/\|/, $netconfdetail);
 
   $if_net = $netconfig[0];
   $if_gw = $netconfig[1];
@@ -339,9 +341,9 @@ if ($err == 0) {
   print LOG "[$ts - $tap] Connect result: $dbh\n";
 
   # Update Tap info to the database for the current $sensor.
-  $execute_result = $dbh->do("UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor'");
+  $execute_result = $dbh->do("UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor' AND remoteip = '$remoteip'");
   $ts = getts();
-  print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor'\n";
+  print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor' AND remoteip = '$remoteip'\n";
   print LOG "[$ts - $tap] Executed query: $execute_result\n";
 
   # Closing database connection.

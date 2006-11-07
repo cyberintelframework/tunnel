@@ -86,7 +86,7 @@ sub ProcessInterfaceALL {
   chomp($totalin);
   chomp($totalout);
 
-  print "$_[3] traffic in, out: $totalin, $totalout\n";
+#  print "$_[3] traffic in, out: $totalin, $totalout\n";
 
   # if rrdtool database doesn't exist, create it
   if (! -e "$rrddir/$_[3].rrd") {

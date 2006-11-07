@@ -3,8 +3,8 @@
 ###################################
 # Stop script for IDS server	  #
 # SURFnet IDS                     #
-# Version 1.02.04                 #
-# 26-09-2006                      #
+# Version 1.02.06                 #
+# 09-10-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
@@ -31,6 +31,8 @@
 
 #####################
 # Changelog:
+# 1.02.06 Added vlan support
+# 1.02.05 Killing dhclient3 correctly if multiple instances are running
 # 1.02.04 Fixed a bug with removing the route to the sensor
 # 1.02.03 Changed the way dhclient3 gets killed
 # 1.02.02 Added SQL query for resetting status
@@ -152,17 +154,15 @@ $ts = getts();
 print LOG "[$ts - $tap] Executed query: $execute_result\n";
 
 # Kill dhclient3
-#$dhclient = `ps -ef | grep "dhclient3 -lf /var/lib/dhcp3/$tap.leases" | grep -v grep`;
-#chomp($dhclient);
-#@dhclient = split(/ +/, $dhclient);
-#$dhclient_pid = $dhclient[1];
-$dhclient_pid = `ps -ef | grep dhclient3 | grep -v grep | grep "^.*$tap\$" | head -n1 | awk '{print \$2}'`;
-#$dhclient_pid = `ps -ef | grep dhclient3 | grep -v grep | grep $tap | awk '{print \$2}'`;
-chomp($dhclient_pid);
-$kill_result = `kill $dhclient_pid`;
-$ts = getts();
-$ec = getec();
-print LOG "[$ts - $tap - $ec] Killed dhclient3 with pid ($dhclient_pid)\n";
+@dhclients = `ps -ef | grep dhclient3 | grep -v grep | grep "^.*$tap\$" | awk '{print \$2}'`;
+foreach (@dhclients) {
+  $dhclient_pid = $_;
+  chomp($dhclient_pid);
+  $kill_result = `kill $dhclient_pid`;
+  $ts = getts();
+  $ec = getec();
+  print LOG "[$ts - $tap - $ec] Killed dhclient3 with pid ($dhclient_pid)\n";
+}
 
 # Delete .leases file
 `rm -f /var/lib/dhcp3/$tap.leases`;
@@ -219,7 +219,7 @@ if ($dbh ne "") {
   $ts = getts();
   $netconf = $row[0];
 
-  if ($netconf eq "dhcp" || $netconf eq "") {
+  if ($netconf eq "dhcp" || $netconf eq "" || $netconf eq "vland") {
     # Network configuration method was DHCP. We delete both the tap device and address from the database.
     print LOG "[$ts - $tap] Network config method: DHCP\n";
     # Execute query to remove tap device information from database.
@@ -241,7 +241,7 @@ if ($dbh ne "") {
   # Delete route to connecting ip address of client via local gateway.
   $sth = $dbh->prepare("SELECT COUNT(remoteip) FROM sensors WHERE remoteip = '$remoteip'");
   $ts = getts();
-  print LOG "[$ts - $tap] Prepared query: SELECT COUNT(remoteip) FROM sensors WHERE remoteip = '$remoteip' AND tap != ''\n";
+  print LOG "[$ts - $tap] Prepared query: SELECT COUNT(remoteip) FROM sensors WHERE remoteip = '$remoteip'\n";
   $execute_result = $sth->execute();
   $ts = getts();
   print LOG "[$ts - $tap] Executed query: $execute_result\n";
@@ -251,7 +251,7 @@ if ($dbh ne "") {
   $ts = getts();
   $count = $row[0];
   print LOG "[$ts - $tap] Query result: count = $count\n";
-  if ($count == 0) {
+  if ($count == 1) {
     # There is only 1 remoteip address in the database so we can delete the static route towards this IP.
     `route del -host $remoteip`;
     $ts = getts();

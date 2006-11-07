@@ -3,7 +3,7 @@
 ###################################
 # Setmac script for IDS server    #
 # SURFnet IDS                     #
-# Version 1.02.02                 #
+# Version 1.02.03                 #
 # 23-05-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
@@ -31,6 +31,7 @@
 
 #####################
 # Changelog:
+# 1.02.03 Added vlan support 
 # 1.02.02 Fixed a bug with the netconf query
 # 1.02.01 Initial release
 #####################
@@ -117,6 +118,7 @@ sub getec {
 
 # Get sensor name.
 $sensor = $ENV{common_name};
+$remoteip = $ENV{REMOTE_HOST};
 
 # Opening log file
 open(LOG, ">> $logfile");
@@ -169,9 +171,9 @@ if ($? == 0) {
   print LOG "[$ts - $tap] Connect result: $dbh\n";
 
   # Get the mac address for the sensor from the database.
-  $sth = $dbh->prepare("SELECT mac FROM sensors WHERE keyname = '$sensor'");
+  $sth = $dbh->prepare("SELECT mac FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'");
   $ts = getts();
-  print LOG "[$ts - $tap] Prepared query: SELECT mac FROM sensors WHERE keyname = '$sensor'\n";
+  print LOG "[$ts - $tap] Prepared query: SELECT mac FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'\n";
   $execute_result = $sth->execute();
   $ts = getts();
   print LOG "[$ts - $tap] Executed query: $execute_result\n";
@@ -188,9 +190,9 @@ if ($? == 0) {
     $ts = getts();
     $ec = getec();
     print LOG "[$ts - $tap - $ec] New MAC address: $mac.\n";
-    $execute_result = $dbh->do("UPDATE sensors SET mac = '$mac' WHERE keyname = '$sensor'");
+    $execute_result = $dbh->do("UPDATE sensors SET mac = '$mac' WHERE keyname = '$sensor' AND remoteip = '$remoteip'");
     $ts = getts();
-    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET mac = '$mac' WHERE keyname = '$sensor'\n";
+    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET mac = '$mac' WHERE keyname = '$sensor' AND remoteip = '$remoteip'\n";
     print LOG "[$ts - $tap] Executed query: $execute_result\n";
   }
   else {
@@ -203,9 +205,9 @@ if ($? == 0) {
   }
 
   # Get the network config method.
-  $sth = $dbh->prepare("SELECT netconf, tapip FROM sensors WHERE keyname = '$sensor'");
+  $sth = $dbh->prepare("SELECT netconf, tapip FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'");
   $ts = getts();
-  print LOG "[$ts - $tap] Prepared query: SELECT netconf, tapip FROM sensors WHERE keyname = '$sensor'\n";
+  print LOG "[$ts - $tap] Prepared query: SELECT netconf, tapip FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'\n";
   $execute_result = $sth->execute();
   $ts = getts();
   print LOG "[$ts - $tap] Executed query: $execute_result\n";
@@ -217,15 +219,27 @@ if ($? == 0) {
 
   if ($netconf eq "dhcp") {
     # Start the sql.pl script to update all tap device information to the database.
-    system "$surfidsdir/scripts/sql.pl $tap $sensor &";
+    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
     print LOG "[$ts - $tap] Network config method: DHCP\n";
-    print LOG "[$ts - $tap] Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor\n";
+    print LOG "[$ts - $tap] Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor $remoteip\n";
   }
-  elsif ($netconf ne "" && $tapip ne "") {
+  elsif ($netconf eq "vland") {
     # Start the sql.pl script to update all tap device information to the database.
-    system "$surfidsdir/scripts/sql.pl $tap $sensor &";
+    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
+    print LOG "[$ts - $tap] Network config method: VLAN DHCP\n";
+    print LOG "[$ts - $tap] Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor $remoteip\n";
+  }
+  elsif ($netconf eq "static") {
+    # Start the sql.pl script to update all tap device information to the database.
+    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
     print LOG "[$ts - $tap] Network config method: static\n";
-    print LOG "[$ts - $tap] Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor\n";
+    print LOG "[$ts - $tap] Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor $remoteip\n";
+  }
+  elsif ($netconf eq "vlans") {
+    # Start the sql.pl script to update all tap device information to the database.
+    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
+    print LOG "[$ts - $tap] Network config method: VLAN static\n";
+    print LOG "[$ts - $tap] Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor $remoteip\n";
   }
   elsif ($netconf ne "" && $tapip eq "") {
     print LOG "[$ts - $tap] Network config method: static\n";
@@ -234,7 +248,7 @@ if ($? == 0) {
   else {
     # The script should never come here.
     # Start the sql.pl script to update all tap device information to the database.
-    system "$surfidsdir/scripts/sql.pl $tap $sensor &";
+    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
     print LOG "[$ts - $tap] Possible error. Netconf was empty. Trying DHCP.\n";
     print LOG "[$ts - $tap] Network config method: DHCP\n";
     print LOG "[$ts - $tap] Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor\n";

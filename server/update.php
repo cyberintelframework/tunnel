@@ -78,8 +78,7 @@ $err = 0;
 ###########
 if ( isset($_GET['keyname']) ) {
   $keyname = stripinput(pg_escape_string($_GET['keyname']));
-}
-else {
+} else {
   echo "ERRNO: 91\n";
   echo "ERROR: Keyname not present.\n";
   $err = 1;
@@ -90,8 +89,7 @@ else {
 ###########
 if ( isset($_GET['localip']) ) {
   $localip = stripinput(pg_escape_string($_GET['localip']));
-}
-else {
+} else {
   echo "ERRNO: 92\n";
   echo "ERROR: Localip not present.\n";
   $err = 1;
@@ -105,22 +103,32 @@ if ( isset($_GET['ssh']) ) {
   if ($checkssh > 0) {
     $checkssh = 1;
   }
-}
-else {
+} else {
   echo "ERRNO: 93\n";
   echo "ERROR: Check SSH variable not present.\n";
+  $err = 1;
+}
+
+###########
+# vlanid  #
+###########
+if ( isset($_GET['vlanid']) ) {
+  $vlanid = stripinput(pg_escape_string($_GET['vlanid']));
+} else {
+  echo "ERRNO: 94\n";
+  echo "ERROR: Vlanid not present.\n";
   $err = 1;
 }
 
 ############
 # Database #
 ############
-$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname'";
+$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
 $result_sensors = pg_query($pgconn, $sql_sensors);
 $numrows = pg_num_rows($result_sensors);
 if ($numrows == 0) {
-  echo "ERRNO: 94\n";
-  echo "ERROR: No record in the database for sensor: $keyname\n";
+  echo "ERRNO: 95\n";
+  echo "ERROR: No record in the database for sensor: $keyname with vlanid: $vlanid\n";
   $err = 1;
 }
 
@@ -159,6 +167,7 @@ if ($err == 0) {
   echo "SERVER: $server\n";
   echo "TAPIP: $tapip\n";
   echo "SERVERCONF: $serverconf\n";
+  echo "VLANID: $vlanid\n";
   echo "NEWUPTIME: $newuptime\n";
   echo "############-CLIENT-INFO-##########\n";
   echo "REMOTEIP: $remoteip\n";
@@ -171,29 +180,25 @@ if ($err == 0) {
     $result_checkssh = pg_query($pgconn, $sql_checkssh);
   }
 
-  $sql_lastupdate = "UPDATE sensors SET lastupdate = '$date' WHERE keyname = '$keyname'";
+  $sql_lastupdate = "UPDATE sensors SET lastupdate = '$date' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
   $result_lastupdate = pg_query($pgconn, $sql_lastupdate);
   if ($action == "SSHOFF") {
     $sql_ssh = "UPDATE sensors SET ssh = 0 WHERE keyname = '$keyname'";
     $result_ssh = pg_query($pgconn, $sql_ssh);
     echo "Disabled SSH\n";
-  }
-  elseif ($ssh == "SSHON") {
+  } elseif ($action == "SSHON") {
     $sql_ssh = "UPDATE sensors SET ssh = 1 WHERE keyname = '$keyname'";
     $result_ssh = pg_query($pgconn, $sql_ssh);
     echo "Enabled SSH\n";
   }
-  if ($action == "BLOCK") {
-    if ($status == 2) {
-      $sql_block = "UPDATE sensors SET status = 0 WHERE keyname = '$keyname'";
-      $result_block = pg_query($pgconn, $sql_block);
-      echo "Enabled client.\n";
-    }
-    else {
-      $sql_block = "UPDATE sensors SET status = 2 WHERE keyname = '$keyname'";
-      $result_block = pg_query($pgconn, $sql_block);
-      echo "Disabled client.\n"; 
-    }
+  if ($action == "UNBLOCK") {
+    $sql_block = "UPDATE sensors SET status = 0 WHERE keyname = '$keyname'";
+    $result_block = pg_query($pgconn, $sql_block);
+    echo "Enabled client.\n";
+  } elseif ($action == "BLOCK") {
+    $sql_block = "UPDATE sensors SET status = 2 WHERE keyname = '$keyname'";
+    $result_block = pg_query($pgconn, $sql_block);
+    echo "Disabled client.\n"; 
   }
   $sql_action = "UPDATE sensors SET action = 'NONE' WHERE keyname = '$keyname'";
   $result_action = pg_query($pgconn, $sql_action);

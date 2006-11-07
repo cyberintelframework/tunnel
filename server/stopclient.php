@@ -94,14 +94,26 @@ else {
   $err = 1;
 }
 
+###########
+# vlanid  #
+###########
+if ( isset($_GET['vlanid']) ) {
+  $vlanid = stripinput(pg_escape_string($_GET['vlanid']));
+}
+else {
+  echo "ERRNO: 93\n";
+  echo "ERROR: vlanid not present.\n";
+  $err = 1;
+}
+
 ############
 # Database #
 ############
-$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname'";
+$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname' AND vlanid='$vlanid'";
 $result_sensors = pg_query($pgconn, $sql_sensors);
 $numrows = pg_num_rows($result_sensors);
 if ($numrows == 0) {
-  echo "ERRNO: 93\n";
+  echo "ERRNO: 94\n";
   echo "ERROR: No record in the database for sensor: $keyname\n";
   $err = 1;
 }
@@ -132,6 +144,7 @@ if ($err == 0) {
   echo "SERVER: $server\n";
   echo "TAPIP: $tapip\n";
   echo "SERVERCONF: $serverconf\n";
+  echo "VLANID: $vlanid\n";
   echo "NEWUPTIME: $newuptime\n";
   echo "############-CLIENT-INFO-##########\n";
   echo "REMOTEIP: $remoteip\n";
@@ -143,19 +156,19 @@ if ($err == 0) {
   # If remoteip has changed, update it to the database.
   if ($row['remoteip'] != $remoteip) {
     echo "Updated remote IP address.\n";
-    $sql_update_remote = "UPDATE sensors SET remoteip = '" .$remoteip. "' WHERE keyname = '$keyname'";
+    $sql_update_remote = "UPDATE sensors SET remoteip = '" .$remoteip. "' WHERE keyname = '$keyname' AND vlanid='$vlanid'";
     $result_update_remote = pg_query($pgconn, $sql_update_remote);
   }
 
   # If localip has changed, update it to the database.
   if ($row['localip'] != $localip) {
     echo "Updated local IP address.\n";
-    $sql_update = "UPDATE sensors SET localip = '" .$localip. "' WHERE keyname = '$keyname'";
+    $sql_update = "UPDATE sensors SET localip = '" .$localip. "' WHERE keyname = '$keyname' AND vlanid='$vlanid'";
     $result_update = pg_query($pgconn, $sql_update);
   }
 
   # Update the last start timestamp to the database.
-  $sql_laststart = "UPDATE sensors SET status = 0, uptime = $newuptime, laststop = '$date' WHERE keyname = '$keyname'";
+  $sql_laststart = "UPDATE sensors SET status = 0, uptime = $newuptime, laststop = '$date' WHERE keyname = '$keyname' AND vlanid='$vlanid'";
   $result_laststart = pg_query($pgconn, $sql_laststart);
 }
 

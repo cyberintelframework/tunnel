@@ -8,5 +8,5 @@
 
 passive_ftp = on
 waitretry = 3 
-http_user = username
-http_passwd = password 
+http_user = idssensor
+http_passwd = enter_password_here

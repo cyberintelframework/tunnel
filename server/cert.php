@@ -58,6 +58,14 @@ if (isset($_GET['localip'])) {
   echo "ERROR: Localip was empty.<br />\n";
 }
 
+# Check if vlanid is set.
+if (isset($_GET['vlanid'])) {
+  $vlanid = stripinput($_GET['vlanid']);
+} else {
+  $vlanid = "";
+  echo "ERROR: vlanid was empty.<br />\n";
+}
+
 #$accept_header = $_SERVER['HTTP_ACCEPT'];
 #$search = substr_count($accept_header, ",");
 #if ($search > 0) {
@@ -73,7 +81,7 @@ if (isset($_GET['localip'])) {
 #}
 # Check if $localip is not an empty variable.
 #elseif ($localip != "") {
-if ($localip != "") {
+if ($localip != "" && $vlanid != "") {
   # Select all records in the table Sensors.
   $sql_sensors = "SELECT last_value FROM sensors_id_seq";
   $result_sensors = pg_query($pgconn, $sql_sensors);
@@ -122,7 +130,7 @@ if ($localip != "") {
   }
 
   # Update the database with Keyname, Remoteip, Localip and Organisation.
-  $sql_addsensor = "INSERT INTO sensors (keyname, remoteip, localip, organisation) VALUES ('$keyname', '$remoteip', '$localip', $orgid)";
+  $sql_addsensor = "INSERT INTO sensors (keyname, remoteip, localip, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', $orgid, $vlanid)";
   $result_addsensor = pg_query($pgconn, $sql_addsensor);
 
   # Start the scripts to generate and sign the certificates for the sensor.
