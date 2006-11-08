@@ -3,8 +3,8 @@
 ###################################
 # Stop script for IDS server	  #
 # SURFnet IDS                     #
-# Version 1.02.01                 #
-# 21-02-2006                      #
+# Version 1.03.01                 #
+# 08-11-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
@@ -31,6 +31,7 @@
 
 #####################
 # Changelog:
+# 1.03.01 Changed version to 1.03.01
 # 1.02.05 Killing dhclient3 correctly if multiple instances are running
 # 1.02.04 Fixed a bug with removing the route to the sensor
 # 1.02.03 Changed the way dhclient3 gets killed
