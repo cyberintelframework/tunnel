@@ -1,10 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 ######################################
-# Scanbinaries script for IDS server #
+# Scanbinaries script                #
 # SURFnet IDS                        #
-# Version 1.02.05                    #
-# 02-06-2006                         #
+# Version 1.04.01                    #
+# 07-11-2006                         #
 # Jan van Lith & Kees Trippelvitz    #
 ######################################
 
@@ -31,6 +31,7 @@
 
 #########################################################################
 # Changelog:
+# 1.04.01 Code layout
 # 1.02.05 Added sql to fill the stats_virus and stats_dialogue tables
 # 1.02.04 Added more comments
 # 1.02.03 Database logging instead of virusinfo files
@@ -62,8 +63,7 @@ if ($logstamp == 1) {
     mkdir("$surfidsdir/log/$day$month$year");
   }
   $logfile = "$surfidsdir/log/$day$month$year/$logfile";
-}
-else {
+} else {
   $logfile = "$surfidsdir/log/$logfile";
 }
 
@@ -225,8 +225,7 @@ foreach $file ( @dircontents ) {
     if ($virinfo =~ /.*:.*/) {
       @virinfo_ar = split(/:/, $virinfo);
       $virus = "$virinfo_ar[1]";
-    }
-    else {
+    } else {
       $virus = $virinfo;
     }
     chomp($virus);

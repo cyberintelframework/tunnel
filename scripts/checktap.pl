@@ -3,8 +3,8 @@
 #########################################
 # Checktap script for IDS tunnel server #
 # SURFnet IDS                           #
-# Version 1.02.02                       #
-# 24-08-2006                            #
+# Version 1.04.01                       #
+# 07-11-2006                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
@@ -31,6 +31,7 @@
 
 #####################
 # Changelog:
+# 1.04.01 Code layout
 # 1.02.02 Adding an ignore on static network configuration
 # 1.02.01 Initial release
 #####################
@@ -60,8 +61,7 @@ if ($logstamp == 1) {
     mkdir("$surfidsdir/log/$day$month$year");
   }
   $logfile = "$surfidsdir/log/$day$month$year/$logfile";
-}
-else {
+} else {
   $logfile = "$surfidsdir/log/$logfile";
 }
 
@@ -99,8 +99,7 @@ sub getts {
 sub getec {
   if ($? == 0) {
     my $ec = "Ok";
-  }
-  else {
+  } else {
     my $ec = "Err - $?";
   }
 }
@@ -150,8 +149,7 @@ if ($db_netconf eq "dhcp") {
   # If the tap IP addresses don't match, fix it.
   if ($tapip eq $db_tapip) {
     print LOG "[$ts - $tap] No change of tap IP address. No need to update.\n";
-  }
-  else {
+  } else {
     print LOG "[$ts - $tap] Updating the Tap IP address in the database.\n";
     $execute_result = $dbh->do("UPDATE sensors SET tapip = '$tapip' WHERE tap = '$tap'");
     $ts = getts();

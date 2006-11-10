@@ -1,10 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.02.03                 #
-# 29-02-2006                      #
+# Version 1.04.01                 #
+# 07-11-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
 ###################################
@@ -33,6 +33,7 @@
 
 #####################
 # Changelog:
+# 1.04.01 Rereleased as 1.04.01
 # 1.02.03 Added vlan support 
 # 1.02.02 Added ARP monitoring support
 # 1.02.01 Initial release
@@ -51,6 +52,8 @@ use Time::localtime;
 $tap = $ARGV[0];
 
 do '/etc/surfnetids/surfnetids-tn.conf';
+require "$surfidsdir/scripts/tnfunctions.inc.pl";
+
 $logfile =~ s|.*/||;
 if ($logstamp == 1) {
   $day = localtime->mday();
@@ -69,49 +72,8 @@ if ($logstamp == 1) {
     mkdir("$surfidsdir/log/$day$month$year/$tap");
   }
   $logfile = "$surfidsdir/log/$day$month$year/$tap/$logfile";
-}
-else {
+} else {
   $logfile = "$surfidsdir/log/$logfile";
-}
-
-##################
-# Functions
-##################
-
-sub getts {
-  my $ts = time();
-  my $year = localtime->year() + 1900;
-  my $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  my $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  my $hour = localtime->hour();
-  if ($hour < 10) {
-    $hour = "0" . $hour;
-  }
-  my $min = localtime->min();
-  if ($min < 10) {
-    $min = "0" . $min;
-  }
-  my $sec = localtime->sec();
-  if ($sec < 10) {
-    $sec = "0" . $sec;
-  }
-
-  my $timestamp = "$day-$month-$year $hour:$min:$sec";
-}
-
-sub getec {
-  if ($? == 0) {
-    my $ec = "Ok";
-  }
-  else {
-    my $ec = "Err - $?";
-  }
 }
 
 ##################
@@ -123,36 +85,22 @@ $err = 0;
 # Opening log file
 open(LOG, ">> $logfile");
 
-print LOG "=================================\n";
-foreach $key (sort keys(%ENV)) {
-  print LOG "$key = $ENV{$key}\n";
-}
-print LOG "=================================\n";
-
 # Get the sensor name.
 $sensor = $ARGV[1];
 $remoteip = $ARGV[2];
 
-$ts = getts();
-print LOG "[$ts - $tap] Starting sql.pl for $sensor on $tap \n";
+printlog("Starting sql.pl for $sensor on $tap!");
 
-# Connect to the database (dbh = DatabaseHandler or linkserver)
-$dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass)
-      or die $DBI::errstr;
-$ts = getts();
-print LOG "[$ts - $tap] Connected to $pgsql_dbname with DSN: $dsn\n";
-print LOG "[$ts - $tap] Connect result: $dbh\n";
+$dbconn = connectdb();
 
 # Get the IP address configuration for the tap device from the database.
-$sth = $dbh->prepare("SELECT netconf, netconfdetail, tapip, arp FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'");
-$ts = getts();
-print LOG "[$ts - $tap] Prepared query: SELECT netconf, netconfdetail, tapip, arp FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip' \n";
-$execute_result = $sth->execute();
-$ts = getts();
-print LOG "[$ts - $tap] Executed query: $execute_result\n";
+$sql = "SELECT netconf, netconfdetail, tapip, arp FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
+$sth = $dbh->prepare($sql);
+printlog("Prepared query: $sql");
+$er = $sth->execute();
+printlog("Executed query: $er");
 
 @row = $sth->fetchrow_array;
-$ts = getts();
 $netconf = $row[0];
 $netconfdetail = $row[1];
 $tapip = $row[2];
@@ -164,40 +112,15 @@ $dbh->disconnect;
 # Sleep till tunnel is fully ready 
 sleep 2;
 
-
-$ts = getts();
-$ec = getec();
-print LOG "[$ts - $tap - $ec] Network is using method: $net_method \n";
+printlog("Network config method: $netconf");
+$result = killdhclient($tap);  
 
 if ($netconf eq "dhcp" || $netconf eq "vland") {
-  print LOG "[$ts - $tap] Network config method: DHCP\n";
-  
-   #Kill dhclient3
-   @dhclients = `ps -ef | grep dhclient3 | grep -v grep | grep "^.*$tap\$" | awk '{print \$2}'`;
-   foreach (@dhclients) {
-     $dhclient_pid = $_;
-     chomp($dhclient_pid);
-     $kill_result = `kill $dhclient_pid`;
-     $ts = getts();
-     $ec = getec();
-     print LOG "[$ts - $tap - $ec] Killed dhclient3 with pid ($dhclient_pid)\n";
-  }
-  
-  # Delete .leases file
-  `rm -f /var/lib/dhcp3/$tap.leases`;
-  $ts = getts();
-  $ec = getec();
-  print LOG "[$ts - $tap - $ec] Deleted dhcp lease file /var/lib/dhcp3/$tap.leases\n";
-  
-  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $surfidsdir/scripts/surfnetids-dhclient $tap`;
-  $ts = getts();
-  $ec = getec();
-  print LOG "[$ts - $tap - $ec] Starting dhclient3: dhclient3 -sf /etc/dhcp3/dhtest-script -lf /var/lib/dhcp3/$tap.leases $tap\n";
-
-  # Give the interface a second to get it's IP address.
-  sleep 1;
+  # Start the dhcp client
+  $result = startdhcp($tap);
 } else { 
-  print LOG "[$ts - $tap] Network config method: static\n";
+  printlog("Network config method: static");
+
   # Set static network configuration without gateway, dns and resolv.conf
   # Format of netconfig: 0=>netmask|1=>gateway|2=>broadcast
   @netconfig = split(/\|/, $netconfdetail);
@@ -206,48 +129,50 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   $if_gw = $netconfig[1];
   $if_broadcast = $netconfig[2];
   `ifconfig $tap $tapip netmask $if_net broadcast $if_broadcast`;
-  $ts = getts();
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] Setting IP address: $tapip, netmask: $if_net and broadcast: $if_broadcast \n";
+  printlog("Setting IP address: $tapip - $if_net - $if_broadcast", "$ec");
 
   # Check for existing rules.
-  $rulecheck=`ip rule list | grep $tap | wc -l`;
+  $rulecheck = `ip rule list | grep $tap | wc -l`;
+  chomp($rulecheck);
   if ($rulecheck == 0) {
-    $addrule=`ip rule add from $tapip table $tap`;
-    $ts = getts();
+    $result = ipruleadd($tap, $tapip);
+#    $addrule = `ip rule add from $tapip table $tap`;
+#    $ts = getts();
+#    $ec = getec();
+#    print LOG "[$ts - $tap - $ec] ip rule add from $tapip table $tap\n";
+  } else {
+    $result = deliprules($tap);
+#    # Get the old ip rule and remove it.
+#    $oldip = `ip rule list | grep $tap | awk '{print $3}'`;
+#    $ts = getts();
+#    $ec = getec();
+#    print LOG "[$ts - $tap - $ec] Old ip: $oldip\n";
+
+#    $remove = `ip rule del from $oldip table $tap`;
+#    $ts = getts();
+#    $ec = getec();
+#    print LOG "[$ts - $tap - $ec] ip rule del from $oldip table $tap\n";
+
+    $result = ipruleadd($tap, $tapip);
+#    $addrule = `ip rule add from $tapip table $tap`;
+#    $ts = getts();
+#    $ec = getec();
+#    print LOG "[$ts - $tap - $ec] ip rule add from $tapip table $tap\n";
+
+    $checktap = `$surfidsdir/scripts/checktap.pl $tap`;
     $ec = getec();
-    print LOG "[$ts - $tap - $ec] ip rule add from $tapip table $tap\n";
+    printlog("Running: $surfidsdir/scripts/checktap.pl $tap", "$ec");
   }
-  else {
-    # Get the old ip rule and remove it.
-    $oldip=`ip rule list | grep $tap | awk '{print $3}'`;
-    $ts = getts();
-    $ec = getec();
-    print LOG "[$ts - $tap - $ec] Old ip: $oldip\n";
 
-    $remove=`ip rule del from $oldip table $tap`;
-    $ts = getts();
-    $ec = getec();
-    print LOG "[$ts - $tap - $ec] ip rule del from $oldip table $tap\n";
-
-    $addrule=`ip rule add from $tapip table $tap`;
-    $ts = getts();
-    $ec = getec();
-    print LOG "[$ts - $tap - $ec] ip rule add from $tapip table $tap\n";
-
-    $checktap=`$surfidsdir/scripts/checktap.pl $tap`;
-    $ts = getts();
-    $ec = getec();
-    print LOG "[$ts - $tap - $ec] Runnning: $surfidsdir/scripts/checktap.pl $tap\n";
-  }
   # Just to be sure, flush the routing table of the tap device.
-  $flushtap=`ip route flush table $tap`;
+  $flushtap = `ip route flush table $tap`;
   $ts = getts();
   $ec = getec();
   print LOG "[$ts - $tap - $ec] ip route flush table $tap\n";
 
   # Calculate the network based on the tapip and the netmask.
-  $network=`$surfidsdir/scripts/ipcalc $tapip $if_net | grep -i Network`;
+  $network = `$surfidsdir/scripts/ipcalc $tapip $if_net | grep -i Network`;
   @network_ar = split(/ +/,$network);
   $network = $network_ar[1];
   $ts = getts();
@@ -255,7 +180,7 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   print LOG "[$ts - $tap - $ec] Network: $network\n";
 
   # Check if there are any routes present in the main routing table.
-  $routecheck=`ip route list | grep $tap | wc -l`;
+  $routecheck = `ip route list | grep $tap | wc -l`;
   chomp($routecheck);
   $ts = getts();
   $ec = getec();
@@ -264,14 +189,14 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   if ($routecheck == 0) {
     # If none were present, add it. This needs to be done otherwise you'll get an error when adding the default gateway
     # for the tap device routing table.
-    $routeadd=`ip route add $network dev $tap src $tapip table main`;
+    $routeadd = `ip route add $network dev $tap src $tapip table main`;
     $ts = getts();
     $ec = getec();
     print LOG "[$ts - $tap - $ec] ip route add $network dev $tap src $tapip table main\n";
   }
 
   # Add default gateway to the routing table of the tap device.
-  $adddefault=`ip route add default via $if_gw table $tap`;
+  $adddefault = `ip route add default via $if_gw table $tap`;
   $ts = getts();
   $ec = getec();
   print LOG "[$ts - $tap - $ec] ip route add default via $if_gw table $tap\n";
@@ -303,8 +228,7 @@ while ($count == 0 && $i < $sql_dhcp_retries) {
     print LOG "[$ts - $tap - $ec] Error: The tap device was not present.\n";
     $err = 1;
     break;
-  }
-  else {
+  } else {
     $count = `ifconfig $tap | grep "inet addr:" | wc -l`;
     chomp($count);
   }

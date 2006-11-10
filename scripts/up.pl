@@ -1,10 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 ###################################
 # Startup script for IDS server   #
 # SURFnet IDS                     #
-# Version 1.02.01                 #
-# 21-02-2006	                  #
+# Version 1.04.01                 #
+# 07-11-2006	                  #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
@@ -28,6 +28,12 @@
 #                                                                                       #
 # Contact ids@surfnet.nl                                                                #
 #########################################################################################
+
+#####################
+# Changelog:
+# 1.04.01 Code layout
+# 1.02.01 Initial release
+#####################
 
 ##################
 # Modules used
@@ -59,8 +65,7 @@ if ($logstamp == 1) {
     mkdir("$surfidsdir/log/$day$month$year/$tap");
   }
   $logfile = "$surfidsdir/log/$day$month$year/$tap/$logfile";
-}
-else {
+} else {
   $logfile = "$surfidsdir/log/$logfile";
 }
 
@@ -98,8 +103,7 @@ sub getts {
 sub getec {
   if ($? == 0) {
     my $ec = "Ok";
-  }
-  else {
+  } else {
     my $ec = "Err - $?";
   }
 }

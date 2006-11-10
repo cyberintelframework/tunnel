@@ -3,14 +3,15 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.02.05
-# 04-09-2006
+# Version 1.04.01
+# 07-11-2006
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 #############################################
 # Changelog:
+# 1.04.01 Rereleased as 1.04.01
 # 1.02.05 Rerelease as perl script
 # 1.02.04 Key and certificate check bugfix
 # 1.02.03 Initial release

@@ -3,8 +3,8 @@
 ###################################
 # Stop script for IDS server	  #
 # SURFnet IDS                     #
-# Version 1.02.06                 #
-# 09-10-2006                      #
+# Version 1.04.02                 #
+# 08-11-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
@@ -31,6 +31,8 @@
 
 #####################
 # Changelog:
+# 1.04.02 Included tnfunctions.inc.pl and modified code structure
+# 1.04.01 Code layout
 # 1.02.06 Added vlan support
 # 1.02.05 Killing dhclient3 correctly if multiple instances are running
 # 1.02.04 Fixed a bug with removing the route to the sensor
@@ -52,6 +54,8 @@ use Time::localtime;
 $tap = $ARGV[0];
 
 do '/etc/surfnetids/surfnetids-tn.conf';
+require "$surfidsdir/scripts/tnfunctions.inc.pl";
+
 $logfile =~ s|.*/||;
 if ($logstamp == 1) {
   $day = localtime->mday();
@@ -70,49 +74,8 @@ if ($logstamp == 1) {
     mkdir("$surfidsdir/log/$day$month$year/$tap");
   }
   $logfile = "$surfidsdir/log/$day$month$year/$tap/$logfile";
-}
-else {
+} else {
   $logfile = "$surfidsdir/log/$logfile";
-}
-
-##################
-# Functions
-##################
-
-sub getts {
-  my $ts = time();
-  my $year = localtime->year() + 1900;
-  my $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  my $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  my $hour = localtime->hour();
-  if ($hour < 10) {
-    $hour = "0" . $hour;
-  }
-  my $min = localtime->min();
-  if ($min < 10) {
-    $min = "0" . $min;
-  }
-  my $sec = localtime->sec();
-  if ($sec < 10) {
-    $sec = "0" . $sec;
-  }
-
-  my $timestamp = "$day-$month-$year $hour:$min:$sec";
-}
-
-sub getec {
-  if ($? == 0) {
-    my $ec = "Ok";
-  }
-  else {
-    my $ec = "Err - $?";
-  }
 }
 
 ####################
@@ -123,163 +86,104 @@ sub getec {
 open(LOG, ">> $logfile");
 
 $ts = getts();
-print LOG "[$ts - $tap] Starting down.pl\n";
-
-#print LOG "======================================================\n";
-#foreach $key (sort keys(%ENV)) {
-#  print LOG "$key = $ENV{$key}\n";
-#}
-#print LOG "======================================================\n";
+printlog("Starting down.pl");
+#print LOG "[$ts - $tap] Starting down.pl\n";
 
 # Connect to the database (dbh = DatabaseHandler or linkserver)
-$dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass);
-$ts = getts();
-print LOG "[$ts - $tap] Connecting to $pgsql_dbname with DSN: $dsn\n";
-if ($dbh ne "") {
-  print LOG "[$ts - $tap] Connect result: Ok\n";
-}
-else {
-  print LOG "[$ts - $tap - Err] Connect result: failed\n";
-  $pgerr = $DBI::errstr;
-  chomp($pgerr);
-  print LOG "[$ts - $tap - Err] Error message: $pgerr\n";
-}
+$dbconn = connectdb();
 
-# Reset status
-$sth = $dbh->prepare("UPDATE sensors SET status = 0 WHERE tap = '$tap'");
-$ts = getts();
-print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET status = 0 WHERE tap = '$tap'\n";
-$execute_result = $sth->execute();
-$ts = getts();
-print LOG "[$ts - $tap] Executed query: $execute_result\n";
-
-# Kill dhclient3
-@dhclients = `ps -ef | grep dhclient3 | grep -v grep | grep "^.*$tap\$" | awk '{print \$2}'`;
-foreach (@dhclients) {
-  $dhclient_pid = $_;
-  chomp($dhclient_pid);
-  $kill_result = `kill $dhclient_pid`;
+if ($dbconn eq "true") {
+  # Reset status
+  $sql = "UPDATE sensors SET status = 0 WHERE tap = '$tap'";
+  $sth = $dbh->prepare($sql);
   $ts = getts();
-  $ec = getec();
-  print LOG "[$ts - $tap - $ec] Killed dhclient3 with pid ($dhclient_pid)\n";
+  printlog("Prepared query: $sql");
+  $er = $sth->execute();
+  $ts = getts();
+  printlog("Executed query: $er");
 }
+
+$killresult = killdhclient($tap);
 
 # Delete .leases file
 `rm -f /var/lib/dhcp3/$tap.leases`;
-$ts = getts();
 $ec = getec();
-print LOG "[$ts - $tap - $ec] Deleted dhcp lease file /var/lib/dhcp3/$tap.leases\n";
+printlog("Deleted dhcp lease file /var/lib/dhcp3/$tap.leases", $ec);
 
-# Delete source based routing rule
-$total_if_ip = `ip rule list | grep -i "$tap" | cut -f2 -d " " | wc -l`;
-chomp($total_if_ip);
-$ts = getts();
-$ec = getec();
-print LOG "[$ts - $tap - $ec] Retrieved routing rules: $total_if_ip\n";
-for ($i=1; $i<=$total_if_ip; $i++) {
-  # Get former ip address of tap device
-  $if_ip = `ip rule list | grep -i "$tap" | cut -f2 -d " " | tail -1`;
-  chomp($if_ip);
-  # Delete rule from ip address in table if
-  `ip rule del from $if_ip table $tap`;
-  $ts = getts();
-  $ec = getec();
-  print LOG "[$ts - $tap - $ec] Deleted ip rule: ip rule del from $if_ip table $tap\n";
-}
+$result = deliprules($tap);
 
-if ($dbh ne "") {
+if ($dbconn eq "true") {
   # Get the remote IP address.
   $remoteip = $ENV{REMOTE_HOST};
   if ( ! $remoteip ) {
     # Remote IP address was not set in the environment variables. Get it from the database.
     # Prepare and execute sql query on database to retrieve remoteip.
-    $sth = $dbh->prepare("SELECT remoteip FROM sensors WHERE tap = '$tap'");
-    $ts = getts();
-    print LOG "[$ts - $tap] Prepared query: SELECT remoteip FROM sensors WHERE tap = '$tap'\n";
-    $execute_result = $sth->execute();
-    $ts = getts();
-    print LOG "[$ts - $tap] Executed query: $execute_result\n";
-
-    # Get remote ip address of tap device ($tap) from the query result.
-    @row = $sth->fetchrow_array;
-    $ts = getts();
-    $remoteip = $row[0];
+    $remoteip = dbremoteip($tap);
   }
-  print LOG "[$ts - $tap] Remoteip = $remoteip\n";
+  printlog("Remoteip: $remoteip");
 
   # Get the network config method. (Static / DHCP)
-  $sth = $dbh->prepare("SELECT netconf FROM sensors WHERE tap = '$tap'");
-  $ts = getts();
-  print LOG "[$ts - $tap] Prepared query: SELECT netconf FROM sensors WHERE tap = '$tap'\n";
-  $execute_result = $sth->execute();
-  $ts = getts();
-  print LOG "[$ts - $tap] Executed query: $execute_result\n";
-
-  @row = $sth->fetchrow_array;
-  $ts = getts();
-  $netconf = $row[0];
+  $netconf = dbnetconf($tap);
 
   if ($netconf eq "dhcp" || $netconf eq "" || $netconf eq "vland") {
     # Network configuration method was DHCP. We delete both the tap device and address from the database.
-    print LOG "[$ts - $tap] Network config method: DHCP\n";
+    printlog("Network config method: DHCP");
     # Execute query to remove tap device information from database.
-    $execute_result = $dbh->do("UPDATE sensors SET tap = '', tapip = NULL WHERE tap = '$tap'");
+    $sql = "UPDATE sensors SET tap = '', tapip = NULL WHERE tap = '$tap'";
+    $er = $dbh->do($sql);
     $ts = getts();
-    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '', tapip = NULL WHERE tap = '$tap'\n";
-    print LOG "[$ts - $tap] Executed query: $execute_result\n";
-  }
-  else {
+    printlog("Prepared query: $sql");
+    printlog("Executed query: $er");
+  } else {
     # Network configuration method was Static. We don't delete the tap IP address from the database.
-    print LOG "[$ts - $tap] Network config method: static\n";
+    printlog("Network config method: static");
     # Execute query to remove tap device information from database.
-    $execute_result = $dbh->do("UPDATE sensors SET tap = '' WHERE tap = '$tap'");
+    $sql = "UPDATE sensors SET tap = '' WHERE tap = '$tap'";
+    $er = $dbh->do($sql);
     $ts = getts();
-    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '' WHERE tap = '$tap'\n";
-    print LOG "[$ts - $tap] Executed query: $execute_result\n";
+    printlog("Prepared query: $sql");
+    printlog("Executed query: $er");
   }
 
   # Delete route to connecting ip address of client via local gateway.
-  $sth = $dbh->prepare("SELECT COUNT(remoteip) FROM sensors WHERE remoteip = '$remoteip'");
+  $sql = "SELECT COUNT(remoteip) FROM sensors WHERE remoteip = '$remoteip'";
+  $sth = $dbh->prepare($sql);
   $ts = getts();
-  print LOG "[$ts - $tap] Prepared query: SELECT COUNT(remoteip) FROM sensors WHERE remoteip = '$remoteip'\n";
-  $execute_result = $sth->execute();
+  printlog("Prepared query: $sql");
+  $er = $sth->execute();
   $ts = getts();
-  print LOG "[$ts - $tap] Executed query: $execute_result\n";
+  printlog("Executed query: $er");
 
   # Get the count of remote ip addresses from the query result.
   @row = $sth->fetchrow_array;
   $ts = getts();
   $count = $row[0];
-  print LOG "[$ts - $tap] Query result: count = $count\n";
+  printlog("Query result: count = $count");
   if ($count == 1) {
     # There is only 1 remoteip address in the database so we can delete the static route towards this IP.
     `route del -host $remoteip`;
     $ts = getts();
     $ec = getec();
-    print LOG "[$ts - $tap - $ec] Deleted route: route del -host $remoteip\n";
+    printlog("Deleted route: route del -host $remoteip", "$ec");
   }
-}
-else {
+} else {
   $remoteip = $ENV{REMOTE_HOST};
   `route del -host $remoteip`;
   $ts = getts();
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] Deleted route: route del -host $remoteip\n";
+  printlog("Deleted route: route del -host $remoteip", "$ec");
 }
 
-
-
 # Flush the routing table of the tap device just to be sure.
-`ip route flush table $tap`;
-$ts = getts();
+$result = flushroutes($tap);
 $ec = getec();
-print LOG "[$ts - $tap - $ec] Flushing routing table for $tap: ip route flush table $tap\n";
+printlog("Flushing routing table for $tap", $ec);
 
 # Closing database connection.
 $dbh = "";
 
 $ts = getts();
-print LOG "-------------finished down.pl-----------\n";
+printlog("-------------finished down.pl-----------");
 
 # Closing log filehandle.
 close(LOG);

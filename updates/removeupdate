@@ -3,10 +3,17 @@
 ###################################
 # Update script for update
 # SURFnet IDS
-# Version 1.02.03
-# 04-09-2006
+# Version 1.04.01
+# 07-11-2006
 # Jan van Lith & Kees Trippelvitz
 ###################################
+
+#############################################
+# Changelog:
+# 1.04.01 Rereleased as 1.04.01
+# 1.03.01 Rerelease as perl script
+# 1.02.03 Initial release
+#############################################
 
 # This script is started by update.
 

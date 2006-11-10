@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 ####################################
 # Sign a file for the IDS Server   #
@@ -7,6 +7,12 @@
 # 15-02-2006                       #
 # Kees Trippelvitz                 #
 ####################################
+
+#####################
+# Changelog:
+# 1.04.01 Rereleased as perl script
+# 1.02.01 Initial release
+#####################
 
 ####################
 # Variables used

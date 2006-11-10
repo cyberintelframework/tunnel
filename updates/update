@@ -3,13 +3,14 @@
 #########################################
 # Update script for SURFnet IDS Sensor	#
 # SURFnet IDS                           #
-# Version 1.02.18                       #
-# 04-09-2006                            #
+# Version 1.04.01                       #
+# 07-11-2006                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 1.04.01 Rereleased as 1.04.01
 # 1.02.18 Rereleased as perl script
 # 1.02.17 Fixed a small bug in test of $action 
 # 1.02.16 Fixed a bug in the check_ssh grep
@@ -24,7 +25,6 @@ $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
 do "$basedir/functions.inc.pl";
 do "$basedir/network_if.conf";
-
 
 ################
 # Start script #
@@ -107,7 +107,7 @@ if ($netconf eq "vlan") {
   update_process($if, $vlanid);
 }
 
-sub update_process(){
+sub update_process() {
   $if=$_[0];
   $vlanid=$_[1];
 
