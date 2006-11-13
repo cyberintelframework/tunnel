@@ -3,8 +3,8 @@
 ###################################
 # Stop script for IDS server	  #
 # SURFnet IDS                     #
-# Version 1.04.02                 #
-# 08-11-2006                      #
+# Version 1.04.03                 #
+# 13-11-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
@@ -31,6 +31,7 @@
 
 #####################
 # Changelog:
+# 1.04.03 Fixed status update
 # 1.04.02 Included tnfunctions.inc.pl and modified code structure
 # 1.04.01 Code layout
 # 1.02.06 Added vlan support
@@ -129,7 +130,7 @@ if ($dbconn eq "true") {
     # Network configuration method was DHCP. We delete both the tap device and address from the database.
     printlog("Network config method: DHCP");
     # Execute query to remove tap device information from database.
-    $sql = "UPDATE sensors SET tap = '', tapip = NULL WHERE tap = '$tap'";
+    $sql = "UPDATE sensors SET tap = '', tapip = NULL, status = 0 WHERE tap = '$tap'";
     $er = $dbh->do($sql);
     $ts = getts();
     printlog("Prepared query: $sql");
@@ -138,7 +139,7 @@ if ($dbconn eq "true") {
     # Network configuration method was Static. We don't delete the tap IP address from the database.
     printlog("Network config method: static");
     # Execute query to remove tap device information from database.
-    $sql = "UPDATE sensors SET tap = '' WHERE tap = '$tap'";
+    $sql = "UPDATE sensors SET tap = '', status = 0 WHERE tap = '$tap'";
     $er = $dbh->do($sql);
     $ts = getts();
     printlog("Prepared query: $sql");
