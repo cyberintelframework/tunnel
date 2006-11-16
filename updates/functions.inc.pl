@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.01
-# 04-09-2006
+# Version 1.04.02
+# 16-11-2006
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.02 Added regexp for the validip function
 # 1.04.01 Initial release
 ################
 
@@ -674,33 +675,40 @@ sub dossh() {
 sub validip() {
   my ($ip, @ip_ar, $i, $count, $dec);
   $ip = $_[0];
-  $countdots = ($ip =~ tr/\.//);
-  if ($countdots != 3) {
+  $regexp = "^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))$";
+  if ($ip !~ /$regexp/) {
     return 1;
+  } else {
+    return 0;
   }
-  @ip_ar = split(/\./, $ip);
-  $count = @ip_ar;
-  if ($count != 4) {
-    return 2;
-  }
-  $i = 0;
-  foreach $dec (@ip_ar) {
-    if ($dec =~ /^(\d+)$/) {
-      if ($i == 0) {
-        if ($dec <= 0 || $dec > 255) {
-          return 3;
-	}
-      } else {
-        if ($dec < 0 || $dec > 255) {
-          return 4;
-	}
-      }
-    } else {
-      return 5;
-    }
-    $i++;
-  }
-  return 0;
+  return 1;
+#  $countdots = ($ip =~ tr/\.//);
+#  if ($countdots != 3) {
+#    return 1;
+#  }
+#  @ip_ar = split(/\./, $ip);
+#  $count = @ip_ar;
+#  if ($count != 4) {
+#    return 2;
+#  }
+#  $i = 0;
+#  foreach $dec (@ip_ar) {
+#    if ($dec =~ /^(\d+)$/) {
+#      if ($i == 0) {
+#        if ($dec <= 0 || $dec > 255) {
+#          return 3;
+#	}
+#      } else {
+#        if ($dec < 0 || $dec > 255) {
+#          return 4;
+#	}
+#      }
+#    } else {
+#      return 5;
+#    }
+#    $i++;
+#  }
+#  return 0;
 }
 
 # 3.05 fixclientconf
