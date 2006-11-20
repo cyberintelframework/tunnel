@@ -104,7 +104,7 @@ if ($? == 0) {
   $dbconn = connectdb();
   if ($dbconn eq "true") {
     $mac = dbmacaddr("$sensor", "$remoteip");
-    if ($mac ne "false") {
+    if ("$mac" eq "false") {
       # If no mac address is present in the database, add the generated one from OpenVPN to the database.
       printlog("No MAC address in sensors table for $sensor!");
       $mac = `ifconfig $tap | grep HWaddr | awk '{print \$5}'`;
@@ -118,7 +118,7 @@ if ($? == 0) {
       printlog("Executed query: $er");
     } else {
       # MAC address is present in the database, update the interface with the new mac.
-      printlog("New MAC address already known!");
+      printlog("MAC address already known!");
       `ifconfig $tap hw ether $mac`;
       $ec = getec();
       printlog("MAC address of $tap set to $mac!", "$ec");

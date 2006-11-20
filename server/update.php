@@ -3,8 +3,8 @@
 ####################################
 # Update info                      #
 # SURFnet IDS                      #
-# Version 1.02.05                  #
-# 09-08-2006                       #
+# Version 1.04.01                  #
+# 20-11-2006                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Modified by Peter Arts           #
 ####################################
@@ -36,8 +36,9 @@
 
 ####################################
 # Changelog:
-# 1.02.05 Changed the check on $checkssh to intval()
-# 1.02.04 Make sure that checkssh is always 0 or 1
+# 1.04.01 Released as 1.04.01
+# 1.03.01 Released as part of the 1.03 package
+# 1.02.04 Changed the check on $checkssh to intval()
 # 1.02.03 Added some more input checks
 # 1.02.02 Changed the way SSH remote control is handled
 # 1.02.01 Initial release

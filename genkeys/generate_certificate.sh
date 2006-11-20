@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Load the generic certificate variables.
-. /home/surfids/trunk/genkeys/vars.conf
+. /home/surfnetids/tunnel/trunk/genkeys/vars.conf
 
 # Client specific variables.
 KEY_NAME=$1

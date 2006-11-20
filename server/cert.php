@@ -3,8 +3,8 @@
 ####################################
 # Certificate Generation Handler   #
 # SURFnet IDS                      #
-# Version 1.02.04                  #
-# 26-09-2006                       #
+# Version 1.04.01                  #
+# 20-11-2006                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
@@ -35,9 +35,10 @@
 
 ####################################
 # Changelog:
-# 1.02.04 Organisation identifiers, removed access header
+# 1.04.01 Organisation identifiers, removed access header
+# 1.03.01 Released as part of the 1.03 package
 # 1.02.03 Added some more input checks
-# 1.02.02 Added identifier column to organisations table
+# 1.02.02 pg_escape_string added to the input variables
 # 1.02.01 Initial release
 ####################################
 
@@ -66,21 +67,6 @@ if (isset($_GET['vlanid'])) {
   echo "ERROR: vlanid was empty.<br />\n";
 }
 
-#$accept_header = $_SERVER['HTTP_ACCEPT'];
-#$search = substr_count($accept_header, ",");
-#if ($search > 0) {
-#  $accept_header_ar = explode(",", $accept_header);
-#  $accept_header = $accept_header_ar[1];
-#}
-#$sensor_md5 = trim($accept_header);
-#$server_md5 = `md5sum $surfidsdir/serverkeys/ca.crt | awk '{print $1}'`;
-#$server_md5 = trim($server_md5);
-
-#if ($server_md5 != $sensor_md5) {
-#  echo "ERROR: Wrong header info.<br />\n";
-#}
-# Check if $localip is not an empty variable.
-#elseif ($localip != "") {
 if ($localip != "" && $vlanid != "") {
   # Select all records in the table Sensors.
   $sql_sensors = "SELECT last_value FROM sensors_id_seq";
@@ -93,41 +79,97 @@ if ($localip != "" && $vlanid != "") {
   # The new sensor will be given a name.
   $keyname = "sensor" . $new_sensor_nr;
 
-  # Retrieve the organisation name.
+  # Starting organisation identifier stuff
+  $orgname = "false";
   if ($certsoapconn == 1) {
-    $org = getOrg($remoteip, $soapurl, $soapuser, $soappass);
+    # SURFnet SOAP identifier check
+    $ident = getOrg($remoteip, $soapurl, $soapuser, $soappasss);
+    if ($ident != "false") {
+      $orgid = checkident($ident, 4);
+      $orgname = $ident;
+    } else {
+      $orgid = 0;
+    }
   }
-  else {
-    $org = getDomain($remotehost);
+
+  # Domain identifier check
+  if ($remoteip != $remotehost && $orgid == 0) {
+    $ident = getDomain($remotehost);
+    if ($ident != "false") {
+      $orgid = checkident($ident, 3);
+      $orgname = $ident;
+    } else {
+      $orgid = 0;
+    }
   }
+
+  # WHOIS identifier check
+  if ($orgid == 0) {
+    $ident = chkwhois($remoteip, 2);
+    if ($ident != "false") {
+      $orgid = checkident($ident);
+      $orgname = $ident;
+    } else {
+      $orgid = 0;
+    }
+  }
+
+  # Random Identifier String check
+  if ($orgid == 0 && isset($_GET['ris'])) {
+    $ident = pg_escape_string($_GET['ris']);
+    $pattern = "/^[a-zA-Z0-9 ]*$/";
+    if (preg_match($pattern, $ident)) {
+      $orgid = checkident($ident, 1);
+    }
+  }
+
+  if ($orgid == 0) {
+    # Organisation did not exist yet.
+    if ($orgname == "false") {
+      $orgname = $remoteip;
+    }
+    $ranges = "";
+    $sql_addorg = "INSERT INTO organisations (organisation, ranges) VALUES ('$orgname', '$ranges')";
+    $result_addorg = pg_query($pgconn, $sql_addorg);
+
+    $sql_getorgid = "SELECT id FROM organisations WHERE organisation = '" .$orgname. "'";
+    $result_getorgid = pg_query($pgconn, $sql_getorgid);
+    $orgid = pg_result($result_getorgid, 0);
+  }
+
+  # Retrieve the organisation name.
+#  if ($certsoapconn == 1) {
+#    $org = getOrg($remoteip, $soapurl, $soapuser, $soappass);
+#  } else {
+#    $org = getDomain($remotehost);
+#  }
 
   # If the organisation does not exist yet, add a new one.
-  $sql_checkorg = "SELECT id FROM org_id WHERE identifier = '" .$org. "'";
-  $result_checkorg = pg_query($pgconn, $sql_checkorg);
-  $numrows_checkorg = pg_num_rows($result_checkorg);
-  if ($numrows_checkorg == 0) {
-    $ranges = "";
-    if ($certsoapconn == 1) {
-      $ranges =  getorgif($org, $soapurl, $soapuser, $soappass);
-    }
+#  $sql_checkorg = "SELECT id FROM org_id WHERE identifier = '" .$org. "'";
+#  $result_checkorg = pg_query($pgconn, $sql_checkorg);
+#  $numrows_checkorg = pg_num_rows($result_checkorg);
+#  if ($numrows_checkorg == 0) {
+#    $ranges = "";
+#    if ($certsoapconn == 1) {
+#      $ranges =  getorgif($org, $soapurl, $soapuser, $soappass);
+#    }
 
-    $sql_addorg = "INSERT INTO organisations (organisation, ranges) VALUES ('$org', '$ranges')";
-    $result_addorg = pg_query($pgconn, $sql_addorg);
+#    $sql_addorg = "INSERT INTO organisations (organisation, ranges) VALUES ('$org', '$ranges')";
+#    $result_addorg = pg_query($pgconn, $sql_addorg);
 
-    # Get the organisation id.
-    $sql_getorgid = "SELECT id FROM org_id WHERE identifier = '" .$org. "'";
-    $result_getorgid = pg_query($pgconn, $sql_getorgid);
-    $orgid = pg_result($result_getorgid, 0);
+#    # Get the organisation id.
+#    $sql_getorgid = "SELECT id FROM org_id WHERE identifier = '" .$org. "'";
+#    $result_getorgid = pg_query($pgconn, $sql_getorgid);
+#    $orgid = pg_result($result_getorgid, 0);
 
-    $sql_addorg = "INSERT INTO org_id (identifier, orgid) VALUES ('$org', $orgid)";
-    $result_addorg = pg_query($pgconn, $sql_addorg);
-  }
-  else {
-    # Get the organisation id.
-    $sql_getorgid = "SELECT orgid FROM org_id WHERE identifier = '" .$org. "'";
-    $result_getorgid = pg_query($pgconn, $sql_getorgid);
-    $orgid = pg_result($result_getorgid, 0);
-  }
+#    $sql_addorg = "INSERT INTO org_id (identifier, orgid) VALUES ('$org', $orgid)";
+#    $result_addorg = pg_query($pgconn, $sql_addorg);
+#  } else {
+#    # Get the organisation id.
+#    $sql_getorgid = "SELECT orgid FROM org_id WHERE identifier = '" .$org. "'";
+#    $result_getorgid = pg_query($pgconn, $sql_getorgid);
+#    $orgid = pg_result($result_getorgid, 0);
+#  }
 
   # Update the database with Keyname, Remoteip, Localip and Organisation.
   $sql_addsensor = "INSERT INTO sensors (keyname, remoteip, localip, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', $orgid, $vlanid)";

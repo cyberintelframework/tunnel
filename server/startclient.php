@@ -36,7 +36,11 @@
 
 ####################################
 # Changelog:
-# 1.02.02 Added some more input checks
+# 1.04.02 VLAN support
+# 1.04.01 Released as 1.04.01
+# 1.03.01 Released as part of the 1.03 package
+# 1.02.03 Added some more input checks
+# 1.02.02 pg_escape_string added to the input variables
 # 1.02.01 Initial release
 ####################################
 
@@ -75,8 +79,7 @@ $err = 0;
 ###########
 if ( isset($_GET['keyname']) ) {
   $keyname = stripinput(pg_escape_string($_GET['keyname']));
-}
-else {
+} else {
   echo "ERRNO: 91\n";
   echo "ERROR: Keyname not present.\n";
   $err = 1;
@@ -87,8 +90,7 @@ else {
 ###########
 if ( isset($_GET['localip']) ) {
   $localip = stripinput(pg_escape_string($_GET['localip']));
-}
-else {
+} else {
   echo "ERRNO: 92\n";
   echo "ERROR: Localip not present.\n";
   $err = 1;
@@ -99,8 +101,7 @@ else {
 ############
 if ( isset($_GET['ifmethod']) ) {
   $clientconf = stripinput(pg_escape_string($_GET['ifmethod']));
-}
-else {
+} else {
   echo "ERRNO: 93\n";
   echo "ERROR: Client network config (ifmethod) not present.\n";
   $err = 1;
@@ -111,8 +112,7 @@ else {
 ####################
 if ( isset($_GET['detail']) ) {
   $netconfdetail = stripinput(pg_escape_string($_GET['detail']));
-}
-else {
+} else {
   echo "ERRNO: 94\n";
   echo "ERROR: Details of ifmethod not present.\n";
   $err = 1;
@@ -122,8 +122,7 @@ else {
 ############
 if ( isset($_GET['vlanid']) ) {
   $vlanid = stripinput(pg_escape_string($_GET['vlanid']));
-}
-else {
+} else {
   echo "ERRNO: 95\n";
   echo "VLAN ID not set.\n";
   $err = 1;
@@ -137,25 +136,23 @@ $sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname' AND vlanid = '$
 $result_sensors = pg_query($pgconn, $sql_sensors);
 $numrows = pg_num_rows($result_sensors);
 if ($numrows == 0) {
-    if ($clientconf == "vland" || $clientconf == "vlans") {
-        $sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname'";
-        $result_sensors = pg_query($pgconn, $sql_sensors);
-        $row = pg_fetch_assoc($result_sensors);
-        $orgid = $row['organisation'];
-        $sql_add_row = "INSERT INTO sensors (keyname, remoteip, localip, netconf, netconfdetail, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', '$clientconf', '$netconfdetail', $orgid, $vlanid)";
-        echo "SQLADD: $sql_add_row\n";
-        $result_add_row = pg_query($pgconn, $sql_add_row);
-   }
-   elseif ($clientconf == "dhcp" || $clientconf == "static") {
-      $sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname'";
-      $result_sensors = pg_query($pgconn, $sql_sensors);
-      $row = pg_fetch_assoc($result_sensors);
-      $orgid = $row['organisation'];
-      $sql_add_row = "INSERT INTO sensors (keyname, remoteip, localip, netconf, netconfdetail, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', '$clientconf', '$netconfdetail', $orgid, $vlanid)";
-      echo "SQLADD: $sql_add_row\n";
-      $result_add_row = pg_query($pgconn, $sql_add_row);
-
-    }
+  if ($clientconf == "vland" || $clientconf == "vlans") {
+    $sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname'";
+    $result_sensors = pg_query($pgconn, $sql_sensors);
+    $row = pg_fetch_assoc($result_sensors);
+    $orgid = $row['organisation'];
+    $sql_add_row = "INSERT INTO sensors (keyname, remoteip, localip, netconf, netconfdetail, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', '$clientconf', '$netconfdetail', $orgid, $vlanid)";
+    echo "SQLADD: $sql_add_row\n";
+    $result_add_row = pg_query($pgconn, $sql_add_row);
+  } elseif ($clientconf == "dhcp" || $clientconf == "static") {
+    $sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname'";
+    $result_sensors = pg_query($pgconn, $sql_sensors);
+    $row = pg_fetch_assoc($result_sensors);
+    $orgid = $row['organisation'];
+    $sql_add_row = "INSERT INTO sensors (keyname, remoteip, localip, netconf, netconfdetail, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', '$clientconf', '$netconfdetail', $orgid, $vlanid)";
+    echo "SQLADD: $sql_add_row\n";
+    $result_add_row = pg_query($pgconn, $sql_add_row);
+  }
 }
  
 ###############################
@@ -227,19 +224,16 @@ if ($err == 0) {
       $sql_laststart = "UPDATE sensors SET laststart = '$date', status = 1, tapip = NULL WHERE keyname = '$keyname' and vlanid='$vlanid'";
       $result_laststart = pg_query($pgconn, $sql_laststart);
       echo "Sensor status updated.\n";
-  }
-  else {
+  } else {
     if ($tapip != "NULL") {
       $sql_laststart = "UPDATE sensors SET laststart = '$date', status = 1 WHERE keyname = '$keyname' AND vlanid='$vlanid'";
       $result_laststart = pg_query($pgconn, $sql_laststart);
       echo "Sensor status updated.\n";
-    }
-    else {
+    } else {
       echo "ERRNO: 99\n";
       echo "ERROR: No static ip configuration on the server.\n";
     }
   }
- 	
 }
 
 # Close the connection with the database.

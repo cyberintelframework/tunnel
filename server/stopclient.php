@@ -4,7 +4,7 @@
 # Stopclient info update           #
 # SURFnet IDS                      #
 # Version 1.02.02                  #
-# 26-07-2006                       #
+# 20-11-2006                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Modified by Peter Arts           #
 ####################################
@@ -36,6 +36,8 @@
 
 ####################################
 # Changelog:
+# 1.04.01 Released as 1.04.01
+# 1.03.01 Released as part of the 1.03 package
 # 1.02.02 Added some more input checks
 # 1.02.01 Initial release
 ####################################
@@ -75,8 +77,7 @@ $err = 0;
 ###########
 if ( isset($_GET['keyname']) ) {
   $keyname = stripinput(pg_escape_string($_GET['keyname']));
-}
-else {
+} else {
   echo "ERRNO: 91\n";
   echo "ERROR: Keyname not present.\n";
   $err = 1;
@@ -87,8 +88,7 @@ else {
 ###########
 if ( isset($_GET['localip']) ) {
   $localip = stripinput(pg_escape_string($_GET['localip']));
-}
-else {
+} else {
   echo "ERRNO: 92\n";
   echo "ERROR: Localip not present.\n";
   $err = 1;
@@ -99,8 +99,7 @@ else {
 ###########
 if ( isset($_GET['vlanid']) ) {
   $vlanid = stripinput(pg_escape_string($_GET['vlanid']));
-}
-else {
+} else {
   echo "ERRNO: 93\n";
   echo "ERROR: vlanid not present.\n";
   $err = 1;
