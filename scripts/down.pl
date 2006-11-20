@@ -31,10 +31,11 @@
 
 #####################
 # Changelog:
-# 1.04.03 Fixed status update
-# 1.04.02 Included tnfunctions.inc.pl and modified code structure
+# 1.04.03 Included tnfunctions.inc.pl and modified code structure
+# 1.04.02 Added vlan support
 # 1.04.01 Code layout
-# 1.02.06 Added vlan support
+# 1.03.02 Fixed status update
+# 1.03.01 Changed version to 1.03.01
 # 1.02.05 Killing dhclient3 correctly if multiple instances are running
 # 1.02.04 Fixed a bug with removing the route to the sensor
 # 1.02.03 Changed the way dhclient3 gets killed

@@ -13,6 +13,35 @@
 # 1.04.01 Initial release
 #####################
 
+###############################################
+# INDEX
+###############################################
+# 1             All CHK functions
+# 1.01          chkdhclient
+# 2		All GET functions
+# 2.01		getts
+# 2.02		getec
+# 2.03		getlocalgw
+# 2.04		getnetwork
+# 2.05		getifip
+# 3		ALL DB functions
+# 3.01		dbremoteip
+# 3.02		dbnetconf
+# 3.03		dbmacaddr
+# 4		ALL misc functions
+# 4.01		printlog
+# 4.02		killdhclient
+# 4.03		deliprules
+# 4.04		flushroutes
+# 4.05		printenv
+# 4.06		connectdb
+# 4.07		startdhcp
+# 4.08		ipruleadd
+# 4.09		addroute
+# 4.10		delroute
+# 4.11		adddefault
+###############################################
+
 # 1.01 chkdhclient
 # Function to check if there's a dhclient running for a specific tap device
 # Returns 0 if dhclient is running
@@ -70,6 +99,55 @@ sub getec() {
   } else {
     $ec = "Err - $?";
   }
+}
+
+# 2.03 getlocalgw
+# Function to get the IP address of the local gateway
+# Returns false if no gateway was found
+sub getlocalgw() {
+  my ($gw);
+  $gw = `route -n | grep -i "0.0.0.0" | grep -i UG | awk '{print \$2}'`;
+  chomp($gw);
+  if ("$gw" eq "") {
+    return "false";
+  } else {
+    return $gw;
+  }
+}
+
+# 2.04 getnetwork
+# Function to retrieve the network when given an IP and netmask
+sub getnetwork() {
+  my ($ip, $nm, $network);
+  $ip = $_[0];
+  $nm = $_[1];
+  chomp($ip);
+  chomp($nm);
+  if ($ip && $nm) {
+    $network = `$surfidsdir/scripts/ipcalc $ip $nm | grep -i network | awk '{print \$2}'`;
+    chomp($network);
+    return $network;
+  } else {
+    return "false";
+  }
+  return "false";
+}
+
+# 2.05 getifip
+# Function to retrieve the IP address from an interface
+# Returns IP address on success
+# Returns false on failure
+sub getifip() {
+  my ($if, $ip);
+  $if = $_[0];
+  $ip = `ifconfig $if | grep "inet addr" | awk '{print \$2}' | awk -F: '{print \$2}'`;
+  chomp($ip);
+  if ("$ip" ne "") {
+    return $ip;
+  } else {
+    return "false";
+  }
+  return "false";
 }
 
 # 3.01 dbremoteip
@@ -320,4 +398,73 @@ sub ipruledel() {
   }
   return "false";
 }
+
+# 4.09 addroute
+# Function to add a route to a routing table
+# Returns 0 on success
+# Returns non-zero on failure
+sub addmainroute() {
+  my ($network, $tap, $tapip, $table);
+  $network = $_[0];
+  $tap = $_[1];
+  $tapip = $_[2];
+  $table = $_[3];
+  chomp($network);
+  chomp($tap);
+  chomp($tapip);
+  chomp($table);
+  `ip route add $network dev $tap src $tapip table $table`;
+  if ($? == 0) {
+    return 0;
+  } else {
+    return 1;
+  }
+  return 1;
+}
+
+# 4.10 delroute
+# Function to delete a route from a routing table
+# Returns 0 on success
+# Returns non-zero on failure
+sub delroute() {
+  my ($network, $tap, $tapip, $table);
+  $network = $_[0];
+  $tap = $_[1];
+  $tapip = $_[2];
+  $table = $_[3];
+  chomp($network);
+  chomp($tap);
+  chomp($tapip);
+  chomp($table);
+  `ip route del $network dev $tap src $tapip table $table`;
+  if ($? == 0) {
+    return 0;
+  } else {
+    return 1;
+  }
+  return 1;
+}
+
+# 4.11 adddefault
+# Function to add a default route to a routing table
+# Returns 0 on success
+# Returns non-zero on failure
+sub addmainroute() {
+  my ($gw, $tap, $table);
+  $gw = $_[0];
+  $tap = $_[1];
+  $table = $_[3];
+  chomp($gw);
+  chomp($tap);
+  chomp($table);
+  `ip route add default via $gw table $table`;
+  if ($? == 0) {
+    return 0;
+  } else {
+    return 1;
+  }
+  return 1;
+}
+
+
 return "true";

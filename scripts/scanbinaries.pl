@@ -32,6 +32,7 @@
 #########################################################################
 # Changelog:
 # 1.04.01 Code layout
+# 1.03.01 Released as part of the 1.03 package
 # 1.02.05 Added sql to fill the stats_virus and stats_dialogue tables
 # 1.02.04 Added more comments
 # 1.02.03 Database logging instead of virusinfo files

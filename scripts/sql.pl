@@ -3,8 +3,8 @@
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.04.01                 #
-# 07-11-2006                      #
+# Version 1.04.04                 #
+# 17-11-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
 ###################################
@@ -33,9 +33,12 @@
 
 #####################
 # Changelog:
+# 1.04.04 Included tnfunctions.inc.pl and modified code structure
+# 1.04.03 Added vlan support 
+# 1.04.02 Added ARP monitoring support
 # 1.04.01 Rereleased as 1.04.01
-# 1.02.03 Added vlan support 
-# 1.02.02 Added ARP monitoring support
+# 1.03.02 Added status update
+# 1.03.01 Released as part of the 1.03 package
 # 1.02.01 Initial release
 #####################
 
@@ -166,53 +169,50 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   }
 
   # Just to be sure, flush the routing table of the tap device.
-  $flushtap = `ip route flush table $tap`;
-  $ts = getts();
+  flushroutes($tap);
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] ip route flush table $tap\n";
+  printlog("Flushing $tap routing table!", "$ec");
 
   # Calculate the network based on the tapip and the netmask.
-  $network = `$surfidsdir/scripts/ipcalc $tapip $if_net | grep -i Network`;
-  @network_ar = split(/ +/,$network);
-  $network = $network_ar[1];
-  $ts = getts();
+#  $network = `$surfidsdir/scripts/ipcalc $tapip $if_net | grep -i Network`;
+  $network = getnetwork($tapip, $if_net);
+#  @network_ar = split(/ +/,$network);
+#  $network = $network_ar[1];
+#  $ts = getts();
   $ec = getec();
+  printlog("Network: $network", "$ec");
   print LOG "[$ts - $tap - $ec] Network: $network\n";
 
   # Check if there are any routes present in the main routing table.
   $routecheck = `ip route list | grep $tap | wc -l`;
   chomp($routecheck);
-  $ts = getts();
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] IP routes present in main table: $routecheck\n";
+  printlog("IP routes present in main table: $routecheck", "$ec");
+#  print LOG "[$ts - $tap - $ec] IP routes present in main table: $routecheck\n";
 
   if ($routecheck == 0) {
     # If none were present, add it. This needs to be done otherwise you'll get an error when adding the default gateway
     # for the tap device routing table.
-    $routeadd = `ip route add $network dev $tap src $tapip table main`;
-    $ts = getts();
+    $result = addroute($network, $tap, $tapip, "main");
     $ec = getec();
-    print LOG "[$ts - $tap - $ec] ip route add $network dev $tap src $tapip table main\n";
+    printlog("Adding route to table main", "$ec");
   }
 
   # Add default gateway to the routing table of the tap device.
-  $adddefault = `ip route add default via $if_gw table $tap`;
-  $ts = getts();
+  $result = adddefault($if_gw, $tap, $tap);
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] ip route add default via $if_gw table $tap\n";
+  printlog("Adding default route to table $tap", "$ec");
 
   # At this point we can delete the route to the network from the main table as there is now a default gateway in
   # the routing table from the tap device.
-  $routedel=`ip route del $network dev $tap src $tapip table main`;
-  $ts = getts();
+  $result = delroute($network, $tap, $tapip, "main");
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] ip route del $network dev $tap src $tapip table main\n";
+  printlog("Deleting route from table main", "$ec");
 
   # Add the route to the network to the routing table of the tap device.
-  $routeadd=`ip route add $network dev $tap src $tapip table $tap`;
-  $ts = getts();
+  $result = addroute($network, $tap, $tapip, $tap);
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] ip route add $network dev $tap src $tapip table $tap\n";
+  printlog("Adding route to table $tap", "$ec");
 }
 
 $count = 0;
@@ -223,9 +223,8 @@ while ($count == 0 && $i < $sql_dhcp_retries) {
   $tapcheck = `ifconfig $tap`;
   if ($? != 0) {
     $count = 1;
-    $ts = getts();
     $ec = getec();
-    print LOG "[$ts - $tap - $ec] Error: The tap device was not present.\n";
+    printlog("The tap device was not present!", "$ec");
     $err = 1;
     break;
   } else {
@@ -234,56 +233,45 @@ while ($count == 0 && $i < $sql_dhcp_retries) {
   }
   $i++;
   if ($i == $sql_dhcp_retries) {
-    print LOG "[$ts - $tap] Error: The tap device could not get an IP address.\n";
+    printlog("The tap device could not get an IP address!", "Err");
     $err = 1;
   }
   sleep 1;
 }
 
 if ($err == 0) {
-  $ts = getts();
-  $ec = getec();
-  print LOG "[$ts - $tap - $ec] $tap device is up. Checking ip address.\n";
+  printlog("$tap device is up. Checking IP address.");
 
   # Get the IP address from the tap interface.
-  $tap_ip = `ifconfig $tap | grep "inet addr:"`;
-  chomp($tap_ip);
-  @first_ar = split(/ +/,$tap_ip);
-  $tap_ip = $first_ar[2];
-  @second_ar = split(/:/,$tap_ip);
-  $tap_ip = $second_ar[1];
-  chomp($tap_ip);
-  $ts = getts();
+  $tap_ip = getifip($tap);
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] Tap ip address: $tap_ip\n";
+  printlog("Tap IP address: $tap_ip", "$ec");
 
   # Connect to the database (dbh = DatabaseHandler or linkserver)
-  $dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass)
-        or die $DBI::errstr;
-  $ts = getts();
-  print LOG "[$ts - $tap] Connected to $pgsql_dbname with DSN: $dsn\n";
-  print LOG "[$ts - $tap] Connect result: $dbh\n";
+  $dbconn = connectdb();
 
-  # Update Tap info to the database for the current $sensor.
-  $execute_result = $dbh->do("UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor' AND remoteip = '$remoteip'");
-  $ts = getts();
-  print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor' AND remoteip = '$remoteip'\n";
-  print LOG "[$ts - $tap] Executed query: $execute_result\n";
+  if ("$dbconn" ne "false") {
+    # Update Tap info to the database for the current $sensor.
+    $sql = "UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
+    $er = $dbh->do($sql);
+    printlog("Prepared query: $sql");
+    printlog("Executed query: $er");
 
-  # Closing database connection.
-  $dbh->disconnect;
+    # Closing database connection.
+    $dbh->disconnect;
+  }
 
   if ($enable_pof == 1) {
     system "p0f -d -i $tap -o /dev/null";
-    print LOG "[$ts - $tap] Started p0f script\n";
+    printlog("Started p0f!");
   }
   if ($enable_tcpmonitor == 1 && $sensor_arp == 1) {
     system "$surfidsdir/scripts/pcap.pl $tap &";
-    print LOG "[$ts - $tap] Started pcap.pl script\n";
+    printlog("Started pcap.pl script!");
   }
 }
 
-print LOG "----------------finished sql.pl------------\n";
+printlog("----------------finished sql.pl------------");
 
 # Closing logfile filehandle.
 close(LOG);

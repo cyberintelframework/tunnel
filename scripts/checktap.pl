@@ -3,8 +3,8 @@
 #########################################
 # Checktap script for IDS tunnel server #
 # SURFnet IDS                           #
-# Version 1.04.01                       #
-# 07-11-2006                            #
+# Version 1.04.02                       #
+# 20-11-2006                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
@@ -31,7 +31,9 @@
 
 #####################
 # Changelog:
+# 1.04.02 Included tnfunctions.inc.pl and modified code structure
 # 1.04.01 Code layout
+# 1.03.01 Released as part of the 1.03 package
 # 1.02.02 Adding an ignore on static network configuration
 # 1.02.01 Initial release
 #####################
@@ -46,6 +48,8 @@ use Time::localtime;
 # Variables used
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
+require "$surfidsdir/scripts/tnfunctions.inc.pl";
+
 $logfile =~ s|.*/||;
 if ($logstamp == 1) {
   $day = localtime->mday();
@@ -66,45 +70,6 @@ if ($logstamp == 1) {
 }
 
 ##################
-# Functions
-##################
-
-sub getts {
-  my $ts = time();
-  my $year = localtime->year() + 1900;
-  my $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  my $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  my $hour = localtime->hour();
-  if ($hour < 10) {
-    $hour = "0" . $hour;
-  }
-  my $min = localtime->min();
-  if ($min < 10) {
-    $min = "0" . $min;
-  }
-  my $sec = localtime->sec();
-  if ($sec < 10) {
-    $sec = "0" . $sec;
-  }
-
-  my $timestamp = "$day-$month-$year $hour:$min:$sec";
-}
-
-sub getec {
-  if ($? == 0) {
-    my $ec = "Ok";
-  } else {
-    my $ec = "Err - $?";
-  }
-}
-
-##################
 # Main script
 ##################
 
@@ -114,56 +79,48 @@ open(LOG, ">> $logfile");
 # Get the tap device.
 $tap = $ARGV[0];
 
-$ts = getts();
-print LOG "[$ts - $tap] Starting checktap.pl\n";
+printlog("Starting checktap.pl");
 
 # Connect to the database (dbh = DatabaseHandler or linkserver)
-$dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass)
-      or die $DBI::errstr;
-$ts = getts();
-print LOG "[$ts - $tap] Connected to $pgsql_dbname with DSN: $dsn\n";
-print LOG "[$ts - $tap] Connect result: $dbh\n";
+$dbconn = connectdb();
 
-# Prepare and execute sql query on database to retrieve tapip.
-$sth = $dbh->prepare("SELECT tapip, netconf FROM sensors WHERE tap = '$tap'");
-$ts = getts();
-print LOG "[$ts - $tap] Prepared query: SELECT tapip, netconf FROM sensors WHERE tap = '$tap'\n";
-$execute_result = $sth->execute();
+if ("$dbconn" ne "false") {
+  # Prepare and execute sql query on database to retrieve tapip.
+  $sql = "SELECT tapip, netconf FROM sensors WHERE tap = '$tap'";
+  $sth = $dbh->prepare($sql);
+  printlog("Prepared query: $sql");
+  $er = $sth->execute();
+  printlog("Executed query: $er");
 
-# Get the tap ip address of tap device ($tap) from the query result.
-@row = $sth->fetchrow_array;
-$ts = getts();
-$db_tapip = $row[0];
-$db_netconf = $row[1];
-print LOG "[$ts - $tap] DB Tap IP address: $db_tapip\n";
-print LOG "[$ts - $tap] DB netconf: $db_netconf\n";
+  # Get the tap ip address of tap device ($tap) from the query result.
+  @row = $sth->fetchrow_array;
+  $ts = getts();
+  $db_tapip = $row[0];
+  $db_netconf = $row[1];
+  printlog("DB Tap IP address: $db_tapip");
+  printlog("DB netconf: $db_netconf");
 
-# Get the actual IP address of the tap device.
-$tapip = `ifconfig $tap | grep "inet addr:" | cut -d":" -f2 | cut -d" " -f1`;
-chomp($tapip);
-$ts = getts();
-$ec = getec();
-print LOG "[$ts - $tap - $ec] IP address of $tap: $tapip\n"; 
+  # Get the actual IP address of the tap device.
+  $tapip = getifip($tap);
+  chomp($tapip);
+  printlog("IP address of $tap: $tapip);
 
-if ($db_netconf eq "dhcp") {
-  # If the tap IP addresses don't match, fix it.
-  if ($tapip eq $db_tapip) {
-    print LOG "[$ts - $tap] No change of tap IP address. No need to update.\n";
-  } else {
-    print LOG "[$ts - $tap] Updating the Tap IP address in the database.\n";
-    $execute_result = $dbh->do("UPDATE sensors SET tapip = '$tapip' WHERE tap = '$tap'");
-    $ts = getts();
-    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tapip = '$tapip' WHERE tap = '$tap'\n";
-    print LOG "[$ts - $tap] Executed query: $execute_result\n";
+  if ($db_netconf eq "dhcp" && "$tapip" ne "false") {
+    # If the tap IP addresses don't match, fix it.
+    if ($tapip ne $db_tapip) {
+      printlog("Updating the tap IP address in the database");
+      $sql = "UPDATE sensors SET tapip = '$tapip' WHERE tap = '$tap'";
+      $er = $dbh->do($sql);
+      printlog("Prepared query: $sql");
+      printlog("Executed query: $er");
+    }
   }
-} else {
-  print LOG "[$ts - $tap] Ignoring $db_netconf configuration.\n";
+
+  # Closing database connection.
+  $dbh = "";
 }
 
-# Closing database connection.
-$dbh = "";
-
-print LOG "----------------finished checktap.pl------------\n";
+printlog("----------------finished checktap.pl------------");
 
 # Closing logfile filehandle.
 close(LOG);

@@ -3,8 +3,8 @@
 ###################################
 # Startup script for IDS server   #
 # SURFnet IDS                     #
-# Version 1.04.01                 #
-# 07-11-2006	                  #
+# Version 1.04.02                 #
+# 17-11-2006	                  #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
@@ -31,7 +31,9 @@
 
 #####################
 # Changelog:
-# 1.04.01 Code layout
+# 1.04.02 Included tnfunctions.inc.pl and modified code structure
+# 1.04.01 Released as 1.04.01
+# 1.03.01 Released as part of the 1.03 package
 # 1.02.01 Initial release
 #####################
 
@@ -47,6 +49,8 @@ use Time::localtime;
 $tap = $ARGV[0];
 
 do '/etc/surfnetids/surfnetids-tn.conf';
+require "$surfidsdir/scripts/tnfunctions.inc.pl";
+
 $logfile =~ s|.*/||;
 if ($logstamp == 1) {
   $day = localtime->mday();
@@ -70,45 +74,6 @@ if ($logstamp == 1) {
 }
 
 ##################
-# Functions
-##################
-
-sub getts {
-  my $ts = time();
-  my $year = localtime->year() + 1900;
-  my $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  my $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  my $hour = localtime->hour();
-  if ($hour < 10) {
-    $hour = "0" . $hour;
-  }
-  my $min = localtime->min();
-  if ($min < 10) {
-    $min = "0" . $min;
-  }
-  my $sec = localtime->sec();
-  if ($sec < 10) {
-    $sec = "0" . $sec;
-  }
-
-  my $timestamp = "$day-$month-$year $hour:$min:$sec";
-}
-
-sub getec {
-  if ($? == 0) {
-    my $ec = "Ok";
-  } else {
-    my $ec = "Err - $?";
-  }
-}
-
-##################
 # Main script
 ##################
 
@@ -118,70 +83,63 @@ $err = 0;
 open(LOG, ">> $logfile");
 
 $ts = getts();
-print LOG "[$ts - $tap] Starting up.pl\n";
-
-#print LOG "=================================\n";
-#foreach $key (sort keys(%ENV)) {
-#  print LOG "$key = $ENV{$key}\n";
-#}
-#print LOG "=================================\n";
+printlog("Starting up.pl");
+#print LOG "[$ts - $tap] Starting up.pl\n";
 
 if ($tap eq "") {
   $err = 1;
-  $ts = getts();
-  print LOG "[$ts - Err] No tap device info.\n";
+  printlog("No tap device info!", "Err");
 }
-
-#if ($sensor eq "") {
-#  $err = 1;
-#  $ts = getts();
-#  print LOG "[$ts - Err] No sensor info.\n";
-#}
 
 if ($err == 0) {
   # Get the remoteip.
   $remoteip = $ENV{REMOTE_HOST};
   chomp($remoteip);
-  $ts = getts();
-  print LOG "[$ts - $tap] Retrieved remoteip: $remoteip\n";
-
-  # Get local gateway.
-  $local_gw = `route -n | grep -i "0.0.0.0" | grep -i UG | cut -d " " -f10`;
-  chomp($local_gw);
-  $ts = getts();
-  $ec = getec();
-  print LOG "[$ts - $tap - $ec] Retrieved local gateway: $local_gw\n";
+  printlog("Retrieved remoteip: $remoteip");
+#  print LOG "[$ts - $tap] Retrieved remoteip: $remoteip\n";
 
   # Check for leftover source based routing rules and delete them.
-  $total_if_ip = `ip rule list | grep -i "$tap" | cut -f2 -d " " | wc -l`;
-  chomp($total_if_ip);
-  $ts = getts();
-  $ec = getec();
-  print LOG "[$ts - $tap - $ec] Retrieved routing rules: $total_if_ip\n";
-  for ($i=1; $i<=$total_if_ip; $i++) {
-    # Get former ip address of tap device
-    $if_ip = `ip rule list | grep -i "$tap" | cut -f2 -d " " | tail -1`;
-    chomp($if_ip);
-    # Delete rule from ip address in table if
-    `ip rule del from $if_ip table $tap`;
-    $ts = getts();
-    $ec = getec();
-    print LOG "[$ts - $tap - $ec] Deleted ip routing rule: ip rule del from $if_ip table $tap\n";
-  }
+  $delresult = deliprules($tap);
+#  $total_if_ip = `ip rule list | grep -i "$tap" | cut -f2 -d " " | wc -l`;
+#  chomp($total_if_ip);
+#  $ts = getts();
+#  $ec = getec();
+#  print LOG "[$ts - $tap - $ec] Retrieved routing rules: $total_if_ip\n";
+#  for ($i=1; $i<=$total_if_ip; $i++) {
+#    # Get former ip address of tap device
+#    $if_ip = `ip rule list | grep -i "$tap" | cut -f2 -d " " | tail -1`;
+#    chomp($if_ip);
+#    # Delete rule from ip address in table if
+#    `ip rule del from $if_ip table $tap`;
+#    $ts = getts();
+#    $ec = getec();
+#    print LOG "[$ts - $tap - $ec] Deleted ip routing rule: ip rule del from $if_ip table $tap\n";
+#  }
 
   # Check for leftover source based routing tables and delete if present.
-  `ip route flush table $tap`;
-  $ts = getts();
+  $flushresult = flushroutes($tap);
+#  `ip route flush table $tap`;
+#  $ts = getts();
+#  $ec = getec();
+#  print LOG "[$ts - $tap - $ec] Flush $tap routing table: ip route flush table $tap\n";
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] Flush $tap routing table: ip route flush table $tap\n";
+  printlog("Flush $tap routing table", "$ec");  
 
-  # Add route to remote ip address via local gateway to avoid routing loops
-  `route add -host $remoteip gw $local_gw`;
-  $ts = getts();
+  # Get local gateway.
+  $local_gw = getlocalgw();
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] Added new route: route add -host $remoteip gw $local_gw\n";
+  printlog("Retrieved local gateway: $local_gw", "$ec");
+  if ($? == 0 && "$local_gw" ne "false") {
+    # Add route to remote ip address via local gateway to avoid routing loops
+    `route add -host $remoteip gw $local_gw`;
+    $ec = getec();
+    printlog("Added new route!");
+  } else {
+    printlog("Could not retrieve local gateway. Exiting with error!");
+    printlog("-------------finished down.pl-----------");
+    exit 1;
+  }
 }
-$ts = getts();
-print LOG "-------------Finished up.pl-------------\n";
+printlog("-------------finished down.pl-----------");
 close(LOG);
 

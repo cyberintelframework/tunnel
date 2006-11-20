@@ -32,6 +32,7 @@
 #############################################
 # Changelog:
 # 1.04.01 Code layout
+# 1.03.01 Released as part of the 1.03 package
 # 1.02.02 Images are now stored in the database (table rrd)
 # 1.02.01 Initial release
 #####################
