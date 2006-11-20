@@ -1,5 +1,19 @@
 #!/usr/bin/perl
 
+###################################
+# Tunnel installation script      #
+# SURFnet IDS                     #
+# Version 1.03.02                 #
+# 20-11-2006                      #
+# Jan van Lith & Kees Trippelvitz #
+###################################
+
+#####################
+# Changelog:
+# 1.03.02 Fixed a bug with whitespaces in province, city and organisation names
+# 1.03.01 Initial release
+#####################
+
 ##########################
 # Variables
 ##########################
@@ -88,20 +102,32 @@ while ($confirm !~ /^(Y|y)$/) {
 
   # The province or state you are located
   $key_prov = 0;
-  while ($key_prov !~ /^[a-zA-Z]*$/) {
+  while ($key_prov !~ /^[a-zA-Z ]*$/) {
     $key_prov = &prompt("Enter the province or state: ");
+    chomp($key_prov);
+    if ($key_prov eq "") {
+      $key_prov = 0;
+    }
   }
 
   # The city you are located
   $key_city = 0;
-  while ($key_city !~ /^[a-zA-Z]*$/) {
+  while ($key_city !~ /^[a-zA-Z ]*$/) {
     $key_city = &prompt("Enter the city: ");
+    chomp($key_city);
+    if ($key_city eq "") {
+      $key_city = 0;
+    }
   }
 
   # The organisation name
   $key_org = 0;
-  while ($key_org !~ /^[a-zA-Z]*$/) {
+  while ($key_org !~ /^[a-zA-Z ]*$/) {
     $key_org = &prompt("Enter the organisation: ");
+    chomp($key_org);
+    if ($key_org eq "") {
+      $key_org = 0;
+    }
   }
 
   # The province or state you are located
