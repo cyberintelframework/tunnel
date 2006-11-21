@@ -3,8 +3,8 @@
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.03.01                 #
-# 11-10-2006                      #
+# Version 1.03.02                 #
+# 08-11-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
 ###################################
@@ -33,6 +33,7 @@
 
 #####################
 # Changelog:
+# 1.03.02 Added status update
 # 1.03.01 Released as part of the 1.03 package
 # 1.02.01 Initial release
 #####################

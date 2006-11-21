@@ -3,8 +3,8 @@
 ###################################
 # Stop script for IDS server	  #
 # SURFnet IDS                     #
-# Version 1.02.01                 #
-# 21-02-2006                      #
+# Version 1.03.02                 #
+# 13-11-2006                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
@@ -31,6 +31,8 @@
 
 #####################
 # Changelog:
+# 1.03.02 Fixed status update
+# 1.03.01 Changed version to 1.03.01
 # 1.02.05 Killing dhclient3 correctly if multiple instances are running
 # 1.02.04 Fixed a bug with removing the route to the sensor
 # 1.02.03 Changed the way dhclient3 gets killed
@@ -205,17 +207,17 @@ if ($dbh ne "") {
     # Network configuration method was DHCP. We delete both the tap device and address from the database.
     print LOG "[$ts - $tap] Network config method: DHCP\n";
     # Execute query to remove tap device information from database.
-    $execute_result = $dbh->do("UPDATE sensors SET tap = '', tapip = NULL WHERE tap = '$tap'");
+    $execute_result = $dbh->do("UPDATE sensors SET tap = '', tapip = NULL, status = 0 WHERE tap = '$tap'");
     $ts = getts();
-    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '', tapip = NULL WHERE tap = '$tap'\n";
+    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '', tapip = NULL, status = 0 WHERE tap = '$tap'\n";
     print LOG "[$ts - $tap] Executed query: $execute_result\n";
   } else {
     # Network configuration method was Static. We don't delete the tap IP address from the database.
     print LOG "[$ts - $tap] Network config method: static\n";
     # Execute query to remove tap device information from database.
-    $execute_result = $dbh->do("UPDATE sensors SET tap = '' WHERE tap = '$tap'");
+    $execute_result = $dbh->do("UPDATE sensors SET tap = '', status = 0 WHERE tap = '$tap'");
     $ts = getts();
-    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '' WHERE tap = '$tap'\n";
+    print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '', status = 0 WHERE tap = '$tap'\n";
     print LOG "[$ts - $tap] Executed query: $execute_result\n";
   }
 
@@ -252,14 +254,6 @@ if ($dbh ne "") {
 $ts = getts();
 $ec = getec();
 print LOG "[$ts - $tap - $ec] Flushing routing table for $tap: ip route flush table $tap\n";
-
-# Reset status
-$sth = $dbh->prepare("UPDATE sensors SET status = 0 WHERE tap = '$tap'");
-$ts = getts();
-print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET status = 0 WHERE tap = '$tap'\n";
-$execute_result = $sth->execute();
-$ts = getts();
-print LOG "[$ts - $tap] Executed query: $execute_result\n";
 
 # Closing database connection.
 $dbh = "";

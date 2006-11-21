@@ -58,10 +58,10 @@ sub prompt() {
     if ($_ eq "") {
       return $defaultvalue;
     } else {
-      return $_;
+      return "$_";
     }
   } else {
-    return $_;
+    return "$_";
   }
 }
 
