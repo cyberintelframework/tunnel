@@ -3,8 +3,8 @@
 ###############################################
 # Network setup script for SURFnet IDS sensor #
 # SURFnet IDS                                 #
-# Version 1.04.01                             #
-# 07-11-2006                                  #
+# Version 1.04.02                             #
+# 23-11-2006                                  #
 # Jan van Lith & Kees Trippelvitz             #
 ###############################################
 
@@ -29,6 +29,7 @@
 
 #############################################
 # Changelog:
+# 1.04.02 Added VLAN support
 # 1.04.01 Rereleased as 1.04.01
 # 1.02.03 Rerelease as perl script
 # 1.02.02 Initial release

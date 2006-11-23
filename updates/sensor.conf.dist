@@ -32,7 +32,7 @@ $tap = "tap0";
 $http = "https";
 
 # Servername of the tunnel server
-$server = "honey.wind.surfnet.nl";
+$server = "enter_server_here";
 
 # Port number where the sensor updates webserver is listening on
 $port = "4443";

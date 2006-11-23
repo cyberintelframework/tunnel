@@ -3,14 +3,15 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.01
-# 04-09-2006
+# Version 1.04.03
+# 23-11-2006
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.03 Added chkidsmenu checks
 # 1.04.02 VLAN support
 # 1.04.01 Rereleased as perl script
 # 1.03.01 Released as part of the 1.03 package
@@ -42,6 +43,10 @@ if ($netconf eq "vlan"){
 $chkstatus = chksensorstatus($statusif);
 if ($chkstatus == 0) {
   print "${y}Sensor has already been started.${n}\n";
+  $chk = chkidsmenu();
+  if ($chk != 0) {
+    system("$basedir/idsmenu");
+  }
   exit;
 }
 
@@ -49,6 +54,10 @@ if ($chkstatus == 0) {
 $disabled = chkdisabled();
 if ($disabled != 0) {
   print "${r}Sensor is disabled by admin${n}\n";
+  $chk = chkidsmenu();
+  if ($chk != 0) {
+    system("$basedir/idsmenu");
+  }
   exit;
 }
 
@@ -56,6 +65,10 @@ if ($disabled != 0) {
 $chkca = chkca();
 if ($chkca != 0) {
   printmsg("Checking ca.crt:", $chkca);
+  $chk = chkidsmenu();
+  if ($chk != 0) {
+    system("$basedir/idsmenu");
+  }
   exit;
 }
 
@@ -63,6 +76,10 @@ if ($chkca != 0) {
 $chkrw = chkrw();
 if ($chkrw != 0) {
   printmsg("Checking read/write status:", $chkrw);
+  $chk = chkidsmenu();
+  if ($chk != 0) {
+    system("$basedir/idsmenu");
+  }
   exit;
 }
 
@@ -121,6 +138,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   $if = getif();
   printmsg("Checking active interface:", $if);
   if ($if eq "false") {
+    $chk = chkidsmenu();
+    if ($chk != 0) {
+      system("$basedir/idsmenu");
+    }
     exit;
   }
 
@@ -191,6 +212,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   $if_ip = getifip($if);
   printmsg("IP address for $if:", $if_ip);
   if ($if_ip eq "false") {
+    $chk = chkidsmenu();
+    if ($chk != 0) {
+      system("$basedir/idsmenu");
+    }
     exit;
   }
 
@@ -215,10 +240,18 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $openvpnport = getportstatus($if, 1194);
     printmsg("Checking OpenVPN port:", $openvpnport);
     if ($openvpnport ne "open") {
+      $chk = chkidsmenu();
+      if ($chk != 0) {
+        system("$basedir/idsmenu");
+      }
       exit;
     }
     $updateport = getportstatus($if, 4443);
     if ($updateport ne "open") {
+      $chk = chkidsmenu();
+      if ($chk != 0) {
+        system("$basedir/idsmenu");
+      }
       exit;
     }
     printmsg("Checking updates port:", $updateport);
@@ -228,6 +261,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   $chkwgetauth = chkwgetauth($wgetarg);
   printmsg("Checking wget authentication:", $chkwgetauth);
   if ($chkwgetauth != 0) {
+    $chk = chkidsmenu();
+    if ($chk != 0) {
+      system("$basedir/idsmenu");
+    }
     exit;
   }
   
@@ -266,6 +303,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       print "${y}A tap IP address needs to be configured in the webinterface.\n";
       print "Start the sensor again when this is done.${n}\n";
       `$basedir/stopclient >/dev/null`;
+      $chk = chkidsmenu();
+      if ($chk != 0) {
+        system("$basedir/idsmenu");
+      }
       exit;
     } else {
       print "${r}An error occurred while updating status information.\n";
@@ -297,6 +338,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   $if = getif();
   printmsg("Retrieving active interface:", $if);
   if ($if eq "false") {
+    $chk = chkidsmenu();
+    if ($chk != 0) {
+      system("$basedir/idsmenu");
+    }
     exit;
   }
   `ifconfig $if 0.0.0.0 up`;
@@ -323,6 +368,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     `vconfig add $if $vlanid`;
     if ($? != 0) {
       printmsg("Creating virtual interface:", $?);
+      $chk = chkidsmenu();
+      if ($chk != 0) {
+        system("$basedir/idsmenu");
+      }
       exit;
     } else {
       printmsg("Creating virtual interface:", "$if.$vlanid");
@@ -431,6 +480,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       print "${y}A tap IP address needs to be configured in the webinterface.\n";
       print "Start the sensor again when this is done.${n}\n";
       `$basedir/stopclient >/dev/null`;
+      $chk = chkidsmenu();
+      if ($chk != 0) {
+        system("$basedir/idsmenu");
+      }
       exit;
     } else {
       print "${r}An error occurred while updating status information.\n";
@@ -455,6 +508,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   }
 } else {
   printmsg("Unknown netconfiguration method:", "info");
+  $chk = chkidsmenu();
+  if ($chk != 0) {
+    system("$basedir/idsmenu");
+  }
   exit;
 }
 
