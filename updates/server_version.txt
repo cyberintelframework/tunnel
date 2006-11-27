@@ -1,0 +1,10 @@
+client.conf:1.02.01
+idsmenu:1.02.03
+network_config:1.02.02
+scripts.conf:1.02.02
+start_bridge:1.02.01
+startclient:1.02.07
+stopclient:1.02.03
+update:1.02.14
+update_remove:1.02.02
+wgetrc:1.02.01

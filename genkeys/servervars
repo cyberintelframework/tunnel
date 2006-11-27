@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# Load the generic certificate variables.
+. /opt/surfnetids/genkeys/vars.conf
+
+# Export the server specific variables.
+export KEY_COMMONNAME="server"
+
