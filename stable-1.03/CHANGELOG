@@ -1,0 +1,24 @@
+### SURFnet IDS 1.03
+
+* Enhanced webinterface security
+* Platform independant perl installer
+* Traffic images now stored in the database
+* Search graphs generated dynamically
+* Enhanced maillogging capabilities
+* Minor bugfixes
+
+### SURFnet IDS 1.02
+
+* Enhanced search engine
+* Enhanced administration interface
+* Increased binary information
+* Support for BitDefender and Antivir virusscans
+* Passive TCP fingerprinting support
+* Added SSL security to the update mechanism
+* Static IP configuration support
+* Remote sensor control
+
+### SURFnet IDS 1.01
+
+* Initial release
+

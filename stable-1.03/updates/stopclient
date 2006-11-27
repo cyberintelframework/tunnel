@@ -1,0 +1,201 @@
+#!/bin/sh
+
+#########################################
+# Stop script for SURFnet IDS Sensor    #
+# SURFnet IDS                           #
+# Version 1.03.01                       #
+# 17-10-2006		                #
+# Jan van Lith & Kees Trippelvitz	#
+# Modified by Peter Arts                #
+#########################################
+
+#########################################################################################
+# Copyright (C) 2005 SURFnet                                                            #
+# Authors Jan van Lith & Kees Trippelvitz                                               #
+#                                                                                       #
+# This program is free software; you can redistribute it and/or                         #
+# modify it under the terms of the GNU General Public License                           #
+# as published by the Free Software Foundation; either version 2                        #
+# of the License, or (at your option) any later version.                                #
+#                                                                                       #
+# This program is distributed in the hope that it will be useful,                       #
+# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
+# GNU General Public License for more details.                                          #
+#                                                                                       #
+# You should have received a copy of the GNU General Public License                     #
+# along with this program; if not, write to the Free Software                           #
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
+#                                                                                       #
+# Contact ids@surfnet.nl                                                                #
+#########################################################################################
+
+# This script is run at reboot or shutdown.
+
+##################
+# Changelog:
+# 1.03.01 Released as part of the 1.03 package
+##################
+
+################
+# Variables    #
+################
+basedir="/cdrom/scripts"
+. $basedir/scripts.conf
+
+################
+# Start script #
+################
+
+# Check the disk for read/write status.
+`touch $basedir/touchstop.tmp`
+if [ $? != 0 ]; then
+  echo -e "${YELLOW}WARNING: The disk is readonly.${NORMAL}"
+else
+  `rm -f $basedir/touchstop.tmp`
+fi
+
+# Get the bridge interface IP address.
+eth=`brctl show | grep $br | awk -F" " '{print $4}'`
+
+# Check if the bridge and openvpn
+checkbr=`ip link show up | grep $br | wc -l`
+checkopenvpn=`ps -ef | grep openvpn | grep -v grep | wc -l`
+if [ $checkbr == 0 ] &&  [ $checkopenvpn == 0 ]; then 
+  echo -e "${YELLOW}No need to stop openVPN.${NORMAL}"
+  exit
+elif [ $checkbr == 1 ] && [ $checkopenvpn == 1 ]; then
+
+  # Check the wget version.
+  wgetversion=`wget -V | head -n1 | awk '{print $3}'`
+  if [ $wgetversion != "1.9.1" ]; then
+    wgetarg="--no-check-certificate"
+  else
+    wgetarg=""
+  fi
+
+  # Check if wget authentication is correct.
+  echo -en "${YELLOW}Wget authentication: ${NORMAL}"
+  wgetauth=`wget -q $wgetarg --spider $http://$server:$port/updates/server_version.txt`
+  if [ $? == 1 ]; then
+    echo -e "${RED}Failed${NORMAL}"
+    echo -e "${RED}This needs to be fixed before the sensor can be started.${NORMAL}"
+  else
+    echo -e "${YELLOW}Ok${NORMAL}"
+  fi
+
+  # Create the wget header.
+  md5cert=`md5sum $basedir/ca.crt | awk '{print $1}'`
+  header="Accept: $md5cert"
+
+  # Get the keyname.
+  echo -en "${YELLOW}Keyname: ${NORMAL}"
+  keyname=`ls $basedir | grep "sensor" | grep ".crt" | grep -v "ca.crt" | cut -d "." -f1`
+  echo -e "${YELLOW}$keyname${NORMAL}"
+
+  # Get the localip.
+  localip=`ifconfig $br | grep "inet addr" | cut -d ":" -f2 | cut -d " " -f1`
+  echo -e "${YELLOW}Updating configuration to the server${NORMAL}"
+  wget=`wget -q $wgetarg --header="$header" -O $basedir/stopclient.php "$http://$server:$port/stopclient.php?localip=$localip&keyname=$keyname"`
+
+  # Check for errors with the localip and tapip update.
+  check=`cat $basedir/stopclient.php | grep "ERROR" | wc -l`
+  if [ $check -gt 0 ]; then
+    # Errors occured while updating localip and tapip.
+    errors=`cat $basedir/stopclient.php | grep "ERROR"`
+    echo -e "${YELLOW}Error occured while updating localip and tapip.${NORMAL}"
+    echo -e "${RED}$errors${NORMAL}"
+  fi
+
+  # Check for static of dynamic network connection
+  ifmethod=`cat $basedir/network_if.conf | grep -i "Method: " | cut -f2 -d: | cut -f2 -d " "`
+  echo -e "${YELLOW}Network configuration: $ifmethod${NORMAL}"
+
+  # Get the interface info.
+  if [ $ifmethod  == "dhcp" ]; then
+    eth_ip=`pump -i $eth --status | grep -i "IP: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_netmask=`pump -i $eth --status | grep -i "Netmask: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_broadcast=`pump -i $eth --status | grep -i "Broadcast: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_gw=`pump -i $eth --status | grep -i "Gateway: " | cut -f2 -d: | cut -f2 -d " "`
+  else
+    eth_ip=`cat $basedir/network_if.conf | grep -i "IP_sensor: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_netmask=`cat $basedir/network_if.conf | grep -i "Netmask: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_broadcast=`cat $basedir/network_if.conf | grep -i "Broadcast: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_gw=`cat $basedir/network_if.conf | grep -i "Gateway: " | cut -f2 -d: | cut -f2 -d " "`
+  fi
+
+  # Stopping openvpn client.
+  echo -e "${YELLOW}Stopping openVPN client${NORMAL}"
+  killall openvpn
+
+  # Removing bridge and tap devices.
+  echo -e "${YELLOW}Removing bridge${NORMAL}"
+  ifconfig $br down
+  brctl delif $br $eth
+  brctl delif $br $tap
+  brctl delbr $br
+
+  # Resetting interfaces and default gateway.
+  ifconfig $eth $eth_ip netmask $eth_netmask broadcast $eth_broadcast
+  route add -net default gw $eth_gw
+
+  # Removing tunnel.
+  echo -e "${YELLOW}Removing tap device${NORMAL}"
+  remtap=`openvpn --rmtun --dev $tap`
+  exit
+
+elif [ $checkopenvpn == 1 ]; then
+  # Stopping openvpn client.
+  echo -e "${YELLOW}Stopping openVPN client.${NORMAL}"
+  killall openvpn
+  # Removing tunnel.
+  echo -e "${YELLOW}Removing tap device.${NORMAL}"
+  remtap=`openvpn --rmtun --dev $tap`
+  exit
+
+elif [ $checkbr == 1 ]; then
+  # Check for static of dynamic network connection
+  ifmethod=`cat $basedir/network_if.conf | grep -i "Method: " | cut -f2 -d: | cut -f2 -d " "`
+  echo -e "${YELLOW}Network configuration: $ifmethod${NORMAL}"
+
+  # Get the interface info.
+  if [ $ifmethod  == "dhcp" ]; then
+    echo -e "${YELLOW}Using DHCP networking, getting configuration from pump.${NORMAL}"
+    eth_ip=`pump -i $eth --status | grep -i "IP: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_netmask=`pump -i $eth --status | grep -i "Netmask: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_broadcast=`pump -i $eth --status | grep -i "Broadcast: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_gw=`pump -i $eth --status | grep -i "Gateway: " | cut -f2 -d: | cut -f2 -d " "`
+  else
+    eth_ip=`cat $basedir/network_if.conf | grep -i "IP_sensor: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_netmask=`cat $basedir/network_if.conf | grep -i "Netmask: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_broadcast=`cat $basedir/network_if.conf | grep -i "Broadcast: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_gw=`cat $basedir/network_if.conf | grep -i "Gateway: " | cut -f2 -d: | cut -f2 -d " "`
+  fi
+
+  # Removing bridge and tap devices.
+  echo -e "${YELLOW}Removing bridge.${NORMAL}"
+  ifconfig $br down
+  brctl delif $br $eth
+  brctl delif $br $tap
+  brctl delbr $br
+
+  # Resetting interfaces and default gateway.
+  ifconfig $eth $eth_ip netmask $eth_netmask broadcast $eth_broadcast
+  route add -net default gw $eth_gw
+
+  # If the tap device exists, remove it.
+  checktap=`ip link show up | grep $tap |wc -l`
+  if [ $checktap == 1 ]; then
+    echo -e "${YELLOW}Removing tap device.${NORMAL}"
+    remtap=`openvpn --rmtun --dev $tap`
+  fi
+  exit
+fi
+
+# Check for the existance of any keys.
+if [ ! -e $basedir/*.key ]; then
+  # Keys are not present. Remove the key entries in client.conf.
+  echo -e "${YELLOW}Cleaning client.conf.${NORMAL}"
+  cat $basedir/client.conf | grep -v "ca $basedir" | grep -v "key $basedir" | grep -v "cert $basedir" > $basedir/temp.conf
+  mv $basedir/temp.conf $basedir/client.conf
+fi

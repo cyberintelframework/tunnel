@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Load the generic certificate variables.
+. /opt/surfnetids/genkeys/vars.conf
+
+# Scripts specific variables.
+export KEY_COMMONNAME="scripts"
+export KEY_CERTTYPE="objsign"
+export KEY_DIR=$D/updates
