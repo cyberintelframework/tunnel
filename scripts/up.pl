@@ -96,32 +96,12 @@ if ($err == 0) {
   $remoteip = $ENV{REMOTE_HOST};
   chomp($remoteip);
   printlog("Retrieved remoteip: $remoteip");
-#  print LOG "[$ts - $tap] Retrieved remoteip: $remoteip\n";
 
   # Check for leftover source based routing rules and delete them.
   $delresult = deliprules($tap);
-#  $total_if_ip = `ip rule list | grep -i "$tap" | cut -f2 -d " " | wc -l`;
-#  chomp($total_if_ip);
-#  $ts = getts();
-#  $ec = getec();
-#  print LOG "[$ts - $tap - $ec] Retrieved routing rules: $total_if_ip\n";
-#  for ($i=1; $i<=$total_if_ip; $i++) {
-#    # Get former ip address of tap device
-#    $if_ip = `ip rule list | grep -i "$tap" | cut -f2 -d " " | tail -1`;
-#    chomp($if_ip);
-#    # Delete rule from ip address in table if
-#    `ip rule del from $if_ip table $tap`;
-#    $ts = getts();
-#    $ec = getec();
-#    print LOG "[$ts - $tap - $ec] Deleted ip routing rule: ip rule del from $if_ip table $tap\n";
-#  }
 
   # Check for leftover source based routing tables and delete if present.
   $flushresult = flushroutes($tap);
-#  `ip route flush table $tap`;
-#  $ts = getts();
-#  $ec = getec();
-#  print LOG "[$ts - $tap - $ec] Flush $tap routing table: ip route flush table $tap\n";
   $ec = getec();
   printlog("Flush $tap routing table", "$ec");  
 
@@ -133,13 +113,13 @@ if ($err == 0) {
     # Add route to remote ip address via local gateway to avoid routing loops
     `route add -host $remoteip gw $local_gw`;
     $ec = getec();
-    printlog("Added new route!");
+    printlog("Adding route via local gateway", "$ec");
   } else {
     printlog("Could not retrieve local gateway. Exiting with error!");
-    printlog("-------------finished down.pl-----------");
+    printlog("-------------finished up.pl-----------");
     exit 1;
   }
 }
-printlog("-------------finished down.pl-----------");
+printlog("-------------finished up.pl-----------");
 close(LOG);
 

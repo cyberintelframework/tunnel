@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 ####################################
 # Sign a file for the IDS Server   #

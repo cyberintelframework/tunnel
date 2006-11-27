@@ -403,7 +403,7 @@ sub ipruledel() {
 # Function to add a route to a routing table
 # Returns 0 on success
 # Returns non-zero on failure
-sub addmainroute() {
+sub addroute() {
   my ($network, $tap, $tapip, $table);
   $network = $_[0];
   $tap = $_[1];
@@ -449,13 +449,11 @@ sub delroute() {
 # Function to add a default route to a routing table
 # Returns 0 on success
 # Returns non-zero on failure
-sub addmainroute() {
-  my ($gw, $tap, $table);
+sub adddefault() {
+  my ($gw, $table);
   $gw = $_[0];
-  $tap = $_[1];
-  $table = $_[3];
+  $table = $_[1];
   chomp($gw);
-  chomp($tap);
   chomp($table);
   `ip route add default via $gw table $table`;
   if ($? == 0) {
@@ -465,6 +463,5 @@ sub addmainroute() {
   }
   return 1;
 }
-
 
 return "true";

@@ -167,7 +167,8 @@ if ($err == 0) {
   }
 
   # Update the last start timestamp to the database.
-  $sql_laststart = "UPDATE sensors SET status = 0, uptime = $newuptime, laststop = '$date' WHERE keyname = '$keyname' AND vlanid='$vlanid'";
+  $sql_laststart = "UPDATE sensors SET status = 0, uptime = $newuptime, laststop = '$date' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
+  echo "SQLLASTSTART: $sql_laststart\n";
   $result_laststart = pg_query($pgconn, $sql_laststart);
 }
 

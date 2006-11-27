@@ -81,12 +81,14 @@ if ($localip != "" && $vlanid != "") {
 
   # Starting organisation identifier stuff
   $orgname = "false";
+  $orgid = 0;
   if ($certsoapconn == 1) {
     # SURFnet SOAP identifier check
     $ident = getOrg($remoteip, $soapurl, $soapuser, $soappasss);
     if ($ident != "false") {
       $orgid = checkident($ident, 4);
       $orgname = $ident;
+      $oidtype = 4;
     } else {
       $orgid = 0;
     }
@@ -98,6 +100,7 @@ if ($localip != "" && $vlanid != "") {
     if ($ident != "false") {
       $orgid = checkident($ident, 3);
       $orgname = $ident;
+      $oidtype = 3;
     } else {
       $orgid = 0;
     }
@@ -105,10 +108,11 @@ if ($localip != "" && $vlanid != "") {
 
   # WHOIS identifier check
   if ($orgid == 0) {
-    $ident = chkwhois($remoteip, 2);
+    $ident = chkwhois($remoteip);
     if ($ident != "false") {
-      $orgid = checkident($ident);
+      $orgid = checkident($ident, 2);
       $orgname = $ident;
+      $oidtype = 2;
     } else {
       $orgid = 0;
     }
@@ -129,47 +133,24 @@ if ($localip != "" && $vlanid != "") {
       $orgname = $remoteip;
     }
     $ranges = "";
-    $sql_addorg = "INSERT INTO organisations (organisation, ranges) VALUES ('$orgname', '$ranges')";
-    $result_addorg = pg_query($pgconn, $sql_addorg);
 
-    $sql_getorgid = "SELECT id FROM organisations WHERE organisation = '" .$orgname. "'";
-    $result_getorgid = pg_query($pgconn, $sql_getorgid);
-    $orgid = pg_result($result_getorgid, 0);
+    $sql_chkorg = "SELECT id FROM organisations WHERE organisation = '$orgname'";
+    $result_chkorg = pg_query($pgconn, $sql_chkorg);
+    $numchk = pg_num_rows($result_chkorg);
+    if ($numchk == 0) {
+      $sql_addorg = "INSERT INTO organisations (organisation, ranges) VALUES ('$orgname', '$ranges')";
+      $result_addorg = pg_query($pgconn, $sql_addorg);
+
+      $sql_getorgid = "SELECT id FROM organisations WHERE organisation = '" .$orgname. "'";
+      $result_getorgid = pg_query($pgconn, $sql_getorgid);
+      $orgid = pg_result($result_getorgid, 0);
+    } else {
+      $orgid = pg_result($result_chkorg, 0);
+    }
+
+    $sql_addoid = "INSERT INTO org_id (orgid, identifier, type) VALUES ($orgid, '$orgname', $oidtype)";
+    $result_addoid = pg_query($pgconn, $sql_addoid);
   }
-
-  # Retrieve the organisation name.
-#  if ($certsoapconn == 1) {
-#    $org = getOrg($remoteip, $soapurl, $soapuser, $soappass);
-#  } else {
-#    $org = getDomain($remotehost);
-#  }
-
-  # If the organisation does not exist yet, add a new one.
-#  $sql_checkorg = "SELECT id FROM org_id WHERE identifier = '" .$org. "'";
-#  $result_checkorg = pg_query($pgconn, $sql_checkorg);
-#  $numrows_checkorg = pg_num_rows($result_checkorg);
-#  if ($numrows_checkorg == 0) {
-#    $ranges = "";
-#    if ($certsoapconn == 1) {
-#      $ranges =  getorgif($org, $soapurl, $soapuser, $soappass);
-#    }
-
-#    $sql_addorg = "INSERT INTO organisations (organisation, ranges) VALUES ('$org', '$ranges')";
-#    $result_addorg = pg_query($pgconn, $sql_addorg);
-
-#    # Get the organisation id.
-#    $sql_getorgid = "SELECT id FROM org_id WHERE identifier = '" .$org. "'";
-#    $result_getorgid = pg_query($pgconn, $sql_getorgid);
-#    $orgid = pg_result($result_getorgid, 0);
-
-#    $sql_addorg = "INSERT INTO org_id (identifier, orgid) VALUES ('$org', $orgid)";
-#    $result_addorg = pg_query($pgconn, $sql_addorg);
-#  } else {
-#    # Get the organisation id.
-#    $sql_getorgid = "SELECT orgid FROM org_id WHERE identifier = '" .$org. "'";
-#    $result_getorgid = pg_query($pgconn, $sql_getorgid);
-#    $orgid = pg_result($result_getorgid, 0);
-#  }
 
   # Update the database with Keyname, Remoteip, Localip and Organisation.
   $sql_addsensor = "INSERT INTO sensors (keyname, remoteip, localip, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', $orgid, $vlanid)";

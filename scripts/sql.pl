@@ -122,8 +122,6 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   # Start the dhcp client
   $result = startdhcp($tap);
 } else { 
-  printlog("Network config method: static");
-
   # Set static network configuration without gateway, dns and resolv.conf
   # Format of netconfig: 0=>netmask|1=>gateway|2=>broadcast
   @netconfig = split(/\|/, $netconfdetail);
@@ -140,29 +138,9 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   chomp($rulecheck);
   if ($rulecheck == 0) {
     $result = ipruleadd($tap, $tapip);
-#    $addrule = `ip rule add from $tapip table $tap`;
-#    $ts = getts();
-#    $ec = getec();
-#    print LOG "[$ts - $tap - $ec] ip rule add from $tapip table $tap\n";
   } else {
     $result = deliprules($tap);
-#    # Get the old ip rule and remove it.
-#    $oldip = `ip rule list | grep $tap | awk '{print $3}'`;
-#    $ts = getts();
-#    $ec = getec();
-#    print LOG "[$ts - $tap - $ec] Old ip: $oldip\n";
-
-#    $remove = `ip rule del from $oldip table $tap`;
-#    $ts = getts();
-#    $ec = getec();
-#    print LOG "[$ts - $tap - $ec] ip rule del from $oldip table $tap\n";
-
     $result = ipruleadd($tap, $tapip);
-#    $addrule = `ip rule add from $tapip table $tap`;
-#    $ts = getts();
-#    $ec = getec();
-#    print LOG "[$ts - $tap - $ec] ip rule add from $tapip table $tap\n";
-
     $checktap = `$surfidsdir/scripts/checktap.pl $tap`;
     $ec = getec();
     printlog("Running: $surfidsdir/scripts/checktap.pl $tap", "$ec");
@@ -174,11 +152,7 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   printlog("Flushing $tap routing table!", "$ec");
 
   # Calculate the network based on the tapip and the netmask.
-#  $network = `$surfidsdir/scripts/ipcalc $tapip $if_net | grep -i Network`;
   $network = getnetwork($tapip, $if_net);
-#  @network_ar = split(/ +/,$network);
-#  $network = $network_ar[1];
-#  $ts = getts();
   $ec = getec();
   printlog("Network: $network", "$ec");
   print LOG "[$ts - $tap - $ec] Network: $network\n";
@@ -188,7 +162,6 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   chomp($routecheck);
   $ec = getec();
   printlog("IP routes present in main table: $routecheck", "$ec");
-#  print LOG "[$ts - $tap - $ec] IP routes present in main table: $routecheck\n";
 
   if ($routecheck == 0) {
     # If none were present, add it. This needs to be done otherwise you'll get an error when adding the default gateway
@@ -199,7 +172,7 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   }
 
   # Add default gateway to the routing table of the tap device.
-  $result = adddefault($if_gw, $tap, $tap);
+  $result = adddefault($if_gw, $tap);
   $ec = getec();
   printlog("Adding default route to table $tap", "$ec");
 
@@ -259,6 +232,8 @@ if ($err == 0) {
 
     # Closing database connection.
     $dbh->disconnect;
+  } else {
+    printlog("No database connection!");
   }
 
   if ($enable_pof == 1) {

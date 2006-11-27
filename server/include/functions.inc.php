@@ -17,15 +17,16 @@
 #####################
 
 function checkident($ident, $type) {
+  global $pgconn;
   $type = intval($type);
   $ident = pg_escape_string($ident);
-  $sql_checkorg = "SELECT orgid FROM org_id WHERE identifier = '" .$ident. "' AND type = $type";
-  $result_checkorg = pg_query($pgconn, $sql_checkorg);
-  $numrows_checkorg = pg_num_rows($result_checkorg);
-  if ($numrows_checkorg == 0) {
+  $sql = "SELECT orgid FROM org_id WHERE identifier = '" .$ident. "' AND type = $type";
+  $result = pg_query($pgconn, $sql);
+  $num = pg_num_rows($result);
+  if ($num == 0) {
     return 0;
   } else {
-    $orgid = pg_result($result_checkorg, 0);
+    $orgid = pg_result($result, 0);
     return $orgid;
   }
 }
