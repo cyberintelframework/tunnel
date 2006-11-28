@@ -94,20 +94,21 @@ if ("$dbconn" ne "false") {
 
   # Get the tap ip address of tap device ($tap) from the query result.
   @row = $sth->fetchrow_array;
-  $ts = getts();
   $db_tapip = $row[0];
   $db_netconf = $row[1];
+  chomp($db_tapip);
+  chomp($db_netconf);
   printlog("DB Tap IP address: $db_tapip");
   printlog("DB netconf: $db_netconf");
 
   # Get the actual IP address of the tap device.
   $tapip = getifip($tap);
   chomp($tapip);
-  printlog("IP address of $tap: $tapip);
+  printlog("IP address of $tap: $tapip");
 
-  if ($db_netconf eq "dhcp" && "$tapip" ne "false") {
+  if ("$db_netconf" eq "dhcp" && "$tapip" ne "false") {
     # If the tap IP addresses don't match, fix it.
-    if ($tapip ne $db_tapip) {
+    if ("$tapip" ne "$db_tapip") {
       printlog("Updating the tap IP address in the database");
       $sql = "UPDATE sensors SET tapip = '$tapip' WHERE tap = '$tap'";
       $er = $dbh->do($sql);
@@ -124,4 +125,3 @@ printlog("----------------finished checktap.pl------------");
 
 # Closing logfile filehandle.
 close(LOG);
-

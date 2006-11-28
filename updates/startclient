@@ -4,14 +4,14 @@
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
 # Version 1.04.03
-# 23-11-2006
+# 24-11-2006
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
-# 1.04.03 Added chkidsmenu checks
+# 1.04.03 Added some more error handling
 # 1.04.02 VLAN support
 # 1.04.01 Rereleased as perl script
 # 1.03.01 Released as part of the 1.03 package
@@ -38,7 +38,6 @@ if ($netconf eq "vlan"){
 } else {
  $statusif = $br;
 }
-
 
 $chkstatus = chksensorstatus($statusif);
 if ($chkstatus == 0) {
@@ -103,9 +102,10 @@ for ($i=$ifcounter; $i != 0; $i--) {
   }
   sleep 1;
 }
+system("/usr/bin/clear");
 
-$checkpump = `ps -ef | grep pump | grep $if | grep -v grep | wc -l`;
-if($checkpump == 1) {
+$chkpump = chkpump();
+if ($chkpump == 0) {
   `killall pump`
 }
 
@@ -150,8 +150,8 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # NETCONF: DHCP
     ##########################
     # Start pump if needed
-    $checkpump = `ps -ef | grep pump | grep $if | grep -v grep | wc -l`;
-    if ( $checkpump == 0 ) {
+    $chkpump = chkpump($if);
+    if ($chkpump != 0) {
       `pump -i $if 2>/dev/null`;
       printmsg("Starting DHCP client for $if:", $?);
     }
@@ -173,8 +173,8 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # NETCONF: STATIC
     ##########################
     # Check if pump is running, if so, kill it.
-    $checkpump = `ps -ef | grep pump | grep -v grep | wc -l`;
-    if ( $checkpump > 0 ) {
+    $chkpump = chkpump();
+    if ( $chkpump == 0 ) {
       `killall pump`;
     }
   
@@ -256,16 +256,19 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     }
     printmsg("Checking updates port:", $updateport);
   }
-  
-  # Checking wget auth
-  $chkwgetauth = chkwgetauth($wgetarg);
-  printmsg("Checking wget authentication:", $chkwgetauth);
-  if ($chkwgetauth != 0) {
-    $chk = chkidsmenu();
-    if ($chk != 0) {
-      system("$basedir/idsmenu");
+
+  if ($chkresolv ne "false") {
+    # Checking wget auth
+    printdelay("Checking wget authentication:");
+    $chkwgetauth = chkwgetauth($wgetarg);
+    printresult($chkwgetauth);
+    if ($chkwgetauth != 0) {
+      $chk = chkidsmenu();
+      if ($chk != 0) {
+        system("$basedir/idsmenu");
+      }
+      exit;
     }
-    exit;
   }
   
   # Checking if we need to get sensor certificates
@@ -281,37 +284,49 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     printmsg("Retrieving certificates:", $chksensor);
   }
 
-  # Updating the current configuration to the server
-  `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?localip=$if_ip&ifmethod=$netconf&detail=$ifdetail&vlanid=0&keyname=$sensor"`;
-  printmsg("Updating status info to the server", $?);
-
-  # Check for errors
-  $err = 0;
-  $errcheck = `grep "ERROR" $basedir/startclient.php | wc -l`;
-  if ($errcheck != 0) {
-    $errors = `grep "ERROR" $basedir/startclient.php`;
-    chomp($errors);
-    $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
+  if ($if ne "false" && $sensor ne "false") {
+    # Updating the current configuration to the server
+    printdelay("Updating status info to the server:");
+    `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?localip=$if_ip&ifmethod=$netconf&detail=$ifdetail&vlanid=0&keyname=$sensor"`;
+    printresult($?);
   }
 
-  # Check for errors
-  if ($errcheck != 0) {
-    $errors = `grep "ERROR" $basedir/startclient.php`;
-    chomp($errors);
-    $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
-    if ($errno == 99) {
-      print "${y}A tap IP address needs to be configured in the webinterface.\n";
-      print "Start the sensor again when this is done.${n}\n";
-      `$basedir/stopclient >/dev/null`;
-      $chk = chkidsmenu();
-      if ($chk != 0) {
-        system("$basedir/idsmenu");
-      }
-      exit;
-    } else {
-      print "${r}An error occurred while updating status information.\n";
-      print "$errors${n}\n";
+  if (-r "$basedir/startclient.php") {
+    # Check for errors
+    $err = 0;
+    $errcheck = `grep "ERROR" $basedir/startclient.php | wc -l`;
+    if ($errcheck != 0) {
+      $errors = `grep "ERROR" $basedir/startclient.php`;
+      chomp($errors);
+      $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
     }
+
+    # Check for errors
+    if ($errcheck != 0) {
+      $errors = `grep "ERROR" $basedir/startclient.php`;
+      chomp($errors);
+      $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
+      if ($errno == 99) {
+        print "${y}A tap IP address needs to be configured in the webinterface.\n";
+        print "Start the sensor again when this is done.${n}\n";
+        `$basedir/stopclient >/dev/null`;
+        $chk = chkidsmenu();
+        if ($chk != 0) {
+          system("$basedir/idsmenu");
+        }
+        exit;
+      } else {
+        print "${r}An error occurred while updating status information.\n";
+        print "$errors${n}\n";
+      }
+    }
+  }
+
+  $chkconf = chkclientconf();
+  printmsg("Checking client.conf:", $chkconf);
+  if ($chkconf != 0) {
+    $fix = fixclientconf();
+    printmsg("Fixing client.conf:", $fix);
   }
 
   # Creating tap device
@@ -321,9 +336,20 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   $chkbridge = setbridge($br, $tap, $if, $netconf);
   printmsg("Setting up the bridge interface:", $chkbridge);
 
+  if ($netconf eq "dhcp") {
+    $chkpump = chkpump($br);
+    if ($chkpump != 0) {
+      sleeptimer("Waiting for bridging to finish:", 10);
+      printdelay("Starting dhcp client for the bridge:");
+      `pump -i $br`;
+      printresult($?);
+    }
+  }
+
   # Starting OpenVPN
+  printdelay("Starting OpenVPN:");
   `openvpn --config $basedir/client.conf --dev $tap --daemon`;
-  printmsg("Starting OpenVPN:", $?);
+  printresult($?);
 
   # Setting up the ethernet loop prevention
   $ipt = setiptables($tap);
@@ -382,8 +408,8 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     printmsg("Retrieving VLAN Method:", $vlan_method);
   
     # Check if pump is running, if so, kill it.
-    $checkpump = `ps -ef | grep "pump -i $br" | grep -v grep | wc -l`;
-    if ( $checkpump > 0 ) {
+    $chkpump = chkpump($br);
+    if ($chkpump == 0) {
       `killall pump`;
       printmsg("Killing all dhcp clients:", $?);
     }
@@ -402,7 +428,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $chk = setbridge($br, $tap, $vif, $netconf);
     printmsg("Setting up the bridge:", $chk);
     `ifconfig $br up`;
-    sleeptimer("Waiting for bridge:", 10);
+    sleeptimer("Waiting for bridging to finish:", 10);
 	
     if ($vlan_method eq "static") {
       $vlan_ip = $vlan{$vlanid}{if_ip};
@@ -420,8 +446,9 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       $ifmethodstring = "vlans";
       $netconfdetail = "$vlan_nm|$vlan_gw|$vlan_bc";
     } elsif ($vlan_method eq "dhcp"){
-      `pump -i $br --no-gateway`;
-      printmsg("Starting dhcp client for the bridge:", $?);
+      printdelay("Starting dhcp client for the bridge:");
+      `pump -i $br --no-gateway 2>/dev/null`;
+      printresult($?);
       sleeptimer("Waiting for DHCP:", 10); 
       $vlan_gw = `pump -i $br -s | grep "Gateway:" | awk '{print \$2}'`;
       chomp($vlan_gw);
@@ -435,15 +462,13 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 
     # Setting up the routing rules for the vlan
     `ip route add default via $vlan_gw table vlan$i`;	
-    printmsg("Adding default route for vlan$i:", $?);
+    printmsg("Adding vlan$i default route:", $?);
     `ip rule add from $vlan_ip table vlan$i`;
-    printmsg("Adding iproute2 rule (from):", $?);
     `ip rule add to $vlan_ip table vlan$i`;
-    printmsg("Adding iproute2 rule (to):", $?);
 
     # Adding default route for the vlan
     `ip route add default via $vlan_gw`;
-    printmsg("ip route add default via $vlan_gw:", $?);
+    printmsg("Adding main default route:", $?);
     
     # Checking if we need to get sensor certificates
     if ($sensor eq "false") {
@@ -455,43 +480,57 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
         $chksensor = "false";
       }
       printmsg("Retrieving certificates:", $chksensor);
-   }
-
-    # Updating the current configuration to the server
-    `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?localip=$vlan_ip&ifmethod=$ifmethodstring&detail=$netconfdetail&vlanid=$vlanid&keyname=$sensor"`;
-    printmsg("Updating status info to the server", $?);
-   
-  # Check for errors
-  $err = 0;
-  $errcheck = `grep "ERROR" $basedir/startclient.php | wc -l`;
-  if ($errcheck != 0) {
-    $errors = `grep "ERROR" $basedir/startclient.php`;
-    chomp($errors);
-    $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
-  }
-
-  # Check for errors
-  if ($errcheck != 0) {
-    $errors = `grep "ERROR" $basedir/startclient.php`;
-    chomp($errors);
-    $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
-    chomp($errno);
-    if ($errno == 99) {
-      print "${y}A tap IP address needs to be configured in the webinterface.\n";
-      print "Start the sensor again when this is done.${n}\n";
-      `$basedir/stopclient >/dev/null`;
-      $chk = chkidsmenu();
-      if ($chk != 0) {
-        system("$basedir/idsmenu");
-      }
-      exit;
-    } else {
-      print "${r}An error occurred while updating status information.\n";
-      print "$errors${n}\n";
     }
-  }
-   
-   `openvpn --config $basedir/client.conf --dev $tap --daemon`;
+
+    if ($sensor ne "false") {
+      # Updating the current configuration to the server
+      printdelay("Updating status info to the server:");
+      `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?localip=$vlan_ip&ifmethod=$ifmethodstring&detail=$netconfdetail&vlanid=$vlanid&keyname=$sensor"`;
+      printresult($?);
+    }
+
+    if (-r "$basedir/startclient.php") {
+      # Check for errors
+      $err = 0;
+      $errcheck = `grep "ERROR" $basedir/startclient.php | wc -l`;
+      if ($errcheck != 0) {
+        $errors = `grep "ERROR" $basedir/startclient.php`;
+        chomp($errors);
+        $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
+      }
+
+      # Check for errors
+      if ($errcheck != 0) {
+        $errors = `grep "ERROR" $basedir/startclient.php`;
+        chomp($errors);
+        $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
+        chomp($errno);
+        if ($errno == 99) {
+          print "${y}A tap IP address needs to be configured in the webinterface.\n";
+          print "Start the sensor again when this is done.${n}\n";
+          `$basedir/stopclient >/dev/null`;
+          $chk = chkidsmenu();
+          if ($chk != 0) {
+            system("$basedir/idsmenu");
+          }
+          exit;
+        } else {
+          print "${r}An error occurred while updating status information.\n";
+          print "$errors${n}\n";
+        }
+      }
+    }
+    
+    $chkclientconf = chkclientconf();
+    printmsg("Checking client.conf:", $chkclientconf);
+    if ($chkclientconf != 0) {
+      $fix = fixclientconf();
+      printmsg("Fixing client.conf:", $fix);
+    }
+
+    printdelay("Starting OpenVPN:");
+    `openvpn --config $basedir/client.conf --dev $tap --daemon`;
+    printresult($?);
 		
     # Waiting for OpenVPN to finish
     sleeptimer("Waiting for OpenVPN:", 10);
@@ -523,9 +562,6 @@ printmsg("Changing permissions sensor key:", $?);
 `chmod 644 $basedir/$sensor.crt`;
 printmsg("Changing permissions sensor cert:", $?);
 
-
-
-
 # Sync the time with a timeserver
 #$chktime = chktime();
 #printmsg("Syncing time with ntpserver:", $chktime);
@@ -535,11 +571,7 @@ if (-e "$basedir/scripts.d/user_startclient.pl") {
   system("$basedir/scripts.d/user_startclient.pl");
 }
 
-# Starting idsmenu
-$arg = $ARGV[0];
-if ($ARGV[0]) {
-  if ($ARGV[0] == 1 || $ARGV[0] eq "start") {
-    exec "$basedir/idsmenu";
-  }
+$chk = chkidsmenu();
+if ($chk != 0) {
+  system("$basedir/idsmenu");
 }
-

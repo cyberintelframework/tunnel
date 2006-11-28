@@ -3,14 +3,16 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.03
-# 23-11-2006
+# Version 1.04.05
+# 27-11-2006
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
-# 1.04.03 Added chkidsmenu and chkpump
+# 1.04.05 Changed chkreach
+# 1.04.04 Added chknetworkconf
+# 1.04.03 Added chkidsmenu, chkpump, printdelay, printresult
 # 1.04.02 Added regexp for validip
 # 1.04.01 Initial release
 ################
@@ -38,6 +40,8 @@ $| = 1;
 # 1.13		chkreach
 # 1.14		chkidsmenu
 # 1.15		chkpump
+# 1.16		chkdefault
+# 1.17		chknetworkconf
 # 2		All GET functions
 # 2.01		getnetinfo
 # 2.02		getnetconf
@@ -59,6 +63,9 @@ $| = 1;
 # 3.09		validvlanid
 # 3.10		validvlancount
 # 3.11		sleeptimer
+# 3.12		printdelay
+# 3.13		printresult
+# 3.14		clientconftemp
 ###############################################
 
 #########################
@@ -70,8 +77,10 @@ $| = 1;
 # Returns 0 if the interface is present
 # Returns 1 if not
 sub chkif() {
-  my $if=$_[0];
-  my $checkif = `ip link show | grep $if | wc -l`;
+  my ($if, $checkif);
+  $if = $_[0];
+  chomp($if);
+  $checkif = `ip link show | grep $if | wc -l`;
   if ($checkif == 0) {
     return 1;
   } else {
@@ -280,7 +289,7 @@ sub chkssh() {
 # Returns 4 if it failed the server check
 # Returns 5 for unknown error
 sub chkclientconf() {
-  my ($ca, $cert, $key, $line);
+  my ($ca, $cert, $key, $line, $server, $sensor);
   $ca = 1;
   $key = 1;
   $cert = 1;
@@ -298,10 +307,10 @@ sub chkclientconf() {
     if ($line =~ /^ca.*crt$/) {
       $ca = 0;
     }
-    if ($line =~ /^key.*key$/) {
+    if ($line =~ /^key.*$sensor\.key$/) {
       $key = 0;
     }
-    if ($line =~ /^cert.*crt$/) {
+    if ($line =~ /^cert.*$sensor\.crt$/) {
       $cert = 0;
     }
   }
@@ -329,12 +338,12 @@ sub chkclientconf() {
 # Returns 1 if the IP address was not reachable
 # Returns 2 if the IP address was invalid
 sub chkreach() {
-  my ($ip, $pingresult);
+  my ($ip, $pingresult, $chkip);
   $ip = $_[0];
-  if ($ip =~ /\b(([0-2]?\d{1,2}\.){3}[0-2]?\d{1,2})\b/) {
-    $pingresult = `ping -c 1 -q $ip | grep -i unreachable | wc -l`;
-    chomp($pingresult);
-    return $pingresult;
+  $chkip = validip($ip);
+  if ($chkip == 0) {
+    `ping -c 1 -q $ip`;
+    return $?;
   } else {
     return 2;
   }
@@ -362,14 +371,59 @@ sub chkidsmenu() {
 # Returns 1 if pump is not running
 sub chkpump() {
   my ($chk, $if);
-  $if = $_[0];
-  $chk = `ps -ef | grep pump | grep $if | grep -v grep | wc -l`;
+  if ($_[0]) {
+    $if = $_[0];
+    $chk = `ps -ef | grep pump | grep $if | grep -v grep | wc -l`;
+  } else {
+    $chk = `ps -ef | grep pump | grep -v grep | wc -l`;
+  }
+  chomp($chk);
   if ($chk == 0) {
     return 1;
   } else {
     return 0;
   }
   return 1;
+}
+
+# 1.16 chkdefault
+# Function to check for the existance of a default route given an interface
+# Returns 0 if a default route is present
+# Returns 1 if not
+sub chkdefault() {
+  my ($chk, $if);
+  $if = $_[0];
+  chomp($if);
+  if (!$if) {
+    return 1;
+  }
+  $chk = `route -n | grep UG | grep 0.0.0.0 | grep $if | wc -l`;
+  chomp($chk);
+  if ($chk == 0) {
+    return 1;
+  } else {
+    return 0;
+  }
+  return 1;
+}
+
+# 1.17 chknetworkconf
+# Function to check the network configuration file
+# Returns true if perl syntax was correct
+# Returns false if perl syntax was not correct
+sub chknetworkconf() {
+  my ($chk);
+  if (-e "$basedir/network_if.conf") {
+    $chk = `perl $basedir/network_if.conf`;
+    if ($chk == 0) {
+      return "true";
+    } else {
+      return "false";
+    }
+  } else {
+    return "false";
+  }
+  return "false";
 }
 
 #########################
@@ -531,6 +585,7 @@ sub getportstatus() {
 sub getresolv() {
   my ($server, $chknslookup, @nslookup, $nscount);
   $server = $_[0];
+  chomp($server);
   if ($server =~ /\b(([0-2]?\d{1,2}\.){3}[0-2]?\d{1,2})\b/) {
     return $server;
   } else {
@@ -659,7 +714,7 @@ sub printmsg() {
   $len = length($msg);
   $tabcount = ceil((40 - $len) / 8);
   $tabstring = "\t" x $tabcount;
-  if ("$ec" eq "0") {
+  if ("$ec" eq "0" || "$ec" eq "true") {
     print $msg . $tabstring . "[${g}OK${n}]\n";
   } elsif ($ec eq "false" || $ec eq "filtered") {
     print $msg . $tabstring . "[${r}Failed${n}]\n";
@@ -710,7 +765,7 @@ sub validip() {
   $regexp = "^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
   $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
   $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
-  $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))$";
+  $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\$";
   if ($ip !~ /$regexp/) {
     return 1;
   } else {
@@ -722,18 +777,31 @@ sub validip() {
 # 3.05 fixclientconf
 # Function to clean and fix the client.conf if possible
 # Returns 0 if client.conf was succesfuly fixed
-# Returns 1 the sensor name could not be found
-# Returns 2 if the default template could not be copied
-# Returns 3 if the clientconf check failed
+# Returns 1 if the sensor name could not be found
+# Returns 2 if client.conf and client.conf.temp do not exist
+# Returns 3 if the default template could not be copied
+# Returns 4 if the clientconf check failed
 sub fixclientconf() {
-  my ($sensor, $chkclient);
+  my ($sensor, $chkclient, $temp);
   $sensor = getsensor();
   if ($sensor eq "false") {
     return 1;
   }
-  `cp $basedir/client.conf.temp $basedir/client.conf`;
-  if ($? != 0) {
-    return 2;
+  if (! -e "$basedir/client.conf") {
+    if (! -e "$basedir/client.conf.temp") {
+      return 2;
+    } else {
+      `cp $basedir.client.conf.temp $basedir/client.conf`;
+      if ($? != 0) {
+        return 3;
+      }
+    }
+  } else {
+    $temp = clientconftemp();
+    `cp $basedir/client.conf.temp $basedir/client.conf`;
+    if ($? != 0) {
+      return 3;
+    }
   }
   open(CONF, ">> $basedir/client.conf");
   print CONF "ca $basedir/ca.crt\n";
@@ -744,7 +812,7 @@ sub fixclientconf() {
   if ($chkclient == 0) {
     return 0;
   } else {
-    return 3;
+    return 4;
   }
   return 4;
 }
@@ -914,6 +982,57 @@ sub sleeptimer() {
   }
   print "${g}OK${n}]\n";
   return 0;
+}
+
+# 3.12 printdelay
+# Function to print status message
+sub printdelay() {
+  my ($msg, $len, $tabcount, $tabstring);
+  $msg = $_[0];
+  chomp($msg);
+  $len = length($msg);
+  $tabcount = ceil((40 - $len) / 8);
+  $tabstring = "\t" x $tabcount;
+  print $msg . $tabstring;
+  return 0;
+}
+
+# 3.13 printresult
+# Function to print the result of an action.
+# Used along with printdelay
+sub printresult() {
+  my ($ec);
+  $ec = $_[0];
+  chomp($ec);
+  if ("$ec" eq "0") {
+    print "[${g}OK${n}]\n";
+  } elsif ($ec eq "false" || $ec eq "filtered") {
+    print "[${r}Failed${n}]\n";
+  } elsif ($ec =~ /^[-]?(\d+)$/) {
+    print "[${r}Failed (error: $ec)${n}]\n";
+  } elsif ($ec eq "ignore") {
+    print "[${y}ignore${n}]\n";
+  } elsif ($ec eq "info") {
+    print "[${y}info${n}]\n";
+  } else {
+    print "[${g}$ec${n}]\n";
+  }
+  return 0;
+}
+
+# 3.14 clientconftemp
+# Function to create client.conf.temp from the 
+# existing client.conf
+# Returns 0 on success
+# Returns 1 on failure
+sub clientconftemp() {
+  `cat $basedir/client.conf | grep -v ^ca.*ca\.crt\$ | grep -v ^key.*sensor.*\.key\$ | grep -v ^cert.*sensor.*\.crt\$ > $basedir/client.conf.temp`;
+  if ($? == 0) {
+    return 0;
+  } else {
+    return 1;
+  }
+  return 1;
 }
 
 return "true";

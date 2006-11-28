@@ -56,10 +56,9 @@ $broad = "";
 $primary = "";
 
 if ($netconf eq "vlan"){
-$statusif = "br1";
-}
-else {
-$statusif = $br;
+  $statusif = "br1";
+} else {
+  $statusif = $br;
 }
 
 # Set a static IP address
@@ -177,7 +176,7 @@ sub set_vlan() {
   $chkstatus = chksensorstatus($statusif);
   if ($chkstatus == 0) {
     # Stop client first
-   system("$basedir/stopclient");
+    system("$basedir/stopclient");
   }
   $done = 1;
   while ($done != 0) {
@@ -188,128 +187,118 @@ sub set_vlan() {
     ### Reading primary nameserver
     $valid_ip = 1;
     while ($valid_ip != 0) {
-      $ns = &prompt("Primary nameserver : ", $ns);
+      $ns = &prompt("Primary nameserver: ", $ns);
       $valid_ip = validip($ns);
     }
     
     open(NCONF, "> $networkconf");
     print NCONF "\$if_ns = \"$ns\";\n";
     
-    
     ### Reading amount of vlans to be added
     $valid_vlancount = 1;
     while ($valid_vlancount != 0) {
-   	$vlancount = &prompt("How many vlans do you want to add? ");
-    	$valid_vlancount = validvlancount($vlancount);
-    	if ($valid_vlancount == 0) {
-    		print NCONF "\$netconf = \"vlan\";\n";
-		print NCONF "\%vlan = ( \n";
-	}
-    	else {
-		print "Our maximum amount of vlans are 7. \n";
-    	}
+      $vlancount = &prompt("How many vlans do you want to add? ");
+      $valid_vlancount = validvlancount($vlancount);
+      if ($valid_vlancount == 0) {
+        print NCONF "\$netconf = \"vlan\";\n";
+        print NCONF "\%vlan = ( \n";
+      } else {
+        print "The maximum amount of vlans is 7!\n";
+      }
     }
     $valid_vlanid = 1;
     my $vlan = 1;
     my @vlanid;
     while ($vlancount != 0) {
-      $vlanid = &prompt("set ID of vlan $vlan: ");
+      $vlanid = &prompt("Set ID of vlan $vlan: ");
       $valid_vlanid = validvlanid($vlanid);
       if (exists $used_vlanid{"$vlanid"}) {
-        print "This VLAN ID is already used\n";
+        print "This VLAN ID is already used!\n";
       	$valid_vlanid = 1;
-	}
-      else {
+      } else {
       	$used_vlanid{"$vlanid"} = "1";
       }
       if ($valid_vlanid == 0){ 
-    	$setvlan = 1;
-	while ($setvlan != 0) {
-      		$vlan_method = &prompt("VLAN[$vlanid]: Method: ");
-		if ($vlan_method eq "static") {
-    		   	$valid_ip = 1;
-		    	while ($valid_ip != 0) {
-      				$sensorip = &prompt("VLAN[$vlanid]: IP address sensor: ");
-      				$valid_ip = validip($sensorip);
-   	 		}
-    			## Reading netmask
-    			$valid_ip = 1;
-    			while ($valid_ip != 0) {
-     				$netmask = &prompt("VLAN[$vlanid]: Netmask: ");
-      				$valid_ip = validip($netmask);
-    			}
+        $setvlan = 1;
+        while ($setvlan != 0) {
+          $vlan_method = &prompt("VLAN[$vlanid] Method: ");
+          if ($vlan_method eq "static") {
+            $valid_ip = 1;
+            while ($valid_ip != 0) {
+              $sensorip = &prompt("VLAN[$vlanid] IP address sensor: ");
+              $valid_ip = validip($sensorip);
+            }
+            ## Reading netmask
+            $valid_ip = 1;
+            while ($valid_ip != 0) {
+              $netmask = &prompt("VLAN[$vlanid] Netmask: ");
+              $valid_ip = validip($netmask);
+            }
     		
-			### Reading gateway
-    			$valid_ip = 1;
-   			while ($valid_ip != 0) {
-      				$gw = &prompt("VLAN[$vlanid]: Default gateway: ");
-      				$valid_ip = validip($gw);
-    			}
+            ### Reading gateway
+            $valid_ip = 1;
+            while ($valid_ip != 0) {
+              $gw = &prompt("VLAN[$vlanid] Default gateway: ");
+              $valid_ip = validip($gw);
+            }
 
-			### Reading broadcast address
-			$valid_ip = 1;
-			while ($valid_ip != 0) {
-				$bc = &prompt("VLAN[$vlanid]: Broadcast address: ");
-				$valid_ip = validip($bc);
-			}
-			
-			
+            ### Reading broadcast address
+            $valid_ip = 1;
+            while ($valid_ip != 0) {
+              $bc = &prompt("VLAN[$vlanid] Broadcast address: ");
+              $valid_ip = validip($bc);
+            }
 
-    			system("/usr/bin/clear");
-			   printmsg("VLAN Method:", "static");
-			   printmsg("IP_sensor:", $sensorip);
-    			printmsg("Netmask:", $netmask);
-    			printmsg("Gateway:", $gw);
-    			printmsg("Broadcast:", $bc);
-    			###############
+            system("/usr/bin/clear");
+            printmsg("VLAN Method:", "static");
+            printmsg("IP_sensor:", $sensorip);
+            printmsg("Netmask:", $netmask);
+            printmsg("Gateway:", $gw);
+            printmsg("Broadcast:", $bc);
+            ###############
 
-   			 $check = 1;
-   			 while ($check != 0) {
-			      $input = &prompt("Is this information correct [Y/n] ?: ");
-			      if ($input =~ /^(Y|y|N|n)$/) {
-			        $check = 0;
-      			      }
-		         }
-		        if ($input =~ /^(Y|y)$/) {
-				   print NCONF "\t$vlanid => {\n";
-				   print NCONF "\t\tmethod => \"static\",\n";
-    				print NCONF "\t\tif_ip => \"$sensorip\",\n";
-    				print NCONF "\t\tif_nm => \"$netmask\",\n";
-    				print NCONF "\t\tif_gw => \"$gw\",\n";
-	    			print NCONF "\t\tif_bc => \"$bc\",\n";
-    				print NCONF "\t},\n";
-		         	$setvlan = 0;
-    		        }
-		}
-		elsif ($vlan_method eq "dhcp"){
-			print NCONF "\t$vlanid => {\n";
-			print NCONF "\t\tmethod => \"dhcp\",\n";
-    		print NCONF "\t},\n";
-			$setvlan = 0;
-		}
-		else {
-		print "Wrong input: Enter static or dhcp.\n";
-		}
+            $check = 1;
+            while ($check != 0) {
+              $input = &prompt("Is this information correct [Y/n] ?: ");
+              if ($input =~ /^(Y|y|N|n)$/) {
+                $check = 0;
+              }
+            }
+            if ($input =~ /^(Y|y)$/) {
+              print NCONF "\t$vlanid => {\n";
+              print NCONF "\t\tmethod => \"static\",\n";
+              print NCONF "\t\tif_ip => \"$sensorip\",\n";
+              print NCONF "\t\tif_nm => \"$netmask\",\n";
+              print NCONF "\t\tif_gw => \"$gw\",\n";
+              print NCONF "\t\tif_bc => \"$bc\",\n";
+              print NCONF "\t},\n";
+              $setvlan = 0;
+            }
+          } elsif ($vlan_method eq "dhcp"){
+            print NCONF "\t$vlanid => {\n";
+            print NCONF "\t\tmethod => \"dhcp\",\n";
+            print NCONF "\t},\n";
+            $setvlan = 0;
+          } else {
+            print "Wrong input: Enter static or dhcp.\n";
+          }
 	}		
-	$vlancount--;
-   $vlan++;
-  }
-  else {
-   	print "Enter a vlan that's between 0 and 4096 \n";	
-  }
-  } 	
-  print NCONF ");\n";
-  close(NCONF);
-  $done = 0;
+        $vlancount--;
+        $vlan++;
+      } else {
+        print "Enter a vlan that's between 0 and 4096 \n";	
+      }
+    } 	
+    print NCONF ");\n";
+    close(NCONF);
+    $done = 0;
    
-  $checkstart = `ps -ef | grep startclient | grep -v grep | wc -l`;
-  if ($checkstart == 0) {
-    # Start client
-    system("$basedir/startclient");
-  }
-  
- }   
- 
+    $checkstart = `ps -ef | grep startclient | grep -v grep | wc -l`;
+    if ($checkstart == 0) {
+      # Start client
+      system("$basedir/startclient");
+    }
+  }   
 }
 
 # Show menu

@@ -3,16 +3,16 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.04.01
-# 07-11-2006
+# Version 1.04.02
+# 24-11-2006
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 #############################################
 # Changelog:
-# 1.04.01 Rereleased as 1.04.01
-# 1.02.05 Rerelease as perl script
+# 1.04.02 Added HD install option
+# 1.04.01 Rerelease as perl script
 # 1.02.04 Key and certificate check bugfix
 # 1.02.03 Initial release
 #############################################
@@ -56,6 +56,11 @@ sub idsmenu_netconfig() {
   &prompt("Press enter to continue...");
 }
 
+sub idsmenu_copyhd() {
+  system("/usr/sbin/knoppix-installer");
+  &prompt("Press enter to continue...");
+}
+
 sub idsmenu_ssh() {
   my ($sshcheck);
   $chkssh = chkssh();
@@ -90,8 +95,9 @@ while (1==1) {
   print "\t5. Login\n";
   print "\t6. Configure network\n";
   print "\t7. Enable/Disable SSH\n";
-  print "\t8. Reboot\n";
-  print "\t9. Shutdown\n";
+  print "\t8. Sensor HD install\n";
+  print "\t9. Reboot\n";
+  print "\t10. Shutdown\n";
   $input = &prompt("\tPlease select one of the above (1-9): ");
   chomp($input);
   system("/usr/bin/clear");
@@ -110,8 +116,10 @@ while (1==1) {
   } elsif ($input eq 7) {
     idsmenu_ssh();
   } elsif ($input eq 8) {
-    idsmenu_reboot();
+    idsmenu_copyhd();
   } elsif ($input eq 9) {
+    idsmenu_reboot();
+  } elsif ($input eq 10) {
     idsmenu_shutdown();
   } else {
     print "${r}Invalid input. Try again!${n}\n";
