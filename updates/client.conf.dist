@@ -19,4 +19,3 @@ group nogroup
 persist-key
 persist-tun
 # The script to start on the client when a tunnel comes up.
-up /cdrom/scripts/bridgestart
