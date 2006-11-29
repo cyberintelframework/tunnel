@@ -3,8 +3,8 @@
 ###############################################
 # Network setup script for SURFnet IDS sensor #
 # SURFnet IDS                                 #
-# Version 1.04.02                             #
-# 23-11-2006                                  #
+# Version 1.04.03                             #
+# 29-11-2006                                  #
 # Jan van Lith & Kees Trippelvitz             #
 ###############################################
 
@@ -29,6 +29,7 @@
 
 #############################################
 # Changelog:
+# 1.04.03 Fixed a bug with static IP not exiting the loop
 # 1.04.02 Added VLAN support
 # 1.04.01 Rereleased as 1.04.01
 # 1.02.03 Rerelease as perl script
@@ -69,7 +70,7 @@ sub set_static_ip() {
     system("$basedir/stopclient");
   }
   $done = 1;
-  while ($done != 0) {
+  while ($done == 1) {
     #####################
     system("/usr/bin/clear");
     print "Please enter the IP configuration for this network.\n";
@@ -131,7 +132,7 @@ sub set_static_ip() {
     ###############
 
     $check = 1;
-    while ($check != 0) {
+    while ($check == 1) {
       $input = &prompt("Is this information correct [Y/n] ?: ");
       if ($input =~ /^(Y|y|N|n)$/) {
         $check = 0;
@@ -145,8 +146,8 @@ sub set_static_ip() {
 	system("$basedir/stopclient");
 	print "${y}Restarting client.${n}\n";
 	system("$basedir/startclient");
-	$done = 0;
       }
+      $done = 0;
     }
   }
 }

@@ -3,13 +3,14 @@
 ###################################
 # Update script for update
 # SURFnet IDS
-# Version 1.04.01
-# 07-11-2006
+# Version 1.04.02
+# 29-11-2006
 # Jan van Lith & Kees Trippelvitz
 ###################################
 
 #############################################
 # Changelog:
+# 1.04.02 Replaced print with printmsg
 # 1.04.01 Rereleased as 1.04.01
 # 1.03.01 Rerelease as perl script
 # 1.02.03 Initial release
@@ -41,5 +42,4 @@ printmsg("Updating the update script:", $?);
 `rm -f $basedir/tmp.*`;
 `rm -f $basedir/server_version.txt`;
 printmsg("Removing temporary files:", $?);
-
-print "${y}Updates complete!\n${n}";
+printmsg("Updates complete:", "info");

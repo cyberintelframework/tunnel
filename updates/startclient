@@ -3,14 +3,15 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.03
-# 24-11-2006
+# Version 1.04.04
+# 29-11-2006
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.04 Changed some printmsg into printdelay
 # 1.04.03 Added some more error handling
 # 1.04.02 VLAN support
 # 1.04.01 Rereleased as perl script
@@ -152,8 +153,9 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # Start pump if needed
     $chkpump = chkpump($if);
     if ($chkpump != 0) {
+      printdelay("Starting DHCP client:");
       `pump -i $if 2>/dev/null`;
-      printmsg("Starting DHCP client for $if:", $?);
+      printresult($?);
     }
     
     # Setting the if detail string
@@ -222,11 +224,12 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   # Checking DNS resolver
   $servcheck = validip($server);
   if ($servcheck != 0) {
+    printdelay("Checking DNS resolver:");
     $chkresolv = getresolv($server);
     if ($chkresolv ne "false") {
       $chkresolv = 0;
     }
-    printmsg("Checking DNS resolver:", $chkresolv);
+    printresult($chkresolv);
   } else {
     $chkresolv = 0;
     printmsg("Checking DNS resolver:", "ignore");
@@ -237,8 +240,9 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     printmsg("Checking updates port:", "ignore");
   } else {
     # Checking if the ports to the server are unfiltered
+    printdelay("Checking OpenVPN port:");
     $openvpnport = getportstatus($if, 1194);
-    printmsg("Checking OpenVPN port:", $openvpnport);
+    printresult($openvpnport);
     if ($openvpnport ne "open") {
       $chk = chkidsmenu();
       if ($chk != 0) {
@@ -246,7 +250,9 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       }
       exit;
     }
+    printdelay("Checking updates port:");
     $updateport = getportstatus($if, 4443);
+    printresult($updateport);
     if ($updateport ne "open") {
       $chk = chkidsmenu();
       if ($chk != 0) {
@@ -254,7 +260,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       }
       exit;
     }
-    printmsg("Checking updates port:", $updateport);
   }
 
   if ($chkresolv ne "false") {

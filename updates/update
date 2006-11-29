@@ -3,13 +3,14 @@
 #########################################
 # Update script for SURFnet IDS Sensor	#
 # SURFnet IDS                           #
-# Version 1.04.01                       #
-# 07-11-2006                            #
+# Version 1.04.02                       #
+# 29-11-2006                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 1.04.02 Added printmsg when no active VLANs are found
 # 1.04.01 Rereleased as 1.04.01
 # 1.02.18 Rereleased as perl script
 # 1.02.17 Fixed a small bug in test of $action 
@@ -68,6 +69,7 @@ if ($sensor eq "false") {
 }
 
 if ($netconf eq "vlan") {
+  $down = 0;
   $i = 1;
   for my $key ( keys %vlan ) {
     $vlanid = $key;	
@@ -79,20 +81,34 @@ if ($netconf eq "vlan") {
       $if = "br$i";
       if ($vlan_method eq "dhcp") {			 
         $if_gw = `pump -i $if -s | grep "Gateway:" | awk '{print \$2}'`;
-        printmsg("Gateway:", $if_gw);
+      } else{
+        $if_gw = $vlan{$vlanid}{if_gw};
+      }
+      chomp($if_gw);
+      $chkgw = validip($if_gw);
+      if ($chkgw == 0) {
+        printmsg("Retrieving gateway:", $if_gw);
+        printdelay("Checking gateway connectivity:");
+        $chkgw = chkreach($if_gw);
+        printresult($if_gw);
+      } else {
+        printmsg("Retrieving gateway:", "false");
+      }
+      if ($chkgw == 0) {
         `ip route add default via $if_gw`;
         update_process($if, $vlanid);
         sleeptimer("Preparing for next VLAN:", 10);
         `ip route del default via $if_gw`;
-      } else{
-        $if_gw = $vlan{$vlanid}{if_gw};
-        printmsg("Gateway:", $if_gw);
-        `ip route add default via $if_gw`; 
-        update_process($if, $vlanid);
-        sleeptimer("Preparing for next VLAN:", 10);
-        `ip route del default via $if_gw`;
+      } else {
+        printmsg("Network connectivity failed. No updates:", "info");
       }
-    }
+    } else {
+      $down++;
+      printmsg("Status VLAN $vlanid:", "down");
+      if ($down == keys %vlan) {
+        printmsg("No active VLANs. Not updating:", "info");
+      }
+    }    
     $i++	
   }
 } else {
@@ -104,7 +120,27 @@ if ($netconf eq "vlan") {
     $if = getif();
   }
   printmsg("Active interface:", $if);
-  update_process($if, $vlanid);
+
+  if ($netconf eq "dhcp") {			 
+    $if_gw = `pump -i $if -s | grep "Gateway:" | awk '{print \$2}'`;
+  } else{
+    $if_gw = $vlan{$vlanid}{if_gw};
+  }
+  chomp($if_gw);
+  $chkgw = validip($if_gw);
+  if ($chkgw == 0) {
+    printmsg("Retrieving gateway:", $if_gw);
+    printdelay("Checking gateway connectivity:");
+    $chkgw = chkreach($if_gw);
+    printresult($if_gw);
+  } else {
+    printmsg("Retrieving gateway:", "false");
+  }
+  if ($chkgw == 0) {
+    update_process($if, $vlanid);
+  } else {
+    printmsg("Network connectivity failed. No updates:", "info");
+  }
 }
 
 sub update_process() {
