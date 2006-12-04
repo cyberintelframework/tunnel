@@ -21,8 +21,7 @@ use File::Basename;
 
 $basedir = "/cdrom/scripts/";
 do "$basedir/sensor.conf";
-do "$basedir/functions.inc.pl";
-do "$basedir/network_if.conf";
+require "$basedir/functions.inc.pl";
 
 $ip_error = 0;
 
@@ -62,7 +61,7 @@ sub idsmenu_copyhd() {
 }
 
 sub idsmenu_ssh() {
-  my ($sshcheck);
+  my ($chkssh);
   $chkssh = chkssh();
   if ($chkssh == 0) {
     `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/sshd.pid`;

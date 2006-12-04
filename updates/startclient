@@ -3,14 +3,15 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.04
-# 29-11-2006
+# Version 1.04.05
+# 01-12-2006
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.05 Added more error handling
 # 1.04.04 Changed some printmsg into printdelay
 # 1.04.03 Added some more error handling
 # 1.04.02 VLAN support
@@ -34,10 +35,10 @@ require "$basedir/functions.inc.pl";
 # Disabling dmesg output on the console
 `dmesg -n 1`;
 
-if ($netconf eq "vlan"){
- $statusif = "br1";
+if ($netconf eq "vlan") {
+  $statusif = "br1";
 } else {
- $statusif = $br;
+  $statusif = $br;
 }
 
 $chkstatus = chksensorstatus($statusif);
@@ -104,6 +105,11 @@ for ($i=$ifcounter; $i != 0; $i--) {
   sleep 1;
 }
 system("/usr/bin/clear");
+
+# Running stopclient to clean up any stuff left
+printdelay("Running stopclient:");
+`$basedir/stopclient 2>/dev/null`;
+printresult($?);
 
 $chkpump = chkpump();
 if ($chkpump == 0) {
@@ -221,9 +227,15 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     exit;
   }
 
+  if ($if_gw ne "false") {
+    printdelay("Checking gateway connectivity:");
+    $chkgw = chkreach($if_gw);
+    printresult($chkgw);
+  }
+
   # Checking DNS resolver
   $servcheck = validip($server);
-  if ($servcheck != 0) {
+  if ($servcheck != 0 && $chkgw == 0) {
     printdelay("Checking DNS resolver:");
     $chkresolv = getresolv($server);
     if ($chkresolv ne "false") {
@@ -231,7 +243,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     }
     printresult($chkresolv);
   } else {
-    $chkresolv = 0;
+    $chkresolv = "false";
     printmsg("Checking DNS resolver:", "ignore");
   }
 
@@ -289,9 +301,9 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     printmsg("Retrieving certificates:", $chksensor);
   }
 
-  if ($if ne "false" && $sensor ne "false") {
+  if ($sensor ne "false" && $chkgw == 0 && $chkresolv == 0) {
     # Updating the current configuration to the server
-    printdelay("Updating status info to the server:");
+    printdelay("Updating status info:");
     `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?localip=$if_ip&ifmethod=$netconf&detail=$ifdetail&vlanid=0&keyname=$sensor"`;
     printresult($?);
   }
@@ -345,16 +357,20 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $chkpump = chkpump($br);
     if ($chkpump != 0) {
       sleeptimer("Waiting for bridging to finish:", 10);
-      printdelay("Starting dhcp client for the bridge:");
+      printdelay("Starting DHCP client for the bridge:");
       `pump -i $br`;
       printresult($?);
     }
   }
 
-  # Starting OpenVPN
-  printdelay("Starting OpenVPN:");
-  `openvpn --config $basedir/client.conf --dev $tap --daemon`;
-  printresult($?);
+  if ($chkgw == 0 && $chkresolv == 0) {
+    # Starting OpenVPN
+    printdelay("Starting OpenVPN:");
+    `openvpn --config $basedir/client.conf --dev $tap --daemon`;
+    printresult($?);
+  } else {
+    printmsg("Starting OpenVPN:", "ignore");
+  }
 
   # Setting up the ethernet loop prevention
   $ipt = setiptables($tap);
@@ -394,34 +410,35 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $tap = "tap$i";
     $vif = "$if.$vlanid";
     printmsg("Retrieving VLAN ID:", " $vlanid ");
+    $vs = "[VLAN$vlanid]";
 
     # Creating the vlan interface
     `vconfig add $if $vlanid`;
     if ($? != 0) {
-      printmsg("Creating virtual interface:", $?);
+      printmsg("$vs Creating virtual interface:", $?);
       $chk = chkidsmenu();
       if ($chk != 0) {
         system("$basedir/idsmenu");
       }
       exit;
     } else {
-      printmsg("Creating virtual interface:", "$if.$vlanid");
+      printmsg("$vs Creating virtual interface:", "$if.$vlanid");
     }
 
     # Retrieving the network config method of the vlan
     $vlan_method = $vlan{$vlanid}{method};
-    printmsg("Retrieving VLAN Method:", $vlan_method);
+    printmsg("$vs Retrieving VLAN Method:", $vlan_method);
   
     # Check if pump is running, if so, kill it.
     $chkpump = chkpump($br);
     if ($chkpump == 0) {
       `killall pump`;
-      printmsg("Killing all dhcp clients:", $?);
+      printmsg("$vs Killing all DHCP clients:", $?);
     }
   	
     # Creating tap device
     `openvpn --mktun --dev $tap`;
-    printmsg("Creating tap device:", "$tap");
+    printmsg("$vs Creating tap device:", "$tap");
     
     # Check if the vlan routing tables are added the iproute2
     $checkrt_tables = `cat /etc/iproute2/rt_tables | grep "vlan$i" | wc -l`;
@@ -431,49 +448,74 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   	
     # Setting up the bridge interface
     $chk = setbridge($br, $tap, $vif, $netconf);
-    printmsg("Setting up the bridge:", $chk);
+    printmsg("$vs Setting up the bridge:", $chk);
     `ifconfig $br up`;
-    sleeptimer("Waiting for bridging to finish:", 10);
+    sleeptimer("$vs Waiting for bridge:", 10);
 	
     if ($vlan_method eq "static") {
       $vlan_ip = $vlan{$vlanid}{if_ip};
       $vlan_nm = $vlan{$vlanid}{if_nm};
       $vlan_bc = $vlan{$vlanid}{if_bc};
       $vlan_gw = $vlan{$vlanid}{if_gw};
-      printmsg("Retrieving IP_sensor:", $vlan_ip);
-      printmsg("Retrieving netmask:", $vlan_nm);
-      printmsg("Retrieving broadcast address:", $vlan_bc);
-      printmsg("Retrieving gateway:", $vlan_gw);
+      printmsg("$vs Retrieving IP_sensor:", $vlan_ip);
+      printmsg("$vs Retrieving netmask:", $vlan_nm);
+      printmsg("$vs Retrieving broadcast address:", $vlan_bc);
+      printmsg("$vs Retrieving gateway:", $vlan_gw);
       `ifconfig $br $vlan_ip netmask $vlan_nm broadcast $vlan_bc`;
-      printmsg("Activating bridge interface:", $?);
-  		
+      printmsg("$vs Activating bridge interface:", $?);
+      
       # Setting up info for the server
       $ifmethodstring = "vlans";
       $netconfdetail = "$vlan_nm|$vlan_gw|$vlan_bc";
-    } elsif ($vlan_method eq "dhcp"){
-      printdelay("Starting dhcp client for the bridge:");
+    } elsif ($vlan_method eq "dhcp") {
+      printdelay("$vs Starting DHCP client:");
       `pump -i $br --no-gateway 2>/dev/null`;
       printresult($?);
-      sleeptimer("Waiting for DHCP:", 10); 
-      $vlan_gw = `pump -i $br -s | grep "Gateway:" | awk '{print \$2}'`;
+      sleeptimer("$vs Waiting for DHCP:", 10); 
+      $vlan_gw = `pump -i $br -s 2>/dev/null | grep "Gateway:" | awk '{print \$2}'`;
       chomp($vlan_gw);
-      $vlan_ip = `pump -i $br -s | grep "IP:" | awk '{print \$2}'`;
+
+      $vlan_ip = `pump -i $br -s 2>/dev/null | grep "IP:" | awk '{print \$2}'`;
       chomp($vlan_ip);
 
       # Setting up info for the server
       $ifmethodstring = "vland";
       $netconfdetail = "dhcp";
     }
+    if ($vlan_ip eq "") {
+      printmsg("$vs Retrieving IP:", "false");
+    } else {
+      printmsg("$vs Retrieving IP:", $vlan_ip);
+    }
+    if ($vlan_gw eq "") {
+      printmsg("$vs Retrieving gateway:", "false");
+    } else {
+      printmsg("$vs Retrieving gateway:", $vlan_gw);
+    }
+    sleeptimer("$vs Waiting for connection:", 5);
+    printdelay("$vs Checking gateway connectivity:");
+    $chkgw = chkgateway($vlan_gw);
+    printresult($chkgw);
+    
+    $chkip = validip($vlan_ip);
+
+    if ($chkgw != 0 || $chkip != 0) {
+      $chk = chkidsmenu();
+      if ($chk != 0) {
+        system("$basedir/idsmenu");
+      }
+      exit;
+    }
 
     # Setting up the routing rules for the vlan
     `ip route add default via $vlan_gw table vlan$i`;	
-    printmsg("Adding vlan$i default route:", $?);
+    printmsg("$vs Adding default route:", $?);
     `ip rule add from $vlan_ip table vlan$i`;
     `ip rule add to $vlan_ip table vlan$i`;
 
     # Adding default route for the vlan
     `ip route add default via $vlan_gw`;
-    printmsg("Adding main default route:", $?);
+    printmsg("$vs Adding main default route:", $?);
     
     # Checking if we need to get sensor certificates
     if ($sensor eq "false") {
@@ -484,12 +526,12 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       } else {
         $chksensor = "false";
       }
-      printmsg("Retrieving certificates:", $chksensor);
+      printmsg("$vs Retrieving certificates:", $chksensor);
     }
 
     if ($sensor ne "false") {
       # Updating the current configuration to the server
-      printdelay("Updating status info to the server:");
+      printdelay("$vs Updating status info:");
       `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?localip=$vlan_ip&ifmethod=$ifmethodstring&detail=$netconfdetail&vlanid=$vlanid&keyname=$sensor"`;
       printresult($?);
     }
@@ -527,22 +569,26 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     }
     
     $chkclientconf = chkclientconf();
-    printmsg("Checking client.conf:", $chkclientconf);
+    printmsg("$vs Checking client.conf:", $chkclientconf);
     if ($chkclientconf != 0) {
       $fix = fixclientconf();
-      printmsg("Fixing client.conf:", $fix);
+      printmsg("$vs Fixing client.conf:", $fix);
     }
 
-    printdelay("Starting OpenVPN:");
-    `openvpn --config $basedir/client.conf --dev $tap --daemon`;
-    printresult($?);
-		
-    # Waiting for OpenVPN to finish
-    sleeptimer("Waiting for OpenVPN:", 10);
+    if ($chkgw == 0 && $chkresolv == 0) {
+      printdelay("$vs Starting OpenVPN:");
+      `openvpn --config $basedir/client.conf --dev $tap --daemon`;
+      printresult($?);
+
+      # Waiting for OpenVPN to finish
+      sleeptimer("$vs Waiting for OpenVPN:", 10);
+    } else {
+      printmsg("Starting OpenVPN:", "ignore");
+    }
 
     # Setting up the ethernet loop prevention
     $ipt = setiptables($tap);
-    printmsg("Ethernet loop prevention $tap:", $ipt);
+    printmsg("$vs Ethernet loop prevention $tap:", $ipt);
 		
     # Deleting the default route to make sure routing goes correctly 
     # for the next vlan.

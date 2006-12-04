@@ -3,8 +3,8 @@
 ###############################################
 # Network setup script for SURFnet IDS sensor #
 # SURFnet IDS                                 #
-# Version 1.04.03                             #
-# 29-11-2006                                  #
+# Version 1.04.05                             #
+# 04-12-2006                                  #
 # Jan van Lith & Kees Trippelvitz             #
 ###############################################
 
@@ -29,6 +29,8 @@
 
 #############################################
 # Changelog:
+# 1.04.05 Fixed type with VLAN method
+# 1.04.04 Added default values to static configs
 # 1.04.03 Fixed a bug with static IP not exiting the loop
 # 1.04.02 Added VLAN support
 # 1.04.01 Rereleased as 1.04.01
@@ -64,11 +66,9 @@ if ($netconf eq "vlan"){
 
 # Set a static IP address
 sub set_static_ip() {
-  $chkstatus = chksensorstatus($statusif);
-  if ($chkstatus == 0) {
-    # Stop client first
-    system("$basedir/stopclient");
-  }
+  # Stop client first
+  printmsg("Stopping client:", "info");
+  system("$basedir/stopclient");
   $done = 1;
   while ($done == 1) {
     #####################
@@ -80,35 +80,53 @@ sub set_static_ip() {
     ### Reading sensor IP address
     $valid_ip = 1;
     while ($valid_ip != 0) {
-      $sensorip = &prompt("IP address sensor: ");
+      if ($if_ip ne "") {
+        $sensorip = &prompt("IP address sensor [$if_ip]: ", $if_ip);
+      } else {
+        $sensorip = &prompt("IP address sensor: ");
+      }
       $valid_ip = validip($sensorip);
     }
     
     ### Reading netmask
     $valid_ip = 1;
     while ($valid_ip != 0) {
-      $netmask = &prompt("Netmask: ");
+      if ($if_nm ne "") {
+        $netmask = &prompt("Netmask [$if_nm]: ", $if_nm);
+      } else {
+        $netmask = &prompt("Netmask: ");
+      }
       $valid_ip = validip($netmask);
     }
     
     ### Reading gateway
     $valid_ip = 1;
     while ($valid_ip != 0) {
-      $gw = &prompt("Default gateway: ");
+      if ($if_gw eq "") {
+        $if_gw = gw($sensorip, $netmask);
+      }
+      $gw = &prompt("Default gateway [$if_gw]: ", $if_gw);
       $valid_ip = validip($gw);
     }
 
     ### Reading broadcast address
     $valid_ip = 1;
     while ($valid_ip != 0) {
-      $bc = &prompt("Broadcast address: ");
+      if ($if_bc eq "") {
+        $if_bc = bc($sensorip, $netmask);
+      }
+      $bc = &prompt("Broadcast address [$if_bc]: ", $if_bc);
       $valid_ip = validip($bc);
     }
 
     ### Reading primary nameserver
     $valid_ip = 1;
     while ($valid_ip != 0) {
-      $ns = &prompt("Primary nameserver: ");
+      if ($if_nm ne "") {
+        $ns = &prompt("Primary nameserver [$if_ns]: ", $if_ns);
+      } else {
+        $ns = &prompt("Primary nameserver: ");
+      }
       $valid_ip = validip($ns);
     }
 
@@ -154,11 +172,9 @@ sub set_static_ip() {
 
 # Set dynamic IP
 sub set_dynamic_ip() {
-  $chkstatus = chksensorstatus($statusif);
-  if ($chkstatus == 0) {
-    # Stop client first
-    system("$basedir/stopclient");
-  }
+  # Stop client first
+  printmsg("Stopping client:", "info");
+  system("$basedir/stopclient");
 
   # Set DHCP networking in network_if.conf:
     open(NCONF, "> $networkconf");
@@ -174,11 +190,8 @@ sub set_dynamic_ip() {
 
 # Set VLAN
 sub set_vlan() {
-  $chkstatus = chksensorstatus($statusif);
-  if ($chkstatus == 0) {
-    # Stop client first
-    system("$basedir/stopclient");
-  }
+  printmsg("Stopping client:", "info");
+  system("$basedir/stopclient");
   $done = 1;
   while ($done != 0) {
     #####################
@@ -188,7 +201,11 @@ sub set_vlan() {
     ### Reading primary nameserver
     $valid_ip = 1;
     while ($valid_ip != 0) {
-      $ns = &prompt("Primary nameserver: ", $ns);
+      if ($if_ns) {
+        $ns = &prompt("Primary nameserver [$if_ns]: ", $if_ns);
+      } else {
+        $ns = &prompt("Primary nameserver: ");
+      }
       $valid_ip = validip($ns);
     }
     
@@ -204,7 +221,7 @@ sub set_vlan() {
         print NCONF "\$netconf = \"vlan\";\n";
         print NCONF "\%vlan = ( \n";
       } else {
-        print "The maximum amount of vlans is 7!\n";
+        print "The number of vlans needs to be between 0 and 8!\n";
       }
     }
     $valid_vlanid = 1;
@@ -222,40 +239,66 @@ sub set_vlan() {
       if ($valid_vlanid == 0){ 
         $setvlan = 1;
         while ($setvlan != 0) {
-          $vlan_method = &prompt("VLAN[$vlanid] Method: ");
+	  $vm = $vlan{$vlanid}{method};
+	  if ($vm ne "") {
+            $vlan_method = &prompt("VLAN[$vlanid] Method [$vm]: ", $vm);
+	  } else {
+            $vlan_method = &prompt("VLAN[$vlanid] Method: ");
+	  }
+	  #####################
+	  # VLAN: STATIC
+	  #####################
           if ($vlan_method eq "static") {
             $valid_ip = 1;
             while ($valid_ip != 0) {
-              $sensorip = &prompt("VLAN[$vlanid] IP address sensor: ");
+	      $vip = $vlan{"$vlanid"}{if_ip};
+	      if ($vip ne "") {
+                $sensorip = &prompt("VLAN[$vlanid] IP address sensor [$vip]: ", $vip);
+              } else {
+	        $sensorip = &prompt("VLAN[$vlanid] IP address sensor: ");
+              }
               $valid_ip = validip($sensorip);
             }
             ## Reading netmask
             $valid_ip = 1;
             while ($valid_ip != 0) {
-              $netmask = &prompt("VLAN[$vlanid] Netmask: ");
+	      $vnm = $vlan{"$vlanid"}{if_nm};
+	      if ($vnm ne "") {
+                $netmask = &prompt("VLAN[$vlanid] Netmask [$vnm]: ", $vnm);
+              } else {
+                $netmask = &prompt("VLAN[$vlanid] Netmask: ");
+	      }
               $valid_ip = validip($netmask);
             }
     		
             ### Reading gateway
             $valid_ip = 1;
             while ($valid_ip != 0) {
-              $gw = &prompt("VLAN[$vlanid] Default gateway: ");
+	      $vgw = $vlan{"$vlanid"}{if_gw};
+	      if ($vgw eq "") {
+	        $vgw = gw($sensorip, $netmask);
+              }
+              $gw = &prompt("VLAN[$vlanid] Default gateway [$vgw]: ", $vgw);
               $valid_ip = validip($gw);
             }
 
             ### Reading broadcast address
             $valid_ip = 1;
             while ($valid_ip != 0) {
-              $bc = &prompt("VLAN[$vlanid] Broadcast address: ");
+	      $vbc = $vlan{"$vlanid"}{if_bc};
+	      if ($vbc eq "") {
+	        $vbc = bc($sensorip, $netmask);
+              }
+              $bc = &prompt("VLAN[$vlanid] Broadcast address [$vbc]: ", $vbc);
               $valid_ip = validip($bc);
             }
 
             system("/usr/bin/clear");
-            printmsg("VLAN Method:", "static");
-            printmsg("IP_sensor:", $sensorip);
-            printmsg("Netmask:", $netmask);
-            printmsg("Gateway:", $gw);
-            printmsg("Broadcast:", $bc);
+            printmsg("[VLAN$vlanid] VLAN Method:", "static");
+            printmsg("[VLAN$vlanid] IP_sensor:", $sensorip);
+            printmsg("[VLAN$vlanid] Netmask:", $netmask);
+            printmsg("[VLAN$vlanid] Gateway:", $gw);
+            printmsg("[VLAN$vlanid] Broadcast:", $bc);
             ###############
 
             $check = 1;
@@ -275,6 +318,9 @@ sub set_vlan() {
               print NCONF "\t},\n";
               $setvlan = 0;
             }
+	  #####################
+	  # VLAN: DHCP
+	  #####################
           } elsif ($vlan_method eq "dhcp"){
             print NCONF "\t$vlanid => {\n";
             print NCONF "\t\tmethod => \"dhcp\",\n";

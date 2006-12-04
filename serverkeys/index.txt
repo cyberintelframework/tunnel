@@ -50,3 +50,5 @@ V	161119110409Z		31	unknown	/C=NL/ST=UT/O=SURFnet/OU=SURFNET IDS/CN=sensor132/em
 V	161119110547Z		32	unknown	/C=NL/ST=UT/O=SURFnet/OU=SURFNET IDS/CN=sensor133/emailAddress=@surfnet.nl
 V	161119172558Z		33	unknown	/C=NL/ST=UT/O=SURFnet/OU=SURFNET IDS/CN=sensor134/emailAddress=@surfnet.nl
 V	161121121206Z		34	unknown	/C=NL/ST=UT/O=SURFnet/OU=SURFNET IDS/CN=sensor137/emailAddress=@surfnet.nl
+V	161126160925Z		35	unknown	/C=NL/ST=UT/O=SURFnet/OU=SURFNET IDS/CN=sensor140/emailAddress=@surfnet.nl
+V	161201132621Z		36	unknown	/C=NL/ST=UT/O=SURFnet/OU=SURFNET IDS/CN=sensor143/emailAddress=@surfnet.nl

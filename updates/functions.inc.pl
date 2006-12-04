@@ -3,13 +3,17 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.05
-# 27-11-2006
+# Version 1.04.09
+# 04-12-2006
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.09 Fixed a bug in getnetinfo with nameserver check
+# 1.04.08 Added dec2bin, bin2dec, bc, network, cidr
+# 1.04.07 Added chkgateway
+# 1.04.06 Fixed a bug in fixclientconf
 # 1.04.05 Changed chkreach
 # 1.04.04 Added chknetworkconf
 # 1.04.03 Added chkidsmenu, chkpump, printdelay, printresult
@@ -42,6 +46,7 @@ $| = 1;
 # 1.15		chkpump
 # 1.16		chkdefault
 # 1.17		chknetworkconf
+# 1.18		chkgateway
 # 2		All GET functions
 # 2.01		getnetinfo
 # 2.02		getnetconf
@@ -66,6 +71,11 @@ $| = 1;
 # 3.12		printdelay
 # 3.13		printresult
 # 3.14		clientconftemp
+# 3.15		dec2bin
+# 3.16		bin2dec
+# 3.17		bc
+# 3.18		network
+# 3.19		cidr
 ###############################################
 
 #########################
@@ -340,9 +350,10 @@ sub chkclientconf() {
 sub chkreach() {
   my ($ip, $pingresult, $chkip);
   $ip = $_[0];
+  chomp($ip);
   $chkip = validip($ip);
   if ($chkip == 0) {
-    `ping -c 1 -q $ip`;
+    `ping -c 1 -q $ip 2>/dev/null`;
     return $?;
   } else {
     return 2;
@@ -414,7 +425,13 @@ sub chkdefault() {
 sub chknetworkconf() {
   my ($chk);
   if (-e "$basedir/network_if.conf") {
-    $chk = `perl $basedir/network_if.conf`;
+    $chk = `wc -l $basedir/network_if.conf`;
+    chomp($chk);
+    if ($chk == 0) {
+      return "false";
+    }
+    `perl $basedir/network_if.conf 2>/dev/null`;
+    $chk = $?;
     if ($chk == 0) {
       return "true";
     } else {
@@ -426,14 +443,36 @@ sub chknetworkconf() {
   return "false";
 }
 
+# 1.18 chkgateway
+# Function to check if the gateway can be reached
+# Returns 0 on success
+# Returns non-zero on failure
+sub chkgateway() {
+  my ($chk, $gw);
+  $gw = $_[0];
+  chomp($gw);
+  $chk = validip($gw);
+  if ($chk != 0) {
+    return 1;
+  }
+  $chk = &chkreach($gw);
+  if ($chk != 0) {
+    return 2;
+  } else {
+    return 0;
+  }
+}
+
 #########################
 # 2 All GET functions
 #########################
 
 # 2.01 getnetinfo
 # Parsing the network config file to get the info
-# Method: config | interface
-# Attr: IP_sensor | Netmask | Gateway | Broadcast | Nameserver | Domain
+# Attr: inet, nm, gw, bc, ns
+# Returns attribute on success
+# Returns 1 when given attribute is unknown
+# Returns 2 if the given interface was not found
 sub getnetinfo() {
   my ($method, $attr, $if, $domain, $name, $i);
   $attr = $_[0];
@@ -443,13 +482,15 @@ sub getnetinfo() {
   if ($attr !~ /^(inet|nm|gw|bc|ns)$/) {
     return 1;
   }
-  `ifconfig $if`;
-  if ($? != 0) {
-    return 2;
+  if ($attr ne "ns") {
+    `ifconfig $if 2>/dev/null`;
+    if ($? != 0) {
+      return 2;
+    }
   }
   # Check which method
   if ($attr eq "ns") {
-    $attr = `cat /etc/resolv.conf | grep nameserver | head -n1 | awk '{print \$2}'`;
+    $attr = `cat /etc/resolv.conf | grep nameserver | grep -v "#" | head -n1 | awk '{print \$2}'`;
   } elsif ($attr eq "inet") {
     $attr = `ifconfig $if | grep "inet addr:" | cut -d":" -f2 | cut -d" " -f1`;
   } elsif ($attr eq "bc") {
@@ -504,6 +545,8 @@ sub getsensor() {
 
 # 2.04 getif
 # Function to get the active interface
+# Returns interface name on success
+# Returns false on failure
 sub getif() {
   my ($found_if, @if_ar, $if, $checkif);
   $found_if = "none";
@@ -666,7 +709,7 @@ sub getcerts() {
     $fixclient = fixclientconf();
     printmsg("Fixing client.conf:", $fixclient);
   }
-  #`rm -f $certfile 2>/dev/null`;
+  `rm -f $certfile 2>/dev/null`;
   $sensor = getsensor();
   return $sensor;
 }
@@ -718,6 +761,8 @@ sub printmsg() {
     print $msg . $tabstring . "[${g}OK${n}]\n";
   } elsif ($ec eq "false" || $ec eq "filtered") {
     print $msg . $tabstring . "[${r}Failed${n}]\n";
+  } elsif ($ec eq "warning") {
+    print $msg . $tabstring . "[${r}Warning${n}]\n";
   } elsif ($ec =~ /^[-]?(\d+)$/) {
     print $msg . $tabstring . "[${r}Failed (error: $ec)${n}]\n";
   } elsif ($ec eq "ignore") {
@@ -762,6 +807,7 @@ sub dossh() {
 sub validip() {
   my ($ip, @ip_ar, $i, $count, $dec);
   $ip = $_[0];
+  chomp($ip);
   $regexp = "^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
   $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
   $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
@@ -780,9 +826,11 @@ sub validip() {
 # Returns 1 if the sensor name could not be found
 # Returns 2 if client.conf and client.conf.temp do not exist
 # Returns 3 if the default template could not be copied
-# Returns 4 if the clientconf check failed
+# Returns 4 if client.conf.temp was not found
+# Returns 5 if the clientconf check failed
+# Returns 6 for unknown error
 sub fixclientconf() {
-  my ($sensor, $chkclient, $temp);
+  my ($sensor, $chkclient, $temp, $count);
   $sensor = getsensor();
   if ($sensor eq "false") {
     return 1;
@@ -791,17 +839,18 @@ sub fixclientconf() {
     if (! -e "$basedir/client.conf.temp") {
       return 2;
     } else {
-      `cp $basedir.client.conf.temp $basedir/client.conf`;
+      `cp $basedir/client.conf.temp $basedir/client.conf`;
       if ($? != 0) {
         return 3;
       }
     }
-  } else {
-    $temp = clientconftemp();
+  } elsif (-e "$basedir/client.conf.temp") {
     `cp $basedir/client.conf.temp $basedir/client.conf`;
     if ($? != 0) {
       return 3;
     }
+  } else {
+    return 4;
   }
   open(CONF, ">> $basedir/client.conf");
   print CONF "ca $basedir/ca.crt\n";
@@ -812,9 +861,9 @@ sub fixclientconf() {
   if ($chkclient == 0) {
     return 0;
   } else {
-    return 4;
+    return 5;
   }
-  return 4;
+  return 6;
 }
 
 # 3.06 updatefile
@@ -947,11 +996,12 @@ sub validvlanid() {
 
 # 3.10 validvlancount
 # Function to check if the vlan id is valid
-# Returns 0 if not valid or exceeded
-# Returns 1 if ok
+# Returns 0 if valid vlancount
+# Returns 1 if invalid vlancount
 sub validvlancount() {
   my ($vlancount);
   $vlancount = $_[0];
+  chomp($vlancount);
   if ($vlancount =~ /^(\d{0,1})$/) {
     if ($vlancount > 0 && $vlancount < 8) {
       return 0;
@@ -1026,7 +1076,22 @@ sub printresult() {
 # Returns 0 on success
 # Returns 1 on failure
 sub clientconftemp() {
-  `cat $basedir/client.conf | grep -v ^ca.*ca\.crt\$ | grep -v ^key.*sensor.*\.key\$ | grep -v ^cert.*sensor.*\.crt\$ > $basedir/client.conf.temp`;
+  if (-e "$basedir/client.conf") {
+    $count = `wc -l $basedir/client.conf`;
+    chomp($count);
+    if ($count > 0) {
+      `cat $basedir/client.conf | grep -v ^ca.*ca\.crt\$ | grep -v ^key.*sensor.*\.key\$ | grep -v ^cert.*sensor.*\.crt\$ > $basedir/client.conf.temp`;
+      if ($? == 0) {
+        return 0;
+      } else {
+        return 1;
+      }
+    } else {
+      return 1;
+    }
+  } else {
+    return 1;
+  }
   if ($? == 0) {
     return 0;
   } else {
@@ -1035,4 +1100,152 @@ sub clientconftemp() {
   return 1;
 }
 
+# 3.15 dec2bin
+# Function to convert a dotted decimal IP address to a binary string
+# Returns binary string on success
+# Returns false on failure
+sub dec2bin() {
+  my ($ip, $chkip, @ip_ar, $bin, $pad, $diff, $i);
+  $ip = $_[0];
+  chomp($ip);
+  $chkip = &validip($ip);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $bin = "";
+  $pad = "";
+  chomp($ip);
+  @ip_ar = split(/\./, $ip);
+
+  foreach $dec (@ip_ar) {
+    $pad = "";
+    $dec = unpack("B32", pack("N", $dec));
+    $dec =~ s/^0+(?=\d)//;   # otherwise you'll get leading zeros
+    $diff = 8 - length($dec);
+    if ($diff > 0) {
+      for (1...$diff) {
+        $pad .= "0";
+      }
+    }
+    $dec = $pad . $dec;
+    $bin .= $dec;
+  }
+  return $bin;
+}
+
+# 3.16 bin2dec
+# Function to convert a binary string to a dotted decimal IP address
+# Returns IP address on success
+sub bin2dec() {
+  my ($bin, $dec, $val, $dot, $i, $off);
+  $bin = $_[0];
+  $dec = "";
+  chomp($bin);
+  for ($i=0; $i<4; $i++) {
+    $off = $i * 8;
+    $part = substr($bin, $off, 8);
+    $dec .= unpack("N", pack("B32", substr("0" x 32 . $part, -32)));
+    if ($i != 3) {
+      $dec .= ".";
+    }
+  }
+  return $dec;
+}
+
+# 3.17 bc
+# Function to calculate the broadcast address given an IP address and subnet mask
+# Returns broadcast IP address on success
+# Returns false on failure
+sub bc() {
+  my ($address, $mask, $chkip, $bina, $binm, $binn, $cidr, $bcpart, $binbc, $bc);
+  $address = $_[0];
+  $mask = $_[1];
+  chomp($address);
+  chomp($mask);
+  $chkip = &validip($address);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $bina = &dec2bin($address);
+  $binm = &dec2bin($mask);
+  $cidr = ($binm =~ tr/1//);
+  $binn = substr($bina, 0, $cidr);
+  $bcpart = 32 - $cidr;
+  $binbc = $binn . "1" x $bcpart;
+  $bc = &bin2dec($binbc);
+  return $bc;
+}
+
+# 3.18 network
+# Function to calculate the network given an IP address and subnet mask
+# Returns network IP address on success
+# Returns false on failure
+sub network() { 
+  my ($address, $chkip, $mask, $bina, $binm, $binn, $cidr, $net);
+  $address = $_[0];
+  $mask = $_[1];
+  chomp($address);
+  chomp($mask);
+  $chkip = &validip($address);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $bina = &dec2bin($address);
+  $binm = &dec2bin($mask);
+  $cidr = ($binm =~ tr/1//);
+  $binn = substr($bina, 0, $cidr);
+  $net = &bin2dec($binn);
+  return $net;
+}
+
+# 3.19 cidr
+# Function to convert a dotted decimal netmask to CIDR notation
+# Returns CIDR notation on success
+# Returns false on failure
+sub cidr() {
+  my ($mask, $chkip, $cidr, $bina, $binm);
+  $mask = $_[0];
+  chomp($mask);
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $binm = &dec2bin($mask);
+  $cidr = ($binm =~ tr/1//);
+  return $cidr;
+}
+
+# 3.20 gw
+# Function to calculate the gateway address given an IP address and subnetmask
+# Returns gateway IP address on success
+# Returns false on failure
+sub gw() { 
+  my ($address, $chkip, $mask, $bina, $binm, $binn, $bing, $cidr, $net);
+  $address = $_[0];
+  $mask = $_[1];
+  chomp($address);
+  chomp($mask);
+  $chkip = &validip($address);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $net = &network($address, $mask);
+  @net_ar = split(/\./, $net);
+  $old = $net_ar[3];
+  $new = $old + 1;
+  $gw = $net_ar[0] . "." . $net_ar[1] . "." . $net_ar[2] . "." . $new;
+  return $gw;
+}
 return "true";

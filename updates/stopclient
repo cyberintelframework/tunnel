@@ -3,14 +3,16 @@
 #########################################
 # Stop script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.04
-# 27-11-2006
+# Version 1.04.06
+# 04-12-2006
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.06 Added 2>/dev/null to default gw stuff
+# 1.04.05 Added more error handling
 # 1.04.04 Removed $server before the chkresolv checks
 # 1.04.03 Removed chksensorstatus check and added some more error handling
 # 1.04.02 Added active interface checks
@@ -63,7 +65,11 @@ if ($chkopenvpn == 0) {
 if ($netconf eq "dhcp" || $netconf eq "static") {
   # Get the active ethernet interface
   $if = getif();
-  printmsg("Checking active interface:", $if);
+  if ($if eq "false") {
+    printmsg("Checking active interface:", "ignore");
+  } else {
+    printmsg("Checking active interface:", $if);
+  }
   if ($netconf eq "dhcp") {
     # Get the bridge interface IP address.
     $chkbr = chkif($br);
@@ -125,9 +131,12 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       printdelay("Starting pump for active interface:");
       `pump -i $if 2>/dev/null`;
       printresult($?);
+      $if_gw = getnetinfo("gw", $if);
     } else {
       printmsg("Starting pump for active interface:", "ignore");
+      $if_gw = "false";
     }
+    sleeptimer("Waiting for connection:", 5);
   } elsif ($netconf eq "static") {
     printmsg("Configured IP address:", $if_ip);
     printmsg("Configured Netmask:", $if_nm);
@@ -150,7 +159,13 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $wgetarg = "";
   }
 
-  if ($if ne "false") {
+  if ($if_gw ne "false") {
+    printdelay("Checking gateway connectivity:");
+    $chkgw = chkreach($if_gw);
+    printresult($chkgw);
+  }
+
+  if ($if ne "false" && $chkgw == 0) {
     # Check if wget authentication is correct.
     printdelay("Checking wget authentication:");
     $chkwgetauth = chkwgetauth($wgetarg);
@@ -160,7 +175,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   # Get the keyname.
   $sensor = getsensor();
 
-  if ($if ne "false") {
+  if ($if ne "false" && $chkgw == 0) {
     # Check if DNS name resolving works
     printdelay("Checking DNS resolver:");
     $chkresolv = getresolv($server);
@@ -181,7 +196,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   if ($netconf eq "dhcp" && $if ne "false") {
     $if_ip = getifip($if);
   }
-  if ($chkresolv == 0 && $if ne "false") {
+  if ($chkresolv == 0 && $chkgw == 0) {
     printdelay("Updating status information:");
     `wget -q $wgetarg -O $basedir/stopclient.php "$serverurl/stopclient.php?localip=$if_ip&vlanid=0&keyname=$sensor"`;
     printresult($?);
@@ -208,12 +223,13 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $br = "br$i";
     $tap = "tap$i";
     printmsg("Retrieving VLAN ID:", " $vlanid ");
+    $vs = "[VLAN$vlanid]";
 
     $chkvlanif = chkif("$if.$vlanid");
        	
     # Retrieving the network config method of the vlan
     $vlan_method = $vlan{$vlanid}{method};
-    printmsg("Retrieving VLAN Method:", $vlan_method);
+    printmsg("$vs Retrieving VLAN Method:", $vlan_method);
     
     if ($vlan_method eq "static") {
       $vlan_ip = $vlan{$vlanid}{if_ip};
@@ -227,7 +243,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 	  $chk = `ifconfig | grep "$br " | wc -l`;
 	  chomp($chk);
 	  if ($chk > 0) {
-            $vlan_gw = `pump -i $br -s | grep "Gateway:" | awk '{print \$2}' 2>/dev/null`;
+            $vlan_gw = `pump -i $br -s 2>/dev/null | grep "Gateway:" | awk '{print \$2}'`;
 	    chomp($vlan_gw);
 	  }
 	  if (!$vlan_gw) {
@@ -241,39 +257,47 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 	$vlan_gw = "false";
       }
     }
-    printmsg("Checking $br IP address:", $vlan_ip);
+    if ($vlan_ip eq "false") {
+      printmsg("$vs Checking IP address:", "ignore");
+    } else {
+      printmsg("$vs Checking IP address:", $vlan_ip);
+    }
  
     if ($vlan_gw ne "false") {
       if ($chkvlanif == 0) {
-        `ip route add default via $vlan_gw`;
-        printmsg("Adding $br default gw:", $?);
+        `ip route add default via $vlan_gw 2>/dev/null`;
+        printmsg("$vs Adding default gw:", $?);
+	$chkgw = 0;
       } else {
-        printmsg("Adding $br default gw:", "ignore");
+        printmsg("$vs Adding default gw:", "ignore");
+	$chkgw = 1;
       }
     } else {
-      printmsg("Adding $br default gw:", "ignore");
+      printmsg("$vs Adding default gw:", "ignore");
+      $chkgw = 1;
     }
-   
+
     # Checking if wget needs to authenticate the server certificate.
     if ($checkcert == 0) {
       $wgetarg = "--no-check-certificate";
     } else {
       $wgetarg = "";
     }
-
-    if ($if ne "false" && $vlan_ip ne "false" && $chkvlanif == 0) {
-      # Check if wget authentication is correct.
-      printdelay("Checking wget authentication:");
-      $chkwgetauth = chkwgetauth($wgetarg);
-      printresult($chkwgetauth);
+    
+    if ($vlan_gw ne "false" && $chkgw == 0) {
+      printdelay("$vs Checking gateway connectivity:");
+      $chkgw = chkreach($vlan_gw);
+      printresult($chkgw);
+    } else {
+      $chkgw = 1;
     }
 
     # Get the keyname.
     $sensor = getsensor();
-    if ($if ne "false" && $vlan_ip ne "false") {
+    if ($if ne "false" && $vlan_ip ne "false" && $chkgw == 0) {
       if ($chkvlanif == 0) {
         # Check if DNS name resolving works
-        printdelay("Checking DNS resolver:");
+        printdelay("$vs Checking DNS resolver:");
         $chkresolv = getresolv($server);
         if ($chkresolv eq "false") {
           $chkresolv = 1;
@@ -282,12 +306,19 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
         }
 	printresult($chkresolv);
       } else {
-        printmsg("Checking DNS resolver:", "ignore");
+        printmsg("$vs Checking DNS resolver:", "ignore");
         $chkresolv = 1;
       }
     } else {
-      printmsg("Checking DNS resolver:", "ignore");
+      printmsg("$vs Checking DNS resolver:", "ignore");
       $chkresolv = 1;
+    }
+
+    if ($chkgw == 0 && $chkresolv == 0) {
+      # Check if wget authentication is correct.
+      printdelay("$vs Checking wget authentication:");
+      $chkwgetauth = chkwgetauth($wgetarg);
+      printresult($chkwgetauth);
     }
 
     # Generate the server URL
@@ -295,9 +326,9 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 
     # Get the localip.
     if ($chkresolv == 0 && $if ne "false" && $chkvlanif == 0) {
-      #printdelay("Updating status information:");
-      #`wget -q $wgetarg -O $basedir/stopclient$vlanid.php "$serverurl/stopclient.php?localip=$vlan_ip&vlanid=$vlanid&keyname=$sensor"`;
-      #printresult($?);
+      printdelay("$vs Updating status information:");
+      `wget -q $wgetarg -O $basedir/stopclient$vlanid.php "$serverurl/stopclient.php?localip=$vlan_ip&vlanid=$vlanid&keyname=$sensor"`;
+      printresult($?);
     }
 
     if (-r "$basedir/stopclient.php") {
@@ -321,17 +352,17 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       $chkdefault = chkdefault($br);
       if ($chkdefault == 0) {
         `ip route del default via $vlan_gw 2>/dev/null`;
-        printmsg("Deleting $br default gw:", $?);
+        printmsg("$vs Deleting default gw:", $?);
       } else {
-        printmsg("Deleting $br default gw:", "ignore");
+        printmsg("$vs Deleting default gw:", "ignore");
       }
     } else {
-      printmsg("Deleting $br default gw:", "ignore");
+      printmsg("$vs Deleting default gw:", "ignore");
     }
    
     $chkif = chkif($br);
     if ($chkif == 0) {
-      printmsg("Removing bridge:", $br);
+      printmsg("$vs Removing bridge:", $br);
       `ifconfig $br down`;
       $chkif = `brctl show | grep "$if.$vlanid" | wc -l`;
       chomp($chkif);
@@ -348,12 +379,12 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 
     $chktap = chkif($tap);
     if ($chktap == 0) {
-      printmsg("Removing tap device:", $tap);
+      printmsg("$vs Removing tap device:", $tap);
       `openvpn --dev $tap --rmtun`;
     }
     $chkif = chkif("$if.$vlanid");
     if ($chkif == 0) {
-      printmsg("Removing vlan interface:", "$if.$vlanid");
+      printmsg("$vs Removing vlan interface:", "$if.$vlanid");
       `vconfig rem $if.$vlanid`;
     }
     if ($vlan_ip ne "false" && $chkvlanif == 0) {
@@ -362,7 +393,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       if ($? != 0) { $er++; }
       `ip rule del to $vlan_ip 2>/dev/null`;
       if ($? != 0) { $er++; }
-      printmsg("Removing routing rules:", $er);
+      printmsg("$vs Removing routing rules:", $er);
       $er = 0;
     }  
     $i++;

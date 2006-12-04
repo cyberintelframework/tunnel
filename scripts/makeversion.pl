@@ -51,7 +51,7 @@ do '/etc/surfnetids/surfnetids-tn.conf';
 `rm -f $surfidsdir/updates/server_version.txt`;
 
 # Setting up ignored files
-%ignore = ("client.conf.dist", 0, "wgetrc.dist", 0);
+%ignore = ("client.conf.dist", 0, "wgetrc.dist", 0, "sensor.conf.dist", 0);
 
 # Opening server_version.txt for writing
 open(VERS, "> $surfidsdir/updates/server_version.txt");
