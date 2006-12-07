@@ -69,6 +69,29 @@ if ($logstamp == 1) {
 }
 
 ##################
+# Virus scanner declarations
+##################
+
+%scanners = (
+	1 => {
+		name = "ClamAV",
+		command = "clamscan --no-summary !bindir!/!file! | grep !file! | awk '{print \$2}'",
+		update = "freshclam",
+	},
+	2 => {
+		name = "Antivir",
+		command = "antivir -rs !bindir!/!file! | grep !file! | awk '{print \$2}' | awk -F [ '{print \$1}'",
+		update = "antivir --update",
+	},
+	3 => {
+		name = "BitDefender",
+		command = "bdc --files !bindir!/!file! | grep !file! | awk '{print \$3}'",
+		update = "bdc --update",
+	}
+)
+
+
+##################
 # Functions
 ##################
 
@@ -184,7 +207,7 @@ foreach $file ( @dircontents ) {
   $time = time();
 
   ###### ClamAV ######
-  $virinfo=`clamscan --no-summary $bindir/$file`;
+  $virinfo = `clamscan --no-summary $bindir/$file`;
   @virinfo_ar = split(/ +/, $virinfo);
   $virus = $virinfo_ar[1];
   chomp($virus);

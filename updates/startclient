@@ -3,14 +3,15 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.05
-# 01-12-2006
+# Version 1.04.06
+# 04-12-2006
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.06 Added network config check
 # 1.04.05 Added more error handling
 # 1.04.04 Changed some printmsg into printdelay
 # 1.04.03 Added some more error handling
@@ -596,6 +597,16 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     
     $i++;	
   }
+} elsif ($netconf eq "config") {
+  printmsg("Starting networking configuration:", "info");
+  system("$basedir/confignetwork");
+  printmsg("Restart the sensor now:", "info");
+  &prompt("Press enter to continue...");
+  $chk = chkidsmenu();
+  if ($chk != 0) {
+    system("$basedir/idsmenu");
+  }
+  exit;
 } else {
   printmsg("Unknown netconfiguration method:", "info");
   $chk = chkidsmenu();

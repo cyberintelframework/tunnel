@@ -6,7 +6,7 @@ idsmenu:1.04.02
 removeupdate:1.04.02
 sensor.conf:1.04.01
 showstatus:1.04.06
-startclient:1.04.05
+startclient:1.04.06
 stopclient:1.04.06
 update:1.04.02
 wgetrc:1.04.01
