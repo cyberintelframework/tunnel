@@ -321,7 +321,7 @@ sub printenv() {
 sub connectdb() {
   my ($ts, $pgerr);
   $dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass);
-  &printlog("Connecting to $psql_dbname with DSN: $dsn");
+  &printlog("Connecting to $pgsql_dbname with DSN: $dsn");
   if ($dbh ne "") {
     &printlog("Connect result: Ok");
     return "true";

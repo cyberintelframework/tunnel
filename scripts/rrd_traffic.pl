@@ -3,7 +3,7 @@
 #########################################
 # Traffic script                        #
 # SURFnet IDS                           #
-# Version 1.04.01                       #
+# Version 1.04.02                       #
 # 07-11-2006                            #
 # Kees Trippelvitz                      #
 #########################################
@@ -31,6 +31,7 @@
 
 #############################################
 # Changelog:
+# 1.04.02 Added VLAN support 
 # 1.04.01 Code layout
 # 1.03.01 Released as part of the 1.03 package
 # 1.02.02 Images are now stored in the database (table rrd)
@@ -49,29 +50,10 @@ use Time::localtime;
 # Variables used
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
-$logfile =~ s|.*/||;
-if ($logstamp == 1) {
-  $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  $year = localtime->year() + 1900;
-  if ( ! -d "$surfidsdir/log/$day$month$year" ) {
-    mkdir("$surfidsdir/log/$day$month$year");
-  }
-  $logfile = "$surfidsdir/log/$day$month$year/$logfile";
-} else {
-  $logfile = "$surfidsdir/log/$logfile";
-}
 
 ##################
 # Main script
 ##################
-
 $dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass)
 	or die $DBI::errstr;
 
@@ -80,7 +62,7 @@ foreach (@test) {
   $tap = $_;
   chomp($tap);
 
-  $sql = "SELECT sensors.keyname, organisations.organisation ";
+  $sql = "SELECT sensors.keyname, organisations.organisation, sensors.vlanid ";
   $sql .= "FROM sensors, organisations, org_id ";
   $sql .= "WHERE sensors.tap = '$tap' AND organisations.id = sensors.organisation";
   $sth = $dbh->prepare($sql);
@@ -88,8 +70,14 @@ foreach (@test) {
   @data = $sth->fetchrow_array;
   $keyname = $data[0];
   $org = $data[1];
-  print "Processing interface $tap: $keyname - $org\n";
-  &ProcessInterface("$tap", "$keyname", "$org");
+  $vlanid = $data[2];
+  print "Processing interface $tap [$vlanid]: $keyname - $org\n";
+  if ($vlanid != 0){
+  	&ProcessInterface("$tap", "$keyname-$vlanid", "$org");
+  }	
+  else {
+  	&ProcessInterface("$tap", "$keyname", "$org");
+  } 
 }
 
 &ProcessInterfaceALL("$totalin", "$totalout", "alltaps", "allsensors", "ADMIN");
