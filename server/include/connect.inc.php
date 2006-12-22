@@ -14,7 +14,7 @@
 # 1.02.01 Initial release
 #####################
 
-$pgconn = pg_connect("host=$pgsql_host port=$pgsql_port user=$pgsql_user password=$pgsql_pass dbname=$pgsql_dbname");
+$pgconn = pg_connect("host=$c_pgsql_host port=$c_pgsql_port user=$c_pgsql_user password=$c_pgsql_pass dbname=$c_pgsql_dbname");
 if (!$pgconn) {
   die('Not connected : ' . pg_last_error($pgconn));
 }

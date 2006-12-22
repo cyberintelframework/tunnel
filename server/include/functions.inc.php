@@ -16,6 +16,91 @@
 # 1.02.01 Initial release
 #####################
 
+function extractvars($source, $allowed) {
+  if (!is_array($source)) {
+    return 1;
+  } else {
+    global $clean;
+    global $tainted;
+
+    # Setting up the regular expression for an IP address
+    $ipregexp = '/^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))';
+    $ipregexp .= '\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))';
+    $ipregexp .= '\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))';
+    $ipregexp .= '\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))$/';
+
+    foreach ($source as $key => $var) {
+      if (!is_array($var)) {
+        $var = trim($var);
+        if ($var != "") {
+          if (in_array($key, $allowed)) {
+            $explodedkey = explode("_", $key);
+            $temp = array_pop($explodedkey);
+            $count = count($explodedkey);
+            if ($count != 0) {
+              foreach ($explodedkey as $check) {
+                if ($check == "int") {
+                  $var = intval($var);
+                  $clean[$temp] = $var;
+                } elseif ($check == "escape") {
+                  $var = pg_escape_string($var);
+                  $clean[$temp] = $var;
+                } elseif ($check == "html") {
+                  $var = htmlentities($var);
+                  $clean[$temp] = $var;
+                } elseif ($check == "strip") {
+                  $var = strip_tags($var);
+                  $clean[$temp] = $var;
+                } elseif ($check == "md5") {
+                  $md5pattern = '/^[a-zA-Z0-9]{32}$/';
+                  if (!preg_match($md5pattern, $var)) {
+                    $tainted[$temp] = $var;
+                  } else {
+                    $clean[$temp] = $var;
+                  }
+                } elseif ($check == "bool") {
+                  $var = strtolower($var);
+	          $pattern = '/^(t|true|f|false)$/';
+                  if (!preg_match($pattern, $var)) {
+                    $var = "f";
+                  } else {
+                    if ($var == "true" || $var == "false") {
+                      $var = pgboolval($var);
+                    }
+                  }
+                  $clean[$temp] = $var;
+                } elseif ($check == "ip") {
+                  if (!preg_match($ipregexp, $var)) {
+                    $tainted[$temp] = $var;
+                  } else {
+                    $clean[$temp] = $var;
+                  }
+                } elseif ($check == "net") {
+                  $ar_test = explode("/", $var);
+                  $ip_test = $ar_test[0];
+                  $mask_test = intval($ar_test[1]);
+                  if (preg_match($ipregexp, $ip_test) && $mask_test >= 0 && $mask_test <= 32) {
+                    $clean[$temp] = $var;
+                  } else {
+                    $tainted[$temp] = $var;
+                  }
+                } elseif (!in_array($temp, $clean)) {
+                  $tainted[$temp] = $var;
+                }
+              }
+            } else {
+              $tainted[$temp] = $var;
+            } // $count != 0
+          } // in_array($key, $allowed)
+        } // $var != ""
+      } else {
+        $tainted[$key] = $var;
+      } // !is_array($var)
+    } // foreach
+  } // !is_array($source)
+  return 0;
+}
+
 function checkident($ident, $type) {
   global $pgconn;
   $type = intval($type);

@@ -43,25 +43,33 @@
 ####################################
 
 # Include configuration, connection information and soapcall.
-include('include/certconf.inc.php');
-include('include/connect.inc.php');
-include('include/functions.inc.php');
+include 'include/certconf.inc.php';
+include 'include/certconn.inc.php';
+include 'include/certfunc.inc.php';
+
+$allowed_get = array(
+                "ip_localip",
+                "int_vlanid",
+		"md5_ris"
+);
+$check = extractvars($_GET, $allowed_get);
+debug_input();
 
 # Get remoteip and the querystring.
 $remoteip = $_SERVER['REMOTE_ADDR'];
 $remotehost = $_SERVER['REMOTE_HOST'];
 
 # Check if localip is set.
-if (isset($_GET['localip'])) {
-  $localip = stripinput($_GET['localip']);
+if (isset($clean['localip'])) {
+  $localip = $clean['localip'];
 } else {
   $localip = "";
   echo "ERROR: Localip was empty.<br />\n";
 }
 
 # Check if vlanid is set.
-if (isset($_GET['vlanid'])) {
-  $vlanid = stripinput($_GET['vlanid']);
+if (isset($clean['vlanid'])) {
+  $vlanid = $clean['vlanid'];
 } else {
   $vlanid = "";
   echo "ERROR: vlanid was empty.<br />\n";
@@ -82,9 +90,9 @@ if ($localip != "" && $vlanid != "") {
   # Starting organisation identifier stuff
   $orgname = "false";
   $orgid = 0;
-  if ($certsoapconn == 1) {
+  if ($c_certsoapconn == 1) {
     # SURFnet SOAP identifier check
-    $ident = getOrg($remoteip, $soapurl, $soapuser, $soappasss);
+    $ident = getOrg($remoteip, $c_soapurl, $c_soapuser, $c_soappasss);
     if ($ident != "false") {
       $orgid = checkident($ident, 4);
       $orgname = $ident;
@@ -119,8 +127,8 @@ if ($localip != "" && $vlanid != "") {
   }
 
   # Random Identifier String check
-  if ($orgid == 0 && isset($_GET['ris'])) {
-    $ident = pg_escape_string($_GET['ris']);
+  if ($orgid == 0 && isset($clean['ris'])) {
+    $ident = $clean['ris'];
     $pattern = "/^[a-zA-Z0-9 ]*$/";
     if (preg_match($pattern, $ident)) {
       $orgid = checkident($ident, 1);
@@ -157,15 +165,15 @@ if ($localip != "" && $vlanid != "") {
   $result_addsensor = pg_query($pgconn, $sql_addsensor);
 
   # Start the scripts to generate and sign the certificates for the sensor.
-  shell_exec("$genkeysdir/generate_certificate.sh $keyname");
-  shell_exec("$genkeysdir/sign_certificate.sh $keyname");
+  shell_exec("$c_genkeysdir/generate_certificate.sh $keyname");
+  shell_exec("$c_genkeysdir/sign_certificate.sh $keyname");
 
   ##########################
   #  Print the .key file   #
   ##########################
 
   # The .key file is created by earlier shellscripts. Open it and print it.
-  $key="$keysdir/$keyname" . ".key";
+  $key="$c_keysdir/$keyname" . ".key";
 
   $keyfile = fopen("$key","r");
   if (filesize("$key")>0) {
@@ -181,7 +189,7 @@ if ($localip != "" && $vlanid != "") {
   ##########################
 
   # The .crt file is created by earlier shellscripts. Open it and print it.
-  $crt="$keysdir/$keyname" . ".crt";
+  $crt="$c_keysdir/$keyname" . ".crt";
 
   $crtfile = fopen("$crt","r");
   if (filesize("$crt")>0) {
