@@ -92,7 +92,7 @@ if ($localip != "" && $vlanid != "") {
   $orgid = 0;
   if ($c_certsoapconn == 1) {
     # SURFnet SOAP identifier check
-    $ident = getOrg($remoteip, $c_soapurl, $c_soapuser, $c_soappasss);
+    $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappasss);
     if ($ident != "false") {
       $orgid = checkident($ident, 4);
       $orgname = $ident;
@@ -104,7 +104,7 @@ if ($localip != "" && $vlanid != "") {
 
   # Domain identifier check
   if ($remoteip != $remotehost && $orgid == 0) {
-    $ident = getDomain($remotehost);
+    $ident = getdomain($remotehost);
     if ($ident != "false") {
       $orgid = checkident($ident, 3);
       $orgname = $ident;

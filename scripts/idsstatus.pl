@@ -51,7 +51,7 @@ use MIME::Lite;
 # Variables used
 ####################
 do '/etc/surfnetids/surfnetids-tn.conf';
-$statuslog = "$surfidsdir/log/idsstatus.log";
+$statuslog = "$c_surfidsdir/log/idsstatus.log";
 @nepenthesexec = ("/etc/init.d/nepenthes");
 $err = 0;
 
@@ -118,7 +118,7 @@ open(MAIL, "> $statuslog");
 print MAIL "Timestamp: $localtime\n";
 print MAIL "---------------------\n";
 
-$dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass);
+$dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass);
 
 ###############################
 # Checking tap devices
@@ -134,7 +134,7 @@ if ($tapcount > 0) {
   foreach $i (@tap_ar) {
     @if = split(/ +/, $i);
     $tap = $if[0];
-    `$surfidsdir/scripts/checktap.pl $tap`;
+    `$c_surfidsdir/scripts/checktap.pl $tap`;
     $ip = `ifconfig $tap | grep "inet addr:" | cut -d":" -f2 | cut -d" " -f1 2>/dev/null`;
     chomp($ip);
     if ($ip) {
@@ -242,7 +242,7 @@ if ($nep == 0) {
     # Get first tap device
     $tap=`ifconfig | grep tap | head -n1 | cut -d" " -f1`;
     chomp($tap);
-    `$surfidsdir/scripts/checktap.pl $tap`;
+    `$c_surfidsdir/scripts/checktap.pl $tap`;
     # Get first tap interface ip address
     $tapip=`ifconfig $tap | grep -A1 tap | grep inet | head -n1 | cut -d":" -f2 | cut -d" " -f1`;
     chomp($tapip);

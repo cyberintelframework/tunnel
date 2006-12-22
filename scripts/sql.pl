@@ -55,10 +55,11 @@ use Time::localtime;
 $tap = $ARGV[0];
 
 do '/etc/surfnetids/surfnetids-tn.conf';
-require "$surfidsdir/scripts/tnfunctions.inc.pl";
+require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
+$logfile = $c_logfile;
 $logfile =~ s|.*/||;
-if ($logstamp == 1) {
+if ($c_logstamp == 1) {
   $day = localtime->mday();
   if ($day < 10) {
     $day = "0" . $day;
@@ -68,15 +69,15 @@ if ($logstamp == 1) {
     $month = "0" . $month;
   }
   $year = localtime->year() + 1900;
-  if ( ! -d "$surfidsdir/log/$day$month$year" ) {
-    mkdir("$surfidsdir/log/$day$month$year");
+  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
+    mkdir("$c_surfidsdir/log/$day$month$year");
   }
-  if ( ! -d "$surfidsdir/log/$day$month$year/$tap" ) {
-    mkdir("$surfidsdir/log/$day$month$year/$tap");
+  if ( ! -d "$c_surfidsdir/log/$day$month$year/$tap" ) {
+    mkdir("$c_surfidsdir/log/$day$month$year/$tap");
   }
-  $logfile = "$surfidsdir/log/$day$month$year/$tap/$logfile";
+  $logfile = "$c_surfidsdir/log/$day$month$year/$tap/$logfile";
 } else {
-  $logfile = "$surfidsdir/log/$logfile";
+  $logfile = "$c_surfidsdir/log/$logfile";
 }
 
 ##################
@@ -141,9 +142,9 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
   } else {
     $result = deliprules($tap);
     $result = ipruleadd($tap, $tapip);
-    $checktap = `$surfidsdir/scripts/checktap.pl $tap`;
+    $checktap = `$c_surfidsdir/scripts/checktap.pl $tap`;
     $ec = getec();
-    printlog("Running: $surfidsdir/scripts/checktap.pl $tap", "$ec");
+    printlog("Running: $c_surfidsdir/scripts/checktap.pl $tap", "$ec");
   }
 
   # Just to be sure, flush the routing table of the tap device.
@@ -191,7 +192,7 @@ if ($netconf eq "dhcp" || $netconf eq "vland") {
 $count = 0;
 $i = 0;
 # Check if the tap device has an IP address.
-while ($count == 0 && $i < $sql_dhcp_retries) {
+while ($count == 0 && $i < $c_sql_dhcp_retries) {
   # First check if the tap device still exists, if not, it could not get an IP address with DHCP.
   $tapcheck = `ifconfig $tap`;
   if ($? != 0) {
@@ -205,7 +206,7 @@ while ($count == 0 && $i < $sql_dhcp_retries) {
     chomp($count);
   }
   $i++;
-  if ($i == $sql_dhcp_retries) {
+  if ($i == $c_sql_dhcp_retries) {
     printlog("The tap device could not get an IP address!", "Err");
     $err = 1;
   }
@@ -236,12 +237,12 @@ if ($err == 0) {
     printlog("No database connection!");
   }
 
-  if ($enable_pof == 1) {
+  if ($c_enable_pof == 1) {
     system "p0f -d -i $tap -o /dev/null";
     printlog("Started p0f!");
   }
-  if ($enable_tcpmonitor == 1 && $sensor_arp == 1) {
-    system "$surfidsdir/scripts/pcap.pl $tap &";
+  if ($c_enable_tcpmonitor == 1 && $sensor_arp == 1) {
+    system "$c_surfidsdir/scripts/pcap.pl $tap &";
     printlog("Started pcap.pl script!");
   }
 }

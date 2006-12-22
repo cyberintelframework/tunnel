@@ -24,8 +24,8 @@ do '/etc/surfnetids/surfnetids-tn.conf';
 $file = $ARGV[0];
 
 # Setting up directories
-$udir = "$surfidsdir/updates";
-$scriptkey = "$surfidsdir/scriptkeys/scripts.key";
+$udir = "$c_surfidsdir/updates";
+$scriptkey = "$c_surfidsdir/scriptkeys/scripts.key";
 
 ####################
 # Main script

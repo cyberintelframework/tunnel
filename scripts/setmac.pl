@@ -52,10 +52,11 @@ use Time::localtime;
 $tap = $ENV{dev};
 
 do '/etc/surfnetids/surfnetids-tn.conf';
-require "$surfidsdir/scripts/tnfunctions.inc.pl";
+require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
+$logfile = $c_logfile;
 $logfile =~ s|.*/||;
-if ($logstamp == 1) {
+if ($c_logstamp == 1) {
   $day = localtime->mday();
   if ($day < 10) {
     $day = "0" . $day;
@@ -65,15 +66,15 @@ if ($logstamp == 1) {
     $month = "0" . $month;
   }
   $year = localtime->year() + 1900;
-  if ( ! -d "$surfidsdir/log/$day$month$year" ) {
-    mkdir("$surfidsdir/log/$day$month$year");
+  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
+    mkdir("$c_surfidsdir/log/$day$month$year");
   }
-  if ( ! -d "$surfidsdir/log/$day$month$year/$tap" ) {
-    mkdir("$surfidsdir/log/$day$month$year/$tap");
+  if ( ! -d "$c_surfidsdir/log/$day$month$year/$tap" ) {
+    mkdir("$c_surfidsdir/log/$day$month$year/$tap");
   }
-  $logfile = "$surfidsdir/log/$day$month$year/$tap/$logfile";
+  $logfile = "$c_surfidsdir/log/$day$month$year/$tap/$logfile";
 } else {
-  $logfile = "$surfidsdir/log/$logfile";
+  $logfile = "$c_surfidsdir/log/$logfile";
 }
 
 ##################
@@ -138,34 +139,34 @@ if ($? == 0) {
 
   if ($netconf eq "dhcp") {
     # Start the sql.pl script to update all tap device information to the database.
-    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
+    system "$c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
     printlog("Network config method: DHCP");
-    printlog("Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
+    printlog("Started sql script: $c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
   } elsif ($netconf eq "vland") {
     # Start the sql.pl script to update all tap device information to the database.
-    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
+    system "$c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
     printlog("Network config method: VLAN DHCP");
-    printlog("Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
+    printlog("Started sql script: $c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
   } elsif ($netconf eq "static") {
     # Start the sql.pl script to update all tap device information to the database.
-    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
+    system "$c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
     printlog("Network config method: static");
-    printlog("Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
+    printlog("Started sql script: $c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
   } elsif ($netconf eq "vlans") {
     # Start the sql.pl script to update all tap device information to the database.
-    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
+    system "$c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
     printlog("Network config method: VLAN static");
-    printlog("Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
+    printlog("Started sql script: $c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
   } elsif ($netconf ne "" && $tapip eq "") {
     printlog("Network config method: static");
     printlog("No tap IP address specified!");
   } else {
     # The script should never come here.
     # Start the sql.pl script to update all tap device information to the database.
-    system "$surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
+    system "$c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip &";
     printlog("Possible error. Netconf was empty. Trying DHCP!");
     printlog("Network config method: DHCP");
-    printlog("Started sql script: $surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
+    printlog("Started sql script: $c_surfidsdir/scripts/sql.pl $tap $sensor $remoteip");
   }
 
   printlog("-------------Finished setmac.pl-------------");

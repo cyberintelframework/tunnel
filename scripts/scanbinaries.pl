@@ -49,8 +49,10 @@ use Time::localtime;
 # Variables used
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
+
+$logfile = $c_logfile;
 $logfile =~ s|.*/||;
-if ($logstamp == 1) {
+if ($c_logstamp == 1) {
   $day = localtime->mday();
   if ($day < 10) {
     $day = "0" . $day;
@@ -60,36 +62,13 @@ if ($logstamp == 1) {
     $month = "0" . $month;
   }
   $year = localtime->year() + 1900;
-  if ( ! -d "$surfidsdir/log/$day$month$year" ) {
-    mkdir("$surfidsdir/log/$day$month$year");
+  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
+    mkdir("$c_surfidsdir/log/$day$month$year");
   }
-  $logfile = "$surfidsdir/log/$day$month$year/$logfile";
+  $logfile = "$c_surfidsdir/log/$day$month$year/$logfile";
 } else {
-  $logfile = "$surfidsdir/log/$logfile";
+  $logfile = "$c_surfidsdir/log/$logfile";
 }
-
-##################
-# Virus scanner declarations
-##################
-
-%scanners = (
-	1 => {
-		name = "ClamAV",
-		command = "clamscan --no-summary !bindir!/!file! | grep !file! | awk '{print \$2}'",
-		update = "freshclam",
-	},
-	2 => {
-		name = "Antivir",
-		command = "antivir -rs !bindir!/!file! | grep !file! | awk '{print \$2}' | awk -F [ '{print \$1}'",
-		update = "antivir --update",
-	},
-	3 => {
-		name = "BitDefender",
-		command = "bdc --files !bindir!/!file! | grep !file! | awk '{print \$3}'",
-		update = "bdc --update",
-	}
-)
-
 
 ##################
 # Functions
@@ -130,32 +109,38 @@ sub getts {
 open(LOG, ">> $logfile");
 
 $ts = getts();
-print LOG "[$ts] Starting binaries.pl\n";
+print LOG "[$ts] Starting scanbinaries.pl\n";
 
 # Connect to the database (dbh = DatabaseHandler or linkserver)
-$dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass)
+$dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass)
         or die $DBI::errstr;
 
+# Virus scanner declarations
+$sql_scanners = "SELECT id, name, command, update FROM scanners WHERE status = 1";
+$sth_scanners = $dbh->prepare($sql_scanners);
+$result_scanners = $sth_scanners->execute();
+
+while(@temp = $sth_scanners->fetchrow_array) {
+  $id = $temp[0];
+  $name = $temp[1];
+  $command = $temp[2];
+  $update = $temp[3];
+
+  $scanners{$id}{name} = $name;
+  $scanners{$id}{command} = $command;
+  $scanners{$id}{update} = $update;
+  $scanners{$id}{count} = 0;
+  if ($update) {
+    print "Updating $name\n";
+    `$update`;
+  }
+}
+
 $total_files = 0;
-$clamav_new = 0;
-$antivir_new = 0;
-$bdc_new = 0;
 
-#$bindir = "/opt/surfnetids/webinterface/virusinfo";
-
-# Before we start scanning, we update the virusscanners.
-`freshclam`;
-print "Updating ClamAV\n";
-if ($bdc == 1) {
-  `bdc --update`;
-  print "Updating BitDefender\n"; 
-}
-if ($antivir == 1) {
-  `antivir --update`;
-   print "Updating Antivir\n";
-}
-
-# While block to fill the stats_dialogue table
+##################
+# FILLING STATS_DIALOGUE
+##################
 $sql_dia = "SELECT DISTINCT text FROM details WHERE type = 1 AND text LIKE '%Dialogue'";
 $sth_dia = $dbh->prepare($sql_dia);
 $result_dia = $sth_dia->execute();
@@ -168,6 +153,7 @@ while(@dialogues = $sth_dia->fetchrow_array) {
   $result_checkdia = $sth_checkdia->execute();
   $numrows_checkdia = $sth_checkdia->rows;
   if ($numrows_checkdia == 0) {
+    print LOG "[dialogue] Adding new dialogue: $dia\n";
     $sql_adddia = "INSERT INTO stats_dialogue (name) VALUES ('$dia')";
     $sth_adddia = $dbh->prepare($sql_adddia);
     $result_adddia = $sth_adddia->execute();
@@ -175,20 +161,48 @@ while(@dialogues = $sth_dia->fetchrow_array) {
 }
 
 # For each file in the nepenthes binaries directory we get some info.
-opendir BINDIR, $bindir;
+opendir BINDIR, $c_bindir;
 @dircontents = grep !/^\.\.?$/, readdir BINDIR;
 foreach $file ( @dircontents ) {
 
-  # Check if the binary was already in the binaries_detail table.
-  $sql_checkbin = "SELECT bin FROM binaries_detail WHERE bin = '$file'";
+  ##############
+  # UNIQ_BINARIES
+  ##############
+  # Check if the binary was already in the uniq_binaries table.
+  $sql_checkbin = "SELECT id FROM uniq_binaries WHERE name = '$file'";
   $sth_checkbin = $dbh->prepare($sql_checkbin);
   $result_checkbin = $sth_checkbin->execute();
   $numrows_checkbin = $sth_checkbin->rows;
 
   if ($numrows_checkbin == 0) {
+    print LOG "[binary] Adding new binary: $file\n";
+    $sql_checkbin = "INSERT INTO uniq_binaries (name) VALUES ('$file')";
+    $sth_checkbin = $dbh->prepare($sql_checkbin);
+    $result_checkbin = $sth_checkbin->execute();
+
+    $sql_checkbin = "SELECT id FROM uniq_binaries WHERE name = '$file'";
+    $sth_checkbin = $dbh->prepare($sql_checkbin);
+    $result_checkbin = $sth_checkbin->execute();
+  }
+
+  # Get the ID of the binary
+  @row = $sth_checkbin->fetchrow_array;
+  $bin_id = $row[0];
+
+  ##############
+  # BINARIES_DETAIL
+  ##############
+  # Check if the binary was already in the binaries_detail table.
+  $sql_checkbin = "SELECT bin FROM binaries_detail WHERE bin = $bin_id";
+  $sth_checkbin = $dbh->prepare($sql_checkbin);
+  $result_checkbin = $sth_checkbin->execute();
+  $numrows_checkbin = $sth_checkbin->rows;
+
+  if ($numrows_checkbin == 0) {
+    print LOG "[detail] Adding new binary_detail info for binary ID: $bin_id\n";
     # If not, we add the filesize and file info to the database.
     # Getting the info from linux file command.
-    $filepath = "$bindir/$file";
+    $filepath = "$c_bindir/$file";
     $fileinfo = `file $filepath`;
     @fileinfo = split(/:/, $fileinfo);
     $fileinfo = $fileinfo[1];
@@ -197,63 +211,23 @@ foreach $file ( @dircontents ) {
     # Getting the file size.
     $filesize = (stat($filepath))[7];
 
-    $sql_checkbin = "INSERT INTO binaries_detail (bin, fileinfo, filesize) VALUES ('$file', '$fileinfo', $filesize)";
+    $sql_checkbin = "INSERT INTO binaries_detail (bin, fileinfo, filesize) VALUES ($bin_id, '$fileinfo', $filesize)";
     $sth_checkbin = $dbh->prepare($sql_checkbin);
     $result_checkbin = $sth_checkbin->execute();
   }
 
-  print "Scanning $file\n";
+  print "Scanning $file - ID: $bin_id\n";
   $total_files++;
   $time = time();
-
-  ###### ClamAV ######
-  $virinfo = `clamscan --no-summary $bindir/$file`;
-  @virinfo_ar = split(/ +/, $virinfo);
-  $virus = $virinfo_ar[1];
-  chomp($virus);
-
-  # Even if ClamAV indicates that the binary was clean (OK) it is still a suspicious file.
-  if ($virus eq "OK") {
-    $virus = "Suspicious";
-  }
-
-  print "\tClamAV: $virus\n";
-
-  $sql_virus = "SELECT id FROM stats_virus WHERE name = '$virus'";
-  $sth_virus = $dbh->prepare($sql_virus);
-  $result_virus = $sth_virus->execute();
-  if ($result_virus == 0) {
-    # The virus was not yet in the stats_virus table. Insert it.
-    $sql_insert = "INSERT INTO stats_virus (name) VALUES ('$virus')";
-    $sth_insert = $dbh->prepare($sql_insert);
-    $result_insert = $sth_insert->execute();
-  }
-
-  # We check if this binary and the scan result were already in the database. The unique key here is $file, $scanner, $virus.
-  $sql_select = "SELECT * FROM binaries WHERE bin = '$file' AND info = '$virus' AND scanner = 'ClamAV'";
-  $sth_select = $dbh->prepare($sql_select);
-  $result_select = $sth_select->execute();
-  if ($result_select == 0) {
-    # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
-    $clamav_new++;
-    $sql_insert = "INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, '$file', '$virus', 'ClamAV')";
-    $sth_insert = $dbh->prepare($sql_insert);
-    $result_insert = $sth_insert->execute();
-  }
-
-  ###### Bitdefender ######
-  if ($bdc == 1) {
-    $virinfo=`bdc --files $bindir/$file | grep "/.*[infected|suspected].*/"`;
-    @virinfo_ar = split(/ +/, $virinfo);
-    $virinfo = $virinfo_ar[2];
-    if ($virinfo =~ /.*:.*/) {
-      @virinfo_ar = split(/:/, $virinfo);
-      $virus = "$virinfo_ar[1]";
-    } else {
-      $virus = $virinfo;
-    }
+  for my $key ( keys %scanners ) {
+    $name = $scanners{$key}{name};
+    $cmd = $scanners{$key}{command};
+    $cmd =~ s/!bindir!/$c_bindir/g;
+    $cmd =~ s/!file!/$file/g;
+    print "CMD: $cmd\n";
+    $virus = `$cmd`;
     chomp($virus);
-
+    print "\t$name:\t\t$virus\n";
     if ($virus eq "") {
       $virus = "Suspicious";
     }
@@ -262,59 +236,31 @@ foreach $file ( @dircontents ) {
     $sth_virus = $dbh->prepare($sql_virus);
     $result_virus = $sth_virus->execute();
     if ($result_virus == 0) {
+      print LOG "[virus] Adding new virus: $virus\n";
       # The virus was not yet in the stats_virus table. Insert it.
       $sql_insert = "INSERT INTO stats_virus (name) VALUES ('$virus')";
       $sth_insert = $dbh->prepare($sql_insert);
       $result_insert = $sth_insert->execute();
+
+      $sql_virus = "SELECT id FROM stats_virus WHERE name = '$virus'";
+      $sth_virus = $dbh->prepare($sql_virus);
+      $result_virus = $sth_virus->execute();
     }
+    @temp = $sth_virus->fetchrow_array;
+    $virus_id = $temp[0];
 
-    print "\tBitDefender: $virus\n";
-
-    $sql_select = "SELECT * FROM binaries WHERE bin = '$file' AND info = '$virus' AND scanner = 'BitDefender'";
+    # We check if this binary and the scan result were already in the database. The unique key here is $file, $scanner, $virus.
+    $sql_select = "SELECT * FROM binaries WHERE bin = $bin_id AND info = $virus_id AND scanner = $key";
+#    print "SQL: $sql_select";
     $sth_select = $dbh->prepare($sql_select);
     $result_select = $sth_select->execute();
-    if ($result_select == 0) {
-      $bdc_new++;
-      $sql_insert = "INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, '$file', '$virus', 'BitDefender')";
-      $sth_insert = $dbh->prepare($sql_insert);
-      $result_insert = $sth_insert->execute();
-    }
-  }
-
-  ###### Avira Antivir ######
-  if ($antivir == 1) {
-    $virinfo=`antivir -rs $bindir/$file | grep "ALERT:"`;
-    chomp($virinfo);
-    @vir_ar = split(/\[/, $virinfo);
-    $virinfo = $vir_ar[1];
-    @vir_ar = split(/\]/, $virinfo);
-    $virinfo = "$vir_ar[0]";
-    @vir_ar = split(/ +/, $virinfo);
-    $virus = $vir_ar[0];
-    chomp($virus);
-
-    if ($virus eq "") {
-      $virus = "Suspicious";
-    }
-
-    $sql_virus = "SELECT id FROM stats_virus WHERE name = '$virus'";
-    $sth_virus = $dbh->prepare($sql_virus);
-    $result_virus = $sth_virus->execute();
-    if ($result_virus == 0) {
-      # The virus was not yet in the stats_virus table. Insert it.
-      $sql_insert = "INSERT INTO stats_virus (name) VALUES ('$virus')";
-      $sth_insert = $dbh->prepare($sql_insert);
-      $result_insert = $sth_insert->execute();
-    }
-
-    print "\tAntivir: $virus\n";
-
-    $sql_select = "SELECT * FROM binaries WHERE bin = '$file' AND info = '$virus' AND scanner = 'Antivir'";
-    $sth_select = $dbh->prepare($sql_select);
-    $result_select = $sth_select->execute();
-    if ($result_select == 0) {
-      $antivir_new++;
-      $sql_insert = "INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, '$file', '$virus', 'Antivir')";
+    $numrows_select = $sth_select->rows;
+#    print " - $numrows_select\n";
+    if ($numrows_select == 0) {
+      # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
+      $scanners{$key}{count}++;
+      $sql_insert = "INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, $bin_id, $virus_id, $key)";
+      print LOG "[binadd] $sql_insert\n";
       $sth_insert = $dbh->prepare($sql_insert);
       $result_insert = $sth_insert->execute();
     }
@@ -325,20 +271,14 @@ $ts = getts();
 print LOG "[$ts] Scanned files: $total_files\n";
 print "[$ts] Scanned files: $total_files\n";
 
-print LOG "[$ts] ClamAV new: $clamav_new\n";
-print "[$ts] ClamAV new: $clamav_new\n";
-
-if ($bdc == 1) {
-  print LOG "[$ts] BitDefender new: $bdc_new\n";
-  print "[$ts] BitDefender new: $bdc_new\n";
+for $key ( keys %scanners ) {
+  $name = $scanners{$key}{name};
+  $count = $scanners{$key}{count};
+  print LOG "[$ts] $name new: $count\n";
+  print "[$ts] $name new: $count\n";
 }
 
-if ($antivir == 1) {
-  print LOG "[$ts] Antivir new: $antivir_new\n";
-  print "[$ts] Antivir new: $antivir_new\n";
-}
-
-print LOG "-------------finished binaries.pl-----------\n";
+print LOG "-------------finished scanbinaries.pl-----------\n";
 
 closedir BINDIR;
 $dbh = "";

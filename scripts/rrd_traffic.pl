@@ -54,7 +54,7 @@ do '/etc/surfnetids/surfnetids-tn.conf';
 ##################
 # Main script
 ##################
-$dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass)
+$dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass)
 	or die $DBI::errstr;
 
 @test = `cat /proc/net/dev | awk -F ":" '{print \$1}' | grep tap | awk '{print \$1}'`;
@@ -73,10 +73,9 @@ foreach (@test) {
   $vlanid = $data[2];
   print "Processing interface $tap [$vlanid]: $keyname - $org\n";
   if ($vlanid != 0){
-  	&ProcessInterface("$tap", "$keyname-$vlanid", "$org");
-  }	
-  else {
-  	&ProcessInterface("$tap", "$keyname", "$org");
+    &ProcessInterface("$tap", "$keyname-$vlanid", "$org");
+  } else {
+    &ProcessInterface("$tap", "$keyname", "$org");
   } 
 }
 
@@ -100,9 +99,9 @@ sub ProcessInterfaceALL {
 #  print "$_[3] traffic in, out: $totalin, $totalout\n";
 
   # if rrdtool database doesn't exist, create it
-  if (! -e "$rrddir/$_[3].rrd") {
+  if (! -e "$c_rrddir/$_[3].rrd") {
     print "creating rrd database for $_[3] ...\n";
-    RRDs::create "$rrddir/$_[3].rrd",
+    RRDs::create "$c_rrddir/$_[3].rrd",
         "-s 300",
         "DS:in:DERIVE:600:0:12500000",
         "DS:out:DERIVE:600:0:12500000",
@@ -113,7 +112,7 @@ sub ProcessInterfaceALL {
   }
 
   # insert values into rrd
-  RRDs::update "$rrddir/$_[3].rrd",
+  RRDs::update "$c_rrddir/$_[3].rrd",
         "-t", "in:out",
         "N:$totalin:$totalout";
 
@@ -144,9 +143,9 @@ sub ProcessInterface {
   print "$_[0] traffic in, out: $in, $out\n";
 
   # if rrdtool database doesn't exist, create it
-  if (! -e "$rrddir/$_[1].rrd")	{
+  if (! -e "$c_rrddir/$_[1].rrd")	{
     print "creating rrd database for $_[1] ...\n";
-    RRDs::create "$rrddir/$_[1].rrd",
+    RRDs::create "$c_rrddir/$_[1].rrd",
 	"-s 300",
 	"DS:in:DERIVE:600:0:12500000",
 	"DS:out:DERIVE:600:0:12500000",
@@ -157,7 +156,7 @@ sub ProcessInterface {
   }
 
   # insert values into rrd
-  RRDs::update "$rrddir/$_[1].rrd",
+  RRDs::update "$c_rrddir/$_[1].rrd",
 	"-t", "in:out",
 	"N:$in:$out";
 
@@ -175,7 +174,7 @@ sub CreateGraph {
   #	  $_[2]: interface description 
   #	  $_[3]: Organisation
 
-  RRDs::graph "$imgdir/$_[2]-$_[1].png",
+  RRDs::graph "$c_imgdir/$_[2]-$_[1].png",
 	"-s -1$_[1]",
 	"-t traffic on $_[3] :: $_[2]",
 	"--lazy",
@@ -183,8 +182,8 @@ sub CreateGraph {
 	"-l 0",
 	"-a", "PNG",
 	"-v bytes/sec",
-	"DEF:in=$rrddir/$_[2].rrd:in:AVERAGE",
-	"DEF:out=$rrddir/$_[2].rrd:out:AVERAGE",
+	"DEF:in=$c_rrddir/$_[2].rrd:in:AVERAGE",
+	"DEF:out=$c_rrddir/$_[2].rrd:out:AVERAGE",
 	"CDEF:out_neg=out,-1,*",
 	"AREA:in#32CD32:Incoming",
 	"LINE1:in#336600",
@@ -202,7 +201,7 @@ sub CreateGraph {
   }
 
   # Storing the image in a scalar
-  open (IMG, "< $imgdir/$_[2]-$_[1].png");
+  open (IMG, "< $c_imgdir/$_[2]-$_[1].png");
   binmode(IMG);
   while (<IMG>) {
     $line = $_;
@@ -211,9 +210,6 @@ sub CreateGraph {
   close(IMG);
   $encodedfile = encode_base64($imgfile);
   $imgfile = "";
-
-  $dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass)
-      or die $DBI::errstr;
 
   $sql_org = "SELECT id FROM organisations WHERE organisation = '$_[3]'";
   $sth_org = $dbh->prepare($sql_org);
@@ -241,5 +237,5 @@ sub CreateGraph {
     $sth = $dbh->prepare($sql);
     $execute_result = $sth->execute();
   }
-  `rm -- $imgdir/$_[2]-$_[1].png`;
+  `rm -- $c_imgdir/$_[2]-$_[1].png`;
 }

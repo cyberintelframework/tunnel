@@ -48,25 +48,25 @@ do '/etc/surfnetids/surfnetids-tn.conf';
 # Main script
 ##################
 
-`rm -f $surfidsdir/updates/server_version.txt`;
+`rm -f $c_surfidsdir/updates/server_version.txt`;
 
 # Setting up ignored files
 %ignore = ("client.conf.dist", 0, "wgetrc.dist", 0, "sensor.conf.dist", 0);
 
 # Opening server_version.txt for writing
-open(VERS, "> $surfidsdir/updates/server_version.txt");
+open(VERS, "> $c_surfidsdir/updates/server_version.txt");
 
 # Looping through the updates directory
-@file_ar = `grep -I Version $surfidsdir/updates/* | grep -v ".sig" | awk '{print \$1}' | cut -d":" -f1`;
+@file_ar = `grep -I Version $c_surfidsdir/updates/* | grep -v ".sig" | awk '{print \$1}' | cut -d":" -f1`;
 foreach $file (@file_ar) {
   chomp($file);
-  $version = `grep -I Version $surfidsdir/updates/* | grep "^${file}:" | awk '{print \$3}'`;
+  $version = `grep -I Version $c_surfidsdir/updates/* | grep "^${file}:" | awk '{print \$3}'`;
   chomp($version);
   $file = `echo $file | awk -F / '{print \$NF}'`;
   chomp($file);
   if (!exists $ignore{$file}) {
     # Signing file
-    `$surfidsdir/scripts/sign_file.pl $file`;
+    `$c_surfidsdir/scripts/sign_file.pl $file`;
     # Updating the server_version.txt
     print "$file:$version\n";
     print VERS "${file}:${version}\n";
@@ -74,5 +74,5 @@ foreach $file (@file_ar) {
 }
 close(VERS);
 
-print "Creation of $surfidsdir/updates/server_version.txt done!\n";
+print "Creation of $c_surfidsdir/updates/server_version.txt done!\n";
 

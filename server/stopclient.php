@@ -44,9 +44,9 @@
 ####################################
 
 # Include configuration and connection information.
-include('include/certconf.inc.php');
-include('include/connect.inc.php');
-include('include/functions.inc.php');
+include 'include/certconf.inc.php';
+include 'include/certconn.inc.php';
+include 'include/certfunc.inc.php';
 
 # Get remoteip and querystring.
 $remoteip = $_SERVER['REMOTE_ADDR'];

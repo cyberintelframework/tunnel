@@ -3,7 +3,7 @@
 #########################################
 # Checktap script for IDS tunnel server #
 # SURFnet IDS                           #
-# Version 1.04.02                       #
+# Version 1.04.03                       #
 # 20-11-2006                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
@@ -31,6 +31,7 @@
 
 #####################
 # Changelog:
+# 1.04.03 Added vlan support 
 # 1.04.02 Included tnfunctions.inc.pl and modified code structure
 # 1.04.01 Code layout
 # 1.03.01 Released as part of the 1.03 package
@@ -48,10 +49,11 @@ use Time::localtime;
 # Variables used
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
-require "$surfidsdir/scripts/tnfunctions.inc.pl";
+require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
+$logfile = $c_logfile;
 $logfile =~ s|.*/||;
-if ($logstamp == 1) {
+if ($c_logstamp == 1) {
   $day = localtime->mday();
   if ($day < 10) {
     $day = "0" . $day;
@@ -61,12 +63,12 @@ if ($logstamp == 1) {
     $month = "0" . $month;
   }
   $year = localtime->year() + 1900;
-  if ( ! -d "$surfidsdir/log/$day$month$year" ) {
-    mkdir("$surfidsdir/log/$day$month$year");
+  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
+    mkdir("$c_surfidsdir/log/$day$month$year");
   }
-  $logfile = "$surfidsdir/log/$day$month$year/$logfile";
+  $logfile = "$c_surfidsdir/log/$day$month$year/$logfile";
 } else {
-  $logfile = "$surfidsdir/log/$logfile";
+  $logfile = "$c_surfidsdir/log/$logfile";
 }
 
 ##################
@@ -106,7 +108,7 @@ if ("$dbconn" ne "false") {
   chomp($tapip);
   printlog("IP address of $tap: $tapip");
 
-  if ("$db_netconf" eq "dhcp" && "$tapip" ne "false") {
+  if (("$db_netconf" eq "dhcp" || "$db_netconf" eq "vland") && "$tapip" ne "false") {
     # If the tap IP addresses don't match, fix it.
     if ("$tapip" ne "$db_tapip") {
       printlog("Updating the tap IP address in the database");

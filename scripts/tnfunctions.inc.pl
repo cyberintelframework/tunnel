@@ -124,7 +124,7 @@ sub getnetwork() {
   chomp($ip);
   chomp($nm);
   if ($ip && $nm) {
-    $network = `$surfidsdir/scripts/ipcalc $ip $nm | grep -i network | awk '{print \$2}'`;
+    $network = `$c_surfidsdir/scripts/ipcalc $ip $nm | grep -i network | awk '{print \$2}'`;
     chomp($network);
     return $network;
   } else {
@@ -320,8 +320,8 @@ sub printenv() {
 # Returns "false" on failure
 sub connectdb() {
   my ($ts, $pgerr);
-  $dbh = DBI->connect($dsn, $pgsql_user, $pgsql_pass);
-  &printlog("Connecting to $pgsql_dbname with DSN: $dsn");
+  $dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass);
+  &printlog("Connecting to $c_pgsql_dbname with DSN: $c_dsn");
   if ($dbh ne "") {
     &printlog("Connect result: Ok");
     return "true";
@@ -343,7 +343,7 @@ sub startdhcp() {
   $tap = $_[0];
   chomp($tap);
 
-  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $surfidsdir/scripts/surfnetids-dhclient $tap`;
+  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient $tap`;
   $ec = getec();
   &printlog("Starting dhclient3 for $tap!", "$ec");
   sleep 1;

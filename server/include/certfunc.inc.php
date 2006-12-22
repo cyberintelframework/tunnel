@@ -184,7 +184,7 @@ function getdomain($host) {
 }
 
 # Function to get the organisation of a connecting sensor.
-function getOrg($ip, $soapurl, $soapuser, $soappass) {
+function getorg($ip, $soapurl, $soapuser, $soappass) {
   require_once('include/nusoap.php');
   $soap_client = new soapclient($soapurl, true);
   $soap_client->setCredentials($soapuser, $soappass); 
