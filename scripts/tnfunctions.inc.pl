@@ -228,16 +228,22 @@ sub printlog() {
   $err = $_[1];
   $ts = getts();
   $logstring = "[$ts";
-  if ("$tap" ne "") {
-    $logstring .= " - $tap";
+  if ($tap) {
+    if ($tap ne "") {
+      $logstring .= " - $tap";
+    }
   }
-  if ("$err" ne "") {
-    $logstring .= " - $err";
+  if ($err) {
+    if ($err ne "") {
+      $logstring .= " - $err";
+    }
   }
   $logstring .= "] $msg\n";
-  open(LOG, ">> $logfile");
-  print LOG $logstring;
-  close(LOG);
+  if ($logfile) {
+    open(LOG, ">> $logfile");
+    print LOG $logstring;
+    close(LOG);
+  }
 }
 
 # 4.02 killdhclient

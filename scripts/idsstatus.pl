@@ -51,6 +51,8 @@ use MIME::Lite;
 # Variables used
 ####################
 do '/etc/surfnetids/surfnetids-tn.conf';
+require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
+
 $statuslog = "$c_surfidsdir/log/idsstatus.log";
 @nepenthesexec = ("/etc/init.d/nepenthes");
 $err = 0;
@@ -118,7 +120,8 @@ open(MAIL, "> $statuslog");
 print MAIL "Timestamp: $localtime\n";
 print MAIL "---------------------\n";
 
-$dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass);
+$connresult = connectdb();
+#$dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass);
 
 ###############################
 # Checking tap devices

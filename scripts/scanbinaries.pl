@@ -49,6 +49,7 @@ use Time::localtime;
 # Variables used
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
+require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
 $logfile = $c_logfile;
 $logfile =~ s|.*/||;
@@ -74,46 +75,14 @@ if ($c_logstamp == 1) {
 # Functions
 ##################
 
-sub getts {
-  my $ts = time();
-  my $year = localtime->year() + 1900;
-  my $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  my $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  my $hour = localtime->hour();
-  if ($hour < 10) {
-    $hour = "0" . $hour;
-  }
-  my $min = localtime->min();
-  if ($min < 10) {
-    $min = "0" . $min;
-  }
-  my $sec = localtime->sec();
-  if ($sec < 10) {
-    $sec = "0" . $sec;
-  }
-
-  my $timestamp = "$day-$month-$year $hour:$min:$sec";
-}
-
 ##################
 # Main script
 ##################
 
-# Opening log file
-open(LOG, ">> $logfile");
-
-$ts = getts();
-print LOG "[$ts] Starting scanbinaries.pl\n";
+printlog("Starting scanbinaries.pl");
 
 # Connect to the database (dbh = DatabaseHandler or linkserver)
-$dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass)
-        or die $DBI::errstr;
+$checkdb = connectdb();
 
 # Virus scanner declarations
 $sql_scanners = "SELECT id, name, command, update FROM scanners WHERE status = 1";
@@ -153,7 +122,7 @@ while(@dialogues = $sth_dia->fetchrow_array) {
   $result_checkdia = $sth_checkdia->execute();
   $numrows_checkdia = $sth_checkdia->rows;
   if ($numrows_checkdia == 0) {
-    print LOG "[dialogue] Adding new dialogue: $dia\n";
+    printlog("[dialogue] Adding new dialogue: $dia");
     $sql_adddia = "INSERT INTO stats_dialogue (name) VALUES ('$dia')";
     $sth_adddia = $dbh->prepare($sql_adddia);
     $result_adddia = $sth_adddia->execute();
@@ -175,7 +144,7 @@ foreach $file ( @dircontents ) {
   $numrows_checkbin = $sth_checkbin->rows;
 
   if ($numrows_checkbin == 0) {
-    print LOG "[binary] Adding new binary: $file\n";
+    printlog("[binary] Adding new binary: $file");
     $sql_checkbin = "INSERT INTO uniq_binaries (name) VALUES ('$file')";
     $sth_checkbin = $dbh->prepare($sql_checkbin);
     $result_checkbin = $sth_checkbin->execute();
@@ -199,7 +168,7 @@ foreach $file ( @dircontents ) {
   $numrows_checkbin = $sth_checkbin->rows;
 
   if ($numrows_checkbin == 0) {
-    print LOG "[detail] Adding new binary_detail info for binary ID: $bin_id\n";
+    printlog("[detail] Adding new binary_detail info for binary ID: $bin_id");
     # If not, we add the filesize and file info to the database.
     # Getting the info from linux file command.
     $filepath = "$c_bindir/$file";
@@ -224,7 +193,6 @@ foreach $file ( @dircontents ) {
     $cmd = $scanners{$key}{command};
     $cmd =~ s/!bindir!/$c_bindir/g;
     $cmd =~ s/!file!/$file/g;
-    print "CMD: $cmd\n";
     $virus = `$cmd`;
     chomp($virus);
     print "\t$name:\t\t$virus\n";
@@ -236,7 +204,7 @@ foreach $file ( @dircontents ) {
     $sth_virus = $dbh->prepare($sql_virus);
     $result_virus = $sth_virus->execute();
     if ($result_virus == 0) {
-      print LOG "[virus] Adding new virus: $virus\n";
+      printlog("[virus] Adding new virus: $virus");
       # The virus was not yet in the stats_virus table. Insert it.
       $sql_insert = "INSERT INTO stats_virus (name) VALUES ('$virus')";
       $sth_insert = $dbh->prepare($sql_insert);
@@ -251,34 +219,30 @@ foreach $file ( @dircontents ) {
 
     # We check if this binary and the scan result were already in the database. The unique key here is $file, $scanner, $virus.
     $sql_select = "SELECT * FROM binaries WHERE bin = $bin_id AND info = $virus_id AND scanner = $key";
-#    print "SQL: $sql_select";
     $sth_select = $dbh->prepare($sql_select);
     $result_select = $sth_select->execute();
     $numrows_select = $sth_select->rows;
-#    print " - $numrows_select\n";
     if ($numrows_select == 0) {
       # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
       $scanners{$key}{count}++;
       $sql_insert = "INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, $bin_id, $virus_id, $key)";
-      print LOG "[binadd] $sql_insert\n";
       $sth_insert = $dbh->prepare($sql_insert);
       $result_insert = $sth_insert->execute();
     }
   }
 }
 # Print a total overview of the scan results.
-$ts = getts();
-print LOG "[$ts] Scanned files: $total_files\n";
+printlog("Scanned files: $total_files");
 print "[$ts] Scanned files: $total_files\n";
 
 for $key ( keys %scanners ) {
   $name = $scanners{$key}{name};
   $count = $scanners{$key}{count};
-  print LOG "[$ts] $name new: $count\n";
+  printlog("$name new: $count");
   print "[$ts] $name new: $count\n";
 }
 
-print LOG "-------------finished scanbinaries.pl-----------\n";
+printlog("-------------finished scanbinaries.pl-----------");
 
 closedir BINDIR;
 $dbh = "";

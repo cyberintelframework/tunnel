@@ -50,12 +50,12 @@ use Time::localtime;
 # Variables used
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
+require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
 ##################
 # Main script
 ##################
-$dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass)
-	or die $DBI::errstr;
+$checkdb = connectdb();
 
 @test = `cat /proc/net/dev | awk -F ":" '{print \$1}' | grep tap | awk '{print \$1}'`;
 foreach (@test) {
