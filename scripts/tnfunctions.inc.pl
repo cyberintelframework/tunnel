@@ -1,15 +1,16 @@
 #!/usr/bin/perl 
 
-###################################
-# Startup script for IDS server   #
-# SURFnet IDS                     #
-# Version 1.04.01                 #
-# 07-11-2006                      #
-# Jan van Lith & Kees Trippelvitz #
-###################################
+######################################
+# Function library for tunnel server #
+# SURFnet IDS                        #
+# Version 1.04.01                    #
+# 10-01-2007                         #
+# Jan van Lith & Kees Trippelvitz    #
+######################################
 
 #####################
 # Changelog:
+# 1.04.02 Modified info header
 # 1.04.01 Initial release
 #####################
 

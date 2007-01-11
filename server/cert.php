@@ -47,13 +47,15 @@ include 'include/certconf.inc.php';
 include 'include/certconn.inc.php';
 include 'include/certfunc.inc.php';
 
+$err =0;
+
 $allowed_get = array(
                 "ip_localip",
                 "int_vlanid",
 		"md5_ris"
 );
 $check = extractvars($_GET, $allowed_get);
-debug_input();
+#debug_input();
 
 # Get remoteip and the querystring.
 $remoteip = $_SERVER['REMOTE_ADDR'];
@@ -63,7 +65,7 @@ $remotehost = $_SERVER['REMOTE_HOST'];
 if (isset($clean['localip'])) {
   $localip = $clean['localip'];
 } else {
-  $localip = "";
+  $err = 1;
   echo "ERROR: Localip was empty.<br />\n";
 }
 
@@ -71,11 +73,12 @@ if (isset($clean['localip'])) {
 if (isset($clean['vlanid'])) {
   $vlanid = $clean['vlanid'];
 } else {
-  $vlanid = "";
+  $err = 1;
   echo "ERROR: vlanid was empty.<br />\n";
 }
 
-if ($localip != "" && $vlanid != "") {
+if ($err == 0) {
+  
   # Select all records in the table Sensors.
   $sql_sensors = "SELECT last_value FROM sensors_id_seq";
   $result_sensors = pg_query($pgconn, $sql_sensors);
@@ -141,7 +144,7 @@ if ($localip != "" && $vlanid != "") {
       $orgname = $remoteip;
     }
     $ranges = "";
-
+     
     $sql_chkorg = "SELECT id FROM organisations WHERE organisation = '$orgname'";
     $result_chkorg = pg_query($pgconn, $sql_chkorg);
     $numchk = pg_num_rows($result_chkorg);

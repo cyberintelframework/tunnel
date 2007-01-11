@@ -129,9 +129,15 @@ while(@dialogues = $sth_dia->fetchrow_array) {
   }
 }
 
+$total_files = 0;
+
 # For each file in the nepenthes binaries directory we get some info.
-opendir BINDIR, $c_bindir;
-@dircontents = grep !/^\.\.?$/, readdir BINDIR;
+if (!@ARGV) {
+  opendir BINDIR, $c_bindir;
+  @dircontents = grep !/^\.\.?$/, readdir BINDIR;
+} else {
+  @dircontents = @ARGV;
+}
 foreach $file ( @dircontents ) {
 
   ##############
@@ -190,12 +196,14 @@ foreach $file ( @dircontents ) {
   $time = time();
   for my $key ( keys %scanners ) {
     $name = $scanners{$key}{name};
+    if (!$scanners{$key}{count}) {
+      $scanners{$key}{count} = 0;
+    }
     $cmd = $scanners{$key}{command};
     $cmd =~ s/!bindir!/$c_bindir/g;
     $cmd =~ s/!file!/$file/g;
     $virus = `$cmd`;
     chomp($virus);
-    print "\t$name:\t\t$virus\n";
     if ($virus eq "") {
       $virus = "Suspicious";
     }
@@ -216,6 +224,7 @@ foreach $file ( @dircontents ) {
     }
     @temp = $sth_virus->fetchrow_array;
     $virus_id = $temp[0];
+    print "\t$name:\t\t$virus ($virus_id)\n";
 
     # We check if this binary and the scan result were already in the database. The unique key here is $file, $scanner, $virus.
     $sql_select = "SELECT * FROM binaries WHERE bin = $bin_id AND info = $virus_id AND scanner = $key";
@@ -226,6 +235,9 @@ foreach $file ( @dircontents ) {
       # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
       $scanners{$key}{count}++;
       $sql_insert = "INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, $bin_id, $virus_id, $key)";
+      if ($name eq "AVAST") {
+        print "SQL $sql_insert\n";
+      }
       $sth_insert = $dbh->prepare($sql_insert);
       $result_insert = $sth_insert->execute();
     }
@@ -233,13 +245,13 @@ foreach $file ( @dircontents ) {
 }
 # Print a total overview of the scan results.
 printlog("Scanned files: $total_files");
-print "[$ts] Scanned files: $total_files\n";
+print "Scanned files: $total_files\n";
 
 for $key ( keys %scanners ) {
   $name = $scanners{$key}{name};
   $count = $scanners{$key}{count};
   printlog("$name new: $count");
-  print "[$ts] $name new: $count\n";
+  print "$name new: $count\n";
 }
 
 printlog("-------------finished scanbinaries.pl-----------");

@@ -2,19 +2,35 @@
 
 ####################################
 # SURFnet IDS                      #
-# Version 1.04.02                  #
-# 20-11-2006                       #
+# Version 1.04.03                  #
+# 11-01-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 1.04.03 Added debug_input()
 # 1.04.02 Added chkwhois function
 # 1.04.01 Released as 1.04.01
 # 1.03.01 Released as part of the 1.03 package
 # 1.02.02 Added the stripinput function
 # 1.02.01 Initial release
 #####################
+
+function debug_input() {
+  global $c_debug_input;
+  global $clean;
+  global $tainted;
+  if ($c_debug_input == 1) {
+    echo "<pre>";
+    echo "TAINTED:\n";
+    print_r($tainted);
+    echo "\n";
+    echo "CLEAN:\n";
+    print_r($clean);
+    echo "</pre><br />\n";
+  }
+}
 
 function extractvars($source, $allowed) {
   if (!is_array($source)) {
