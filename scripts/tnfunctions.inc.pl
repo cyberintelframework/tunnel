@@ -350,7 +350,7 @@ sub startdhcp() {
   $tap = $_[0];
   chomp($tap);
 
-  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient $tap`;
+  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
   $ec = getec();
   &printlog("Starting dhclient3 for $tap!", "$ec");
   sleep 1;
