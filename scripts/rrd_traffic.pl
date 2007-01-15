@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl 
 
 #########################################
 # Traffic script                        #
@@ -51,7 +51,6 @@ use Time::localtime;
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
-
 ##################
 # Main script
 ##################
@@ -96,7 +95,7 @@ sub ProcessInterfaceALL {
   chomp($totalin);
   chomp($totalout);
 
-#  print "$_[3] traffic in, out: $totalin, $totalout\n";
+  print "$_[3] traffic in, out: $totalin, $totalout\n";
 
   # if rrdtool database doesn't exist, create it
   if (! -e "$c_rrddir/$_[3].rrd") {
@@ -210,7 +209,7 @@ sub CreateGraph {
   close(IMG);
   $encodedfile = encode_base64($imgfile);
   $imgfile = "";
-
+  print "Organisation: $_[3]\n";
   $sql_org = "SELECT id FROM organisations WHERE organisation = '$_[3]'";
   $sth_org = $dbh->prepare($sql_org);
   $execute_result = $sth_org->execute();
@@ -226,7 +225,7 @@ sub CreateGraph {
   if ($execute_result == 0) {
     print "Inserting new image!\n";
     $sql = "INSERT INTO rrd (orgid, type, image, label, timestamp) VALUES ($orgid, '$_[1]', '$encodedfile', '$_[2]', $time)";
-    print "SQL: $sql\n";
+#    print "SQL: $sql\n";
     $sth = $dbh->prepare($sql);
     $execute_result = $sth->execute();
   } else {

@@ -37,6 +37,7 @@
 # 1.04.03 Added vlan support 
 # 1.04.02 Added ARP monitoring support
 # 1.04.01 Rereleased as 1.04.01
+# 1.03.03 Added the actual sql query for status updates
 # 1.03.02 Added status update
 # 1.03.01 Released as part of the 1.03 package
 # 1.02.01 Initial release

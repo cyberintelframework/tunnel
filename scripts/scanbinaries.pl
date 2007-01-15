@@ -235,9 +235,6 @@ foreach $file ( @dircontents ) {
       # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
       $scanners{$key}{count}++;
       $sql_insert = "INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, $bin_id, $virus_id, $key)";
-      if ($name eq "AVAST") {
-        print "SQL $sql_insert\n";
-      }
       $sth_insert = $dbh->prepare($sql_insert);
       $result_insert = $sth_insert->execute();
     }
