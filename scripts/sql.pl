@@ -3,8 +3,8 @@
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.03.02                 #
-# 08-11-2006                      #
+# Version 1.03.03                 #
+# 15-01-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
 ###################################
@@ -33,6 +33,7 @@
 
 #####################
 # Changelog:
+# 1.03.03 Added the actual sql query for status updates
 # 1.03.02 Added status update
 # 1.03.01 Released as part of the 1.03 package
 # 1.02.01 Initial release
@@ -321,9 +322,9 @@ if ($err == 0) {
   print LOG "[$ts - $tap] Connect result: $dbh\n";
 
   # Update Tap info to the database for the current $sensor.
-  $execute_result = $dbh->do("UPDATE sensors SET tap = '$tap', tapip = '$tap_ip' WHERE keyname = '$sensor'");
+  $execute_result = $dbh->do("UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor'");
   $ts = getts();
-  print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '$tap', tapip = '$tap_ip' WHERE keyname = '$sensor'\n";
+  print LOG "[$ts - $tap] Prepared query: UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor'\n";
   print LOG "[$ts - $tap] Executed query: $execute_result\n";
 
   # Closing database connection.
