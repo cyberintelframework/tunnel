@@ -3,7 +3,7 @@
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.03.03                 #
+# Version 1.03.04                 #
 # 15-01-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
@@ -33,6 +33,7 @@
 
 #####################
 # Changelog:
+# 1.03.04 Added per tap pid file
 # 1.03.03 Added the actual sql query for status updates
 # 1.03.02 Added status update
 # 1.03.01 Released as part of the 1.03 package
@@ -181,10 +182,10 @@ foreach (@dhclients) {
 if ($net_method eq "dhcp") {
   print LOG "[$ts - $tap] Network config method: DHCP\n";
   # Get dhcp from remote network without setting of gateway, dns and resolv.conf
-  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $surfidsdir/scripts/surfnetids-dhclient $tap`;
+  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
   $ts = getts();
   $ec = getec();
-  print LOG "[$ts - $tap - $ec] Starting dhclient3 in sql.pl: dhclient3 -sf /etc/dhcp3/dhtest-script -lf /var/lib/dhcp3/$tap.leases $tap\n";
+  print LOG "[$ts - $tap - $ec] Starting dhclient3 in sql.pl: dhclient3 -sf /etc/dhcp3/dhtest-script -lf /var/lib/dhcp3/$tap.leases -pf /var/run/dhclient3.$tap.pid $tap\n";
 } else {
   print LOG "[$ts - $tap] Network config method: static\n";
   # Set static network configuration without gateway, dns and resolv.conf
