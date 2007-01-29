@@ -3,7 +3,7 @@
 ####################################
 # Update info                      #
 # SURFnet IDS                      #
-# Version 1.04.01                  #
+# Version 1.04.02                  #
 # 20-11-2006                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Modified by Peter Arts           #
@@ -36,6 +36,7 @@
 
 ####################################
 # Changelog:
+# 1.04.02 Fixed VLAN issues 
 # 1.04.01 Released as 1.04.01
 # 1.03.01 Released as part of the 1.03 package
 # 1.02.04 Changed the check on $checkssh to intval()
@@ -201,7 +202,7 @@ if ($err == 0) {
     $result_block = pg_query($pgconn, $sql_block);
     echo "Disabled client.\n"; 
   }
-  $sql_action = "UPDATE sensors SET action = 'NONE' WHERE keyname = '$keyname'";
+  $sql_action = "UPDATE sensors SET action = 'NONE' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
   $result_action = pg_query($pgconn, $sql_action);
   echo "Action command reset.\n";
 }
