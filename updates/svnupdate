@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+
+#########################################
+# SVN Update script                     #
+# SURFnet IDS                           #
+# Version 1.04.03                       #
+# 29-11-2006                            #
+# Jan van Lith & Kees Trippelvitz	#
+#########################################
+
+##################
+# Changelog:
+# 1.04.03 Removed ls 
+# 1.04.02 Put variables in sensor.conf 
+# 1.04.01 Initial release
+##################
+
+################
+# Variables    #
+################
+$basedir = "/cdrom/scripts";
+do "$basedir/sensor.conf";
+do "$basedir/functions.inc.pl";
+do "$basedir/network_if.conf";
+
+################
+# Start script #
+################
+printmsg("Starting svnupdates:", "info");
+$update = 0;
+$menureboot = 0;
+$err = 0;
+$action = "";
+
+# Check if the disk is read/write.
+$chkrw = chkrw();
+printmsg("Checking read/write status:", $chkrw);
+if ($chkrw != 0) {
+  exit;
+}
+
+############
+# Updating #
+############
+
+`svn update $basedir --username $svnuser --password $svnpass`;
+if ($? != 0) {
+  @file_ar = `svn ls --username $svnuser --password $svnpass $svnurl`;
+  foreach $file (@file_ar) {
+    chomp($file);
+    if (-e "$basedir/$file") {
+      printdelay("Removing old $file:");
+      `rm -f $basedir/$file`;
+      printresult($?);
+    }
+  }
+  printdelay("Starting SVN updates:");
+  `svn checkout --username $svnuser --password $svnpass $svnurl $basedir`;
+  printresult($?);
+}

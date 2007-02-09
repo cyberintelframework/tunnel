@@ -1,0 +1,11 @@
+####
+# SURFnet IDS tunnel server crontab rules
+# crontun
+####
+
+*/5 * * * * root /opt/surfnetids/scripts/rrd_traffic.pl >/dev/null
+*/5 * * * * root /opt/surfnetids/scripts/rrd_serverinfo.pl >/dev/null
+59 23 * * * root /opt/surfnetids/scripts/scanbinaries.pl >/dev/null
+
+# Argos script
+#1 0 * * * root /opt/surfnetids/scripts/to_argos.pl >/dev/null

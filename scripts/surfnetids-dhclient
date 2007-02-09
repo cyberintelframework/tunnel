@@ -1,0 +1,279 @@
+#!/bin/bash
+
+####################################
+# dhclient script for IDS server   #
+# SURFnet IDS                      #
+# Version 1.04.01                  #
+# 11-10-2006                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
+
+#####################
+# Changelog:
+# 1.04.01 Released as 1.04.01
+# 1.03.01 Released as part of the 1.03 package
+# 1.02.01 Initial release
+#####################
+
+####################
+# Variables used
+####################
+surfnetidsdir="/home/surfnetids/tunnel/trunk"
+datumadd=`date "+%d%m%Y"`
+if [ ! -d "$surfnetidsdir/log/$datumadd" ]; then
+  mkdir "$surfnetidsdir/log/$datumadd"
+fi
+if [ ! -d "$surfnetidsdir/log/$datumadd/$interface" ]; then
+  mkdir "$surfnetidsdir/log/$datumadd/$interface"
+fi
+logfile="$surfnetidsdir/log/$datumadd/$interface/surfnetids-dhclient.log"
+
+####################
+# Main script
+####################
+run_hook() {
+    local script="$1"
+    local exit_status
+
+    if [ -f $script ]; then
+        . $script
+    fi
+
+
+    if [ -n "$exit_status" ] && [ "$exit_status" -ne 0 ]; then
+        logger -p daemon.err "$script returned non-zero exit status $exit_status"
+        save_exit_status=$exit_status
+    fi
+
+    return $exit_status
+}
+
+run_hookdir() {
+    local dir="$1"
+    local exit_status
+
+    if [ -d "$dir" ]; then
+        for script in $(run-parts --list $dir); do
+            run_hook $script || true
+            exit_status=$?
+        done
+    fi
+
+    return $exit_status
+}
+
+# Must be used on exit.   Invokes the local dhcp client exit hooks, if any.
+exit_with_hooks() {
+    exit_status=$1
+
+    # Source the documented exit-hook script, if it exists
+    if ! run_hook /etc/dhcp3/dhclient-exit-hooks; then
+        exit_status=$?
+    fi
+
+    # Now run scripts in the Debian-specific directory.
+    if ! run_hookdir /etc/dhcp3/dhclient-exit-hooks.d; then
+        exit_status=$?
+    fi
+
+    exit $exit_status
+}
+
+set_hostname() {
+    local current_hostname=$(hostname)
+    if [ -z "$current_hostname" -o "$current_hostname" = "(none)" ]; then
+        hostname "$new_host_name"
+    fi
+}
+
+if [ -n "$new_broadcast_address" ]; then
+    new_broadcast_arg="broadcast $new_broadcast_address"
+fi
+if [ -n "$old_broadcast_address" ]; then
+    old_broadcast_arg="broadcast $old_broadcast_address"
+fi
+if [ -n "$new_subnet_mask" ]; then
+    new_subnet_arg="netmask $new_subnet_mask"
+fi
+if [ -n "$old_subnet_mask" ]; then
+    old_subnet_arg="netmask $old_subnet_mask"
+fi
+if [ -n "$alias_subnet_mask" ]; then
+    alias_subnet_arg="netmask $alias_subnet_mask"
+fi
+if [ -n "$new_interface_mtu" ]; then
+    mtu_arg="mtu $new_interface_mtu"
+fi
+if [ -n "$IF_METRIC" ]; then
+    metric_arg="metric $IF_METRIC"	# interfaces(5), "metric" option
+fi
+
+
+# The action starts here
+
+# Invoke the local dhcp client enter hooks, if they exist.
+run_hook /etc/dhcp3/dhclient-enter-hooks
+run_hookdir /etc/dhcp3/dhclient-enter-hooks.d
+
+# Execute the operation
+ts=`date`
+echo "[$ts] Starting dhtest-script: $interface" >> $logfile
+echo "[$ts] Reason: $reason" >> $logfile
+
+case "$reason" in
+    MEDIUM|ARPCHECK|ARPSEND)
+        # Do nothing
+        ;;
+    PREINIT)
+        # The DHCP client is requesting that an interface be
+        # configured as required in order to send packets prior to
+        # receiving an actual address. - dhclient-script(8)
+
+#        if [ -n "$alias_ip_address" ]; then
+#            # Bring down alias interface. Its routes will disappear too.
+#            ifconfig $interface:0- inet 0
+#        fi
+        ifconfig $interface up
+        ts=`date`
+        echo "[$ts] ifconfig $interface up" >> $logfile
+
+        # We need to give the kernel some time to get the interface up.
+        sleep 1
+        ;;
+    BOUND|REBOOT)
+#        ifconfig $interface 0 up
+#        sleep 1
+        ts=`date`
+        `ifconfig $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg`
+        echo "[$ts - $?] ifconfig $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg" >> $logfile
+
+        ### Checking for ip rules
+        rulecheck=`ip rule list | grep $interface | wc -l`
+        echo "[$ts - $?] Ip rules present: $rulecheck" >> $logfile
+        if [ $rulecheck == 0 ]; then
+          `ip rule add from $new_ip_address table $interface`
+          echo "[$ts - $?] ip rule add from $new_ip_address table $interface" >> $logfile
+        else
+          oldip=`ip rule list | grep $interface | awk '{print $3}'`
+          echo "[$ts - $?] Old ip address: $oldip" >> $logfile
+          `ip rule del from $oldip table $interface`
+          echo "[$ts - $?] ip rule del from $oldip table $interface" >> $logfile
+          `ip rule add from $new_ip_address table $interface`
+          echo "[$ts - $?] ip rule add from $new_ip_address table $interface" >> $logfile
+          checktap=`/opt/surfnetids/scripts/checktap.pl $interface`
+          echo "[$ts - $?] Running: $surfnetidsdir/scripts/checktap.pl $interface" >> $logfile
+        fi
+
+        `ip route flush table $interface`
+        echo "[$ts - $?] ip route flush table $interface" >> $logfile
+
+        ### Checking for routes
+        routecheck=`ip route list | grep $interface | wc -l`
+        echo "[$ts - $?] Ip routes present: $routecheck" >> $logfile
+
+        ### Calculate the network range.
+        network=`$surfnetidsdir/scripts/ipcalc $new_ip_address $new_subnet_mask | grep Network | awk '{print $2}'`
+        echo "[$ts - $?] Network: $network" >> $logfile
+
+        ### If there are no routing rules present in the main table, add the rule
+        if [ $routecheck == 0 ]; then
+          ip route add $network dev $interface src $new_ip_address table main
+          echo "[$ts - $?] ip route add $network dev $interface src $new_ip_address table main" >> $logfile
+        fi
+
+        if [ -n $new_routers ]; then
+          ip route add default via $new_routers table $interface
+          echo "[$ts - $?] ip route add default via $new_routers table $interface" >> $logfile
+        else
+          echo "[$ts - Err] Could not get gateway: $new_routers" >> $logfile
+        fi
+
+        if [ -n $network ]; then
+          ts=`date`
+          ip route del $network dev $interface src $new_ip_address table main
+          echo "[$ts - $?] ip route del $network dev $interface src $new_ip_address table main" >> $logfile
+          ip route add $network dev $interface src $new_ip_address table $interface
+          echo "[$ts - $?] ip route add $network dev $interface src $new_ip_address table $interface" >> $logfile
+        else
+          echo "[$ts] Could not get network: $network" >> $logfile
+        fi
+        ;;
+
+    RENEW|REBIND)
+
+        ts=`date`
+        echo "[$ts] old_ip_address: $old_ip_address" >> $logfile
+        echo "[$ts] new_ip_address: $new_ip_address" >> $logfile
+        if [ -n "$old_ip_address" -a "$old_ip_address" != "$new_ip_address" ]; then
+            # IP address changed. Bringing down the interface will delete all routes,
+            # and clear the ARP cache.
+            ts=`date`
+            ifconfig $interface inet 0 down
+            echo "[$ts] ifconfig $interface inet 0 down" >> $logfile
+        fi
+
+        if [ -z "$old_ip_address" -o "$old_ip_address" != "$new_ip_address" ]; then
+            ts=`date`
+            ifconfig $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg
+            echo "[$ts] $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg" >> $logfile
+        fi
+        ;;
+
+    EXPIRE|FAIL|RELEASE)
+        #Do nothing
+        ;;
+
+     STOP)
+#        if [ -n "$alias_ip_address" ]; then
+#            # Turn off alias interface.
+#            ts=`date`
+#            ifconfig $interface:0- inet 0
+#            echo "[$ts] ifconfig $interface:0- inet 0" >> $logfile
+#        fi
+
+        if [ -n "$old_ip_address" ]; then
+            # Shut down interface, which will delete routes and clear arp cache.
+            ts=`date`
+            ifconfig $interface inet 0 down
+            echo "[$ts] ifconfig $interface inet 0 down" >> $logfile
+        fi
+
+#        if [ -n "$alias_ip_address" ]; then
+#            ifconfig $interface:0 inet $alias_ip_address $alias_subnet_arg
+#            route add -host $alias_ip_address $interface:0
+#        fi
+
+        ;;
+
+    TIMEOUT)
+#        if [ -n "$alias_ip_address" ]; then
+#            ifconfig $interface:0- inet 0
+#            ts=`date`
+#            echo "[$ts] ifconfig $interface:0- inet 0" >> $logfile
+#        fi
+
+        ifconfig $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg
+        ts=`date`
+        echo "[$ts] ifconfig $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg" >> $logfile
+
+        set -- $new_routers
+        first_router="$1"
+
+        ts=`date`
+        if ping -q -c 1 $first_router; then
+            if [ "$new_ip_address" != "$alias_ip_address" -a -n "$alias_ip_address" ]; then
+                ifconfig $interface:0 inet $alias_ip_address $alias_subnet_arg
+                echo "[$ts] ifconfig $interface:0 inet $alias_ip_address $alias_subnet_arg" >> $logfile
+            fi
+        else
+            # Changed from 'ifconfig $interface inet 0 down' - see Debian bug #144666
+            ifconfig $interface inet 0
+            echo "[$ts] ifconfig $interface inet 0" >> $logfile
+            exit_with_hooks 2
+        fi
+        ;;
+esac
+
+echo "---------------Ending dhtest-script---------------" >> $logfile
+
+exit_with_hooks 0

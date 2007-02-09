@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+
+###################################
+# Update script for update
+# SURFnet IDS
+# Version 1.04.02
+# 29-11-2006
+# Jan van Lith & Kees Trippelvitz
+###################################
+
+#############################################
+# Changelog:
+# 1.04.02 Replaced print with printmsg
+# 1.04.01 Rereleased as 1.04.01
+# 1.03.01 Rerelease as perl script
+# 1.02.03 Initial release
+#############################################
+
+# This script is started by update.
+
+################
+# Variables    #
+################
+$basedir = "/cdrom/scripts";
+do "$basedir/sensor.conf";
+require "$basedir/functions.inc.pl";
+$updatenew = $ARGV[0];
+
+################
+# Start script #
+################
+# Removing update.
+`rm -f $basedir/update`;
+printmsg("Removing update script:", $?);
+
+# Getting new version of update.
+`sed 's/\\r//' $updatenew > $basedir/update`;
+printmsg("Updating the update script:", $?);
+
+# Remove trash files.
+`rm -f $updatenew`;
+`rm -f $basedir/tmp.*`;
+`rm -f $basedir/server_version.txt`;
+printmsg("Removing temporary files:", $?);
+printmsg("Updates complete:", "info");
