@@ -1,15 +1,16 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.09
-# 04-12-2006
+# Version 1.04.10
+# 17-01-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.10 Removed chkpump and added chkdhclient 
 # 1.04.09 Fixed a bug in getnetinfo with nameserver check
 # 1.04.08 Added dec2bin, bin2dec, bc, network, cidr
 # 1.04.07 Added chkgateway
@@ -43,7 +44,7 @@ $| = 1;
 # 1.12		chkclientconf
 # 1.13		chkreach
 # 1.14		chkidsmenu
-# 1.15		chkpump
+# 1.15		chkdhclient
 # 1.16		chkdefault
 # 1.17		chknetworkconf
 # 1.18		chkgateway
@@ -76,6 +77,8 @@ $| = 1;
 # 3.17		bc
 # 3.18		network
 # 3.19		cidr
+# 3.20		gw
+# 3.21		upplstatus
 ###############################################
 
 #########################
@@ -376,17 +379,17 @@ sub chkidsmenu() {
   return 1;
 }
 
-# 1.15 chkpump
-# Function to check if pump is running for a certain interface
-# Returns 0 if pump is running
-# Returns 1 if pump is not running
-sub chkpump() {
+# 1.15 chkdhclient
+# Function to check if dhclient3 is running for a certain interface
+# Returns 0 if dhclient3 is running
+# Returns 1 if dhclient3 is not running
+sub chkdhclient() {
   my ($chk, $if);
   if ($_[0]) {
     $if = $_[0];
-    $chk = `ps -ef | grep pump | grep $if | grep -v grep | wc -l`;
+    $chk = `ps -ef | grep dhclient3 | grep $if | grep -v grep | wc -l`;
   } else {
-    $chk = `ps -ef | grep pump | grep -v grep | wc -l`;
+    $chk = `ps -ef | grep dhclient3 | grep -v grep | wc -l`;
   }
   chomp($chk);
   if ($chk == 0) {
@@ -657,7 +660,7 @@ sub getcerts() {
   $certfile = `mktemp -p $basedir`;
   chomp($certfile);
   `rm -f $certfile 2>/dev/null`;
-  `wget -q $wgetarg -O "$certfile" "$serverurl/cert.php?localip=$if_ip&vlanid=$vlanid"`;
+  `wget -q $wgetarg -O "$certfile" "$serverurl/cert.php?ip_localip=$if_ip&int_vlanid=$vlanid"`;
   printmsg("Retrieving sensor certificates:", $?);
   if ($? != 0) {
     `rm -f $certfile 2>/dev/null`;
@@ -923,7 +926,7 @@ sub setiptables() {
 # Returns 0 on success
 # Returns nonzero on failure
 sub setbridge() {
-  my ($i, $chkpump, $enable_promisc, $br, $if, $tap, $netconf);
+  my ($i, $chkdhclient, $enable_promisc, $br, $if, $tap, $netconf);
   $br = $_[0];
   $tap = $_[1];
   $if = $_[2];
@@ -948,10 +951,10 @@ sub setbridge() {
   `brctl stp $br off >/dev/null`;
   if ($? != 0 && $i == 0) { $i = 4; }
 
-  # Checking for active pump instances
-  $chkpump = `ps -ef | grep -i "pump -i $br" | grep -v grep | wc -l`;
-  if ($chkpump > 0) {
-    `killall pump >/dev/null`;
+  # Checking for active dhclient instances
+  $chkdhclient = `ps -ef | grep -i "dhclient3 $if" | grep -v grep | wc -l`;
+  if ($chkdhclient > 0) {
+    `killall dhclient3 2>/dev/null`;
     if ($? != 0 && $i == 0) { $i = 5; }
   }
 
@@ -1003,7 +1006,7 @@ sub validvlancount() {
   $vlancount = $_[0];
   chomp($vlancount);
   if ($vlancount =~ /^(\d{0,1})$/) {
-    if ($vlancount > 0 && $vlancount < 8) {
+    if ($vlancount > 0 && $vlancount < 9) {
       return 0;
     } else {
       return 1; 
@@ -1248,4 +1251,24 @@ sub gw() {
   $gw = $net_ar[0] . "." . $net_ar[1] . "." . $net_ar[2] . "." . $new;
   return $gw;
 }
+
+# 3.21 upplstatus
+# Function to update the tunnel status in the status file
+# Returns 0 on success
+# Returns non-zero on failure
+sub upplstatus() {
+  my ($status, $tmpfile, $tunnel, $i);
+  $tunnel = $_[0];
+  $status = $_[1];
+  $tmpfile = $_[2];
+  $i = 0;
+  `sed '/^$tunnel:.*\$/d' $basedir/tunnel.status > $tmpfile`;
+  if ($? != 0) { $i++; }
+  `mv $tmpfile $basedir/tunnel.status`;
+  if ($? != 0) { $i++; }
+  `echo $tunnel:$status >> $basedir/tunnel.status`;
+  if ($? != 0) { $i++; }
+  return $i;
+}
+
 return "true";

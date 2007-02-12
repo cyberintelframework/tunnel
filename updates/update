@@ -3,13 +3,14 @@
 #########################################
 # Update script for SURFnet IDS Sensor	#
 # SURFnet IDS                           #
-# Version 1.04.02                       #
-# 29-11-2006                            #
+# Version 1.04.03                       #
+# 12-02-2007                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 1.04.03 Redone the update system, added svnupdate stuff
 # 1.04.02 Added printmsg when no active VLANs are found
 # 1.04.01 Rereleased as 1.04.01
 # 1.02.18 Rereleased as perl script
@@ -69,9 +70,9 @@ if ($sensor eq "false") {
 }
 
 if ($netconf eq "vlan") {
-  $down = 0;
-  $i = 1;
-  for my $key ( keys %vlan ) {
+  $i = 0;
+  for my $key ( sort keys %vlan ) {
+    $i++;
     $vlanid = $key;	
     $br = "br$i";
     $vlan_method = $vlan{$vlanid}{method};
@@ -80,37 +81,56 @@ if ($netconf eq "vlan") {
       printmsg("Active interface:", $br);
       $if = "br$i";
       if ($vlan_method eq "dhcp") {			 
-        $if_gw = `pump -i $if -s | grep "Gateway:" | awk '{print \$2}'`;
-      } else{
-        $if_gw = $vlan{$vlanid}{if_gw};
-      }
-      chomp($if_gw);
-      $chkgw = validip($if_gw);
-      if ($chkgw == 0) {
-        printmsg("Retrieving gateway:", $if_gw);
-        printdelay("Checking gateway connectivity:");
-        $chkgw = chkreach($if_gw);
-        printresult($if_gw);
-      } else {
-        printmsg("Retrieving gateway:", "false");
-      }
-      if ($chkgw == 0) {
+        $if_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' |cut -d";" -f1|tail -n1`;
+        printmsg("Gateway:", $if_gw);
         `ip route add default via $if_gw`;
         update_process($if, $vlanid);
         sleeptimer("Preparing for next VLAN:", 10);
         `ip route del default via $if_gw`;
       } else {
-        printmsg("Network connectivity failed. No updates:", "info");
+        $if_gw = $vlan{$vlanid}{if_gw};
+        printmsg("Gateway:", $if_gw);
+        `ip route add default via $if_gw`; 
+        update_process($if, $vlanid);
+        sleeptimer("Preparing for next VLAN:", 10);
+        `ip route del default via $if_gw`;
       }
     } else {
-      $down++;
-      printmsg("Status VLAN $vlanid:", "down");
-      if ($down == keys %vlan) {
-        printmsg("No active VLANs. Not updating:", "info");
+      $if = getif();
+      printmsg("Active interface:", $if);
+      `modprobe 8021q`;
+      $chkif = `cat /proc/net/dev |grep $if.$vlanid |wc -l 2>/dev/null`;
+      if ($chkif == 0) {
+      	`vconfig add $if $vlanid`;
       }
-    }    
-    $i++	
-  }
+      $if = "$if.$vlanid";
+      if ($vlan_method eq "dhcp") {			 
+        $chkdhclient = chkdhclient($if);
+        if ($chkdhclient == 1) {
+       		 `dhclient3 -lf /var/lib/dhcp3/dhcp$vlanid.lease -sf $basedir/dhclient-script-vlan -pf /var/run/dhcp3/dhcp$vlanid.pid $if 2>/dev/null`;
+        	sleeptimer("Waiting for DHCP Client:", 10);
+	}
+	$if_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' |cut -d";" -f1|tail -n1`;
+        printmsg("Gateway:", $if_gw);
+        `ip route add default via $if_gw`;
+        update_process($if, $vlanid);
+        sleeptimer("Preparing for next VLAN:", 10);
+        `ip route del default via $if_gw`;
+      } else {
+        $if_ip = $vlan{$vlanid}{if_ip};
+        $if_nm = $vlan{$vlanid}{if_nm};
+        $if_bc = $vlan{$vlanid}{if_bc};
+	$if_gw = $vlan{$vlanid}{if_gw};
+        `ifconfig $if $if_ip netmask $if_nm broadcast $if_bc 2>/dev/null`;
+	
+        printmsg("Gateway:", $if_gw);
+        `ip route add default via $if_gw`; 
+        update_process($if, $vlanid);
+        sleeptimer("Preparing for next VLAN:", 10);
+        `ip route del default via $if_gw`;
+      }
+   }
+}
 } else {
   $vlanid = 0;
   $chksensor = chksensorstatus($br);
@@ -120,27 +140,7 @@ if ($netconf eq "vlan") {
     $if = getif();
   }
   printmsg("Active interface:", $if);
-
-  if ($netconf eq "dhcp") {			 
-    $if_gw = `pump -i $if -s | grep "Gateway:" | awk '{print \$2}'`;
-  } else{
-    $if_gw = $vlan{$vlanid}{if_gw};
-  }
-  chomp($if_gw);
-  $chkgw = validip($if_gw);
-  if ($chkgw == 0) {
-    printmsg("Retrieving gateway:", $if_gw);
-    printdelay("Checking gateway connectivity:");
-    $chkgw = chkreach($if_gw);
-    printresult($if_gw);
-  } else {
-    printmsg("Retrieving gateway:", "false");
-  }
-  if ($chkgw == 0) {
-    update_process($if, $vlanid);
-  } else {
-    printmsg("Network connectivity failed. No updates:", "info");
-  }
+  update_process($if, $vlanid);
 }
 
 sub update_process() {
@@ -148,127 +148,34 @@ sub update_process() {
   $vlanid=$_[1];
 
   $if_ip = getifip($if);
-  printmsg("Checking ip address:", $if_ip);
+  &printmsg("Checking ip address:", $if_ip);
 
   # Check if SSH is running.
   $chkssh = chkssh();
 
   # Creating the serverurl
   $serverurl = "$http://$server:$port";
+   
+  # Update the scripts
+  system("$basedir/svnupdate");
 
   # Updating sensor information to the server
-  `wget -q $wgetarg -O $basedir/update.php "$serverurl/update.php?localip=$if_ip&keyname=$sensor&vlanid=$vlanid&ssh=$chkssh"`;
-  printmsg("Updating status information:", $?);
+  `wget -q $wgetarg -O $basedir/update$vlanid.php "$serverurl/update.php?localip=$if_ip&keyname=$sensor&vlanid=$vlanid&ssh=$chkssh"`;
+  &printmsg("Updating status information:", $?);
 
   # Check for errors with the localip and tapip update.
-  $checkerror = `cat $basedir/update.php | grep "ERROR" | wc -l`;
+  $checkerror = `cat $basedir/update$vlanid.php | grep "ERROR" | wc -l`;
   if ($checkerror > 0) {
     # Errors occured while updating localip and tapip.
-    $errors = `cat $basedir/update.php | grep "ERROR"`;
+    $errors = `cat $basedir/update$vlanid.php | grep "ERROR"`;
     chomp($errors);
     print "${y}An error occurred while updating status information.${n}\n";
     print "${r}$errors${n}\n";
   }
 
   # Check if any action was requested.
-  $action = `cat $basedir/update.php | grep "ACTION:" | awk '{print \$2}'`;
+  $action = `cat $basedir/update$vlanid.php | grep "ACTION:" | awk '{print \$2}'`;
   chomp($action);
-
-  ##########################
-  # Checking for update    #
-  ##########################
-
-  $update_remove = 0;
-
-  `wget -q $wgetarg -O $basedir/server_version.txt "$serverurl/updates/server_version.txt"`;
-  printmsg("Retrieving version information:", $?);
-
-  # Creating temporary version file
-  $tempvers = `mktemp -p $basedir`;
-  chomp($tempvers);
-  open(VERS, "> $tempvers");
-
-  open(SERVER, "$basedir/server_version.txt");
-  while(<SERVER>) {
-    $line = $_;
-    @line_ar = split(/:/, $line);
-    $file = $line_ar[0];
-    $newversion = $line_ar[1];
-    chomp($newversion);
-    $check = `grep ${file}: $basedir/sensor_version.txt | wc -l`;
-    chomp($check);
-
-    if ($check == 0) {
-      # new file
-      $update = updatefile($file, 0);
-      printmsg("Updating $file:", $update);
-      if ($update == 0) {
-        print VERS "${file}:${newversion}\n";
-      }
-    } else {
-      # existing file
-      $checkline = `grep ^${file}:.*\$ $basedir/sensor_version.txt`;
-      chomp($checkline);
-      @checkline_ar = split(/:/, $checkline);
-      $oldversion = $checkline_ar[1];
-      chomp($oldversion);
-      if ($newversion ne $oldversion) {
-        # server file is newer
-
-        # The file to be updated is 'update'.
-        if ($file eq "update") {
-          $tempupdate = updatefile($file, 1);
-          printmsg("Updating $file:", $update);
-          if ($update == 0) {
-            print VERS "${file}:${newversion}\n";
-          } else {
-            print VERS "${file}:${oldversion}\n";
-          }
-          $update_remove = 1;
-
-        # The file to be updated 'client.conf'.
-        } elsif ($file eq "client.conf") {
-          $update = updatefile($file, 0);
-          printmsg("Updating $file:", $update);
-          $fixclient = fixclientconf();
-          printmsg("Reconfiguring client.conf:", $fixclient);
-          if ($update == 0) {
-            print VERS "${file}:${newversion}\n";
-          } else {
-            print VERS "${file}:${oldversion}\n";
-          }
-
-        # The file to be updated not 'idsmenu'.
-        } elsif ($file ne "wgetrc") {
-          $update = updatefile($file, 0);
-          printmsg("Updating $file:", $update);
-          if ($update == 0) {
-            print VERS "${file}:${newversion}\n";
-          } else {
-            print VERS "${file}:${oldversion}\n";
-          }
-
-        # The file to be updated is 'wgetrc'.
-        } elsif ($file eq "wgetrc") {
-          $update = updatefile($file, 0);
-          printmsg("Updating $file:", $update);
-          if ($update == 0) {
-            print VERS "${file}:${newversion}\n";
-          } else {
-            print VERS "${file}:${oldversion}\n";
-          }
-        }
-      } else {
-        print VERS "${file}:${oldversion}\n";
-      }
-    }
-  }
-  close(SERVER);
-  close(VERS);
-
-  # Update sensor_version.txt.
-  `mv -f $tempvers $basedir/sensor_version.txt`;
-  printmsg("Updating sensor version information:", $?);
 
   ################
   # Action check #
@@ -276,64 +183,62 @@ sub update_process() {
 
   if ($checkerror == 0) {
     if ($action eq "SSHON") {
+      &printmsg("Server request - start SSH:", $?);
       `/etc/init.d/ssh start`;
-      printmsg("Server request - start SSH:", $?);
     } elsif ($action eq "SSHOFF") {
+      &printmsg("Server request - stop SSH:", $?);
       `killall sshd`;
-      printmsg("Server request - stop SSH:", $?);
     } elsif ($action eq "START") {
+      &printmsg("Server request - start sensor:", $?);
+      &printmsg("Starting Sensor:", "info");
       `$basedir/startclient 0`;
-      printmsg("Server request - start sensor:", $?);
     } elsif ($action eq "STOP") {
+      &printmsg("Server request - stop sensor:", $?);
+      &printmsg("Stopping Sensor:", "info");
       `$basedir/stopclient`;
-      printmsg("Server request - stop sensor:", $?);
-    } elsif ($action eq "RESTART") {
-      `$basedir/stopclient`;
-      printmsg("Server request - restart - stopping:", $?);
-      `$basedir/startclient 0`;
-      printmsg("Server request - restart - starting:", $?);
     } elsif ($action eq "BLOCK") {
       if (! -e "$basedir/$sensor.bcrt") { 
-        $i = 0;
+        $j = 0;
+        &printmsg("Stopping Sensor:", $?);
      	`$basedir/stopclient`;
-      	if ($? != 0) { $i++ };
+      	if ($? != 0) { $j++ };
       	`cp $basedir/$sensor.crt $basedir/$sensor.bcrt`;
-      	if ($? != 0) { $i++ };
+      	if ($? != 0) { $j++ };
       	`cp $basedir/$sensor.key $basedir/$sensor.bkey`;
-      	if ($? != 0) { $i++ };
+      	if ($? != 0) { $j++ };
       	`echo "DISABLED" > $basedir/$sensor.crt`;
-      	if ($? != 0) { $i++ };
+      	if ($? != 0) { $j++ };
       	`echo "DISABLED" > $basedir/$sensor.key`;
-      	if ($? != 0) { $i++ };
+      	if ($? != 0) { $j++ };
      	`chmod 600 $basedir/$sensor.bkey`;
-      	if ($? != 0) { $i++ };
+      	if ($? != 0) { $j++ };
       	`chmod 600 $basedir/$sensor.bcrt`;
-      	if ($? != 0) { $i++ };
-      	printmsg("Server request - disable client:", $i);
+      	if ($? != 0) { $j++ };
+      	&printmsg("Server request - disable client:", $i);
       } else {
-      	printmsg("Client already disabled:", "info");
+      	&printmsg("Client already disabled:", "info");
       } 
     } elsif ($action eq "UNBLOCK") {    
       if (-e "$basedir/$sensor.bcrt") { 
-        $i = 0;
+        $j = 0;
       	`mv $basedir/$sensor.bcrt $basedir/$sensor.crt`;
-      	if ($? != 0) { $i++ };
+      	if ($? != 0) { $j++ };
       	`mv $basedir/$sensor.bkey $basedir/$sensor.key`;
-      	if ($? != 0) { $i++ };
+      	if ($? != 0) { $j++ };
       	`chmod 600 $basedir/$sensor.key`;
-      	if ($? != 0) { $i++ };
+      	if ($? != 0) { $j++ };
       	`chmod 644 $basedir/$sensor.crt`;
-      	if ($? != 0) { $i++ };
-      	printmsg("Server request - enable client:", $i);
+      	if ($? != 0) { $j++ };
+      	&printmsg("Server request - enable client:", $i);
       } else {
-      	printmsg("Client already enabled:", "info");
+      	&printmsg("Client already enabled:", "info");
       }
     } 
   }
 
   if ($checkerror == 0) {
     $oldserver = `cat $basedir/client.conf | grep "remote " | awk '{print \$2}'`;
-    $newserver = `cat $basedir/update.php | grep "SERVER: " | awk '{print \$2}'`;
+    $newserver = `cat $basedir/update$vlanid.php | grep "SERVER: " | awk '{print \$2}'`;
     chomp($oldserver);
     chomp($newserver);
     if ($newserver) {
@@ -345,19 +250,8 @@ sub update_process() {
       }
     }
   }
-
-  if ($update_remove == 1) {
-    # If there is a newer version of the update script start update_remove.
-    exec("$basedir/removeupdate $tempupdate");
-  } else {
-    # Remove trash files.
-    `rm -f $basedir/tmp.*`;
-    `rm -f $basedir/server_version.txt`;
-    printmsg("Removing temporary files:", $?);
-    printmsg("Updates complete!", "info");
-  }
   if ($action eq "REBOOT") {
-    printmsg("Server request - Reboot", "info");
+    &printmsg("Server request - Reboot", "info");
     `init 6`;
   }
 }

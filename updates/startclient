@@ -112,9 +112,9 @@ printdelay("Running stopclient:");
 `$basedir/stopclient 2>/dev/null`;
 printresult($?);
 
-$chkpump = chkpump();
-if ($chkpump == 0) {
-  `killall pump`
+$chkdhclient = chkdhclient();
+if ($chkdhclient == 0) {
+  `killall dhclient3`
 }
 
 # Displaying the result of the checks done before the ifcounter
@@ -157,11 +157,11 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     ##########################
     # NETCONF: DHCP
     ##########################
-    # Start pump if needed
-    $chkpump = chkpump($if);
-    if ($chkpump != 0) {
+    # Start dhclient if needed
+    $chkdhclient = chkdhclient($if);
+    if ($chkdhclient != 0) {
       printdelay("Starting DHCP client:");
-      `pump -i $if 2>/dev/null`;
+      `dhclient3 $if 2>/dev/null`;
       printresult($?);
     }
     
@@ -181,10 +181,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     ##########################
     # NETCONF: STATIC
     ##########################
-    # Check if pump is running, if so, kill it.
-    $chkpump = chkpump();
-    if ( $chkpump == 0 ) {
-      `killall pump`;
+    # Check if dhclient is running, if so, kill it.
+    $chkdhclient = chkdhclient();
+    if ( $chkdhclient == 0 ) {
+      `killall dhclient3`;
     }
   
     # Get the network information from the configuration file
@@ -355,11 +355,11 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   printmsg("Setting up the bridge interface:", $chkbridge);
 
   if ($netconf eq "dhcp") {
-    $chkpump = chkpump($br);
-    if ($chkpump != 0) {
+    $chkdhclient = chkdhclient($br);
+    if ($chkdhclient != 0) {
       sleeptimer("Waiting for bridging to finish:", 10);
       printdelay("Starting DHCP client for the bridge:");
-      `pump -i $br`;
+      `dhclient3 $br 2>/dev/null`;
       printresult($?);
     }
   }
@@ -401,11 +401,15 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   print RESOLV "nameserver $if_ns\n";
   close(RESOLV);
   
+  #resetting tunnel.status
+  `rm -f $basedir/tunnel.status`;
+
   # Activating the 802.1q vlan kernel module
   `modprobe 8021q`;
   printmsg("Activating 802.1q kernel module:", $?);
-  $i = 1;
-  for my $key ( keys %vlan ) {
+  $i = 0;
+  for my $key ( sort keys %vlan ) {
+    $i++;
     $vlanid = $key;
     $br = "br$i";
     $tap = "tap$i";
@@ -430,13 +434,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $vlan_method = $vlan{$vlanid}{method};
     printmsg("$vs Retrieving VLAN Method:", $vlan_method);
   
-    # Check if pump is running, if so, kill it.
-    $chkpump = chkpump($br);
-    if ($chkpump == 0) {
-      `killall pump`;
-      printmsg("$vs Killing all DHCP clients:", $?);
-    }
-  	
     # Creating tap device
     `openvpn --mktun --dev $tap`;
     printmsg("$vs Creating tap device:", "$tap");
@@ -470,13 +467,14 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       $netconfdetail = "$vlan_nm|$vlan_gw|$vlan_bc";
     } elsif ($vlan_method eq "dhcp") {
       printdelay("$vs Starting DHCP client:");
-      `pump -i $br --no-gateway 2>/dev/null`;
+      `rm -rf /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null`;
+      `mkdir /var/run/dhcp3 2>/dev/null`;
+      `dhclient3 -lf /var/lib/dhcp3/dhcp$vlanid.lease -pf /var/run/dhcp3/dhcp$vlanid.pid $br -sf $basedir/dhclient-script-vlan 2>/dev/null`;
       printresult($?);
       sleeptimer("$vs Waiting for DHCP:", 10); 
-      $vlan_gw = `pump -i $br -s 2>/dev/null | grep "Gateway:" | awk '{print \$2}'`;
+      $vlan_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' |cut -d";" -f1| tail -n1`;
       chomp($vlan_gw);
-
-      $vlan_ip = `pump -i $br -s 2>/dev/null | grep "IP:" | awk '{print \$2}'`;
+      $vlan_ip = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "fixed-address" | awk '{print \$2}'|cut -d";" -f1|tail -n1`;
       chomp($vlan_ip);
 
       # Setting up info for the server
@@ -505,14 +503,16 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       if ($chk != 0) {
         system("$basedir/idsmenu");
       }
-      exit;
+      printmsg("$vs Skipping this VLAN:" );
+      next;
     }
 
+    
     # Setting up the routing rules for the vlan
     `ip route add default via $vlan_gw table vlan$i`;	
-    printmsg("$vs Adding default route:", $?);
+    printmsg("$vs Adding default route into table:", $?);
+    #`ip rule add to $vlan_ip table vlan$i`;
     `ip rule add from $vlan_ip table vlan$i`;
-    `ip rule add to $vlan_ip table vlan$i`;
 
     # Adding default route for the vlan
     `ip route add default via $vlan_gw`;
@@ -533,25 +533,25 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     if ($sensor ne "false") {
       # Updating the current configuration to the server
       printdelay("$vs Updating status info:");
-      `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?localip=$vlan_ip&ifmethod=$ifmethodstring&detail=$netconfdetail&vlanid=$vlanid&keyname=$sensor"`;
+      `wget -q $wgetarg -O $basedir/startclient$vlanid.php "$serverurl/startclient.php?localip=$vlan_ip&ifmethod=$ifmethodstring&detail=$netconfdetail&vlanid=$vlanid&keyname=$sensor"`;
       printresult($?);
     }
 
-    if (-r "$basedir/startclient.php") {
+    if (-r "$basedir/startclient$vlanid.php") {
       # Check for errors
       $err = 0;
-      $errcheck = `grep "ERROR" $basedir/startclient.php | wc -l`;
+      $errcheck = `grep "ERROR" $basedir/startclient$vlanid.php | wc -l`;
       if ($errcheck != 0) {
-        $errors = `grep "ERROR" $basedir/startclient.php`;
+        $errors = `grep "ERROR" $basedir/startclient$vlanid.php`;
         chomp($errors);
-        $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
+        $errno = `grep "ERRNO" $basedir/startclient$vlanid.php | awk '{print \$2}'`;
       }
 
       # Check for errors
       if ($errcheck != 0) {
-        $errors = `grep "ERROR" $basedir/startclient.php`;
+        $errors = `grep "ERROR" $basedir/startclient$vlanid.php`;
         chomp($errors);
-        $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
+        $errno = `grep "ERRNO" $basedir/startclient$vlanid.php | awk '{print \$2}'`;
         chomp($errno);
         if ($errno == 99) {
           print "${y}A tap IP address needs to be configured in the webinterface.\n";
@@ -575,10 +575,13 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       $fix = fixclientconf();
       printmsg("$vs Fixing client.conf:", $fix);
     }
-
+ 
     if ($chkgw == 0 && $chkresolv == 0) {
+      if (! -e "$basedir/tunnel.status") {
+        `touch $basedir/tunnel.status`;
+      }
       printdelay("$vs Starting OpenVPN:");
-      `openvpn --config $basedir/client.conf --dev $tap --daemon`;
+      `openvpn --config $basedir/client.conf --up "$basedir/up $i $vlan_gw $br" --dev $tap --daemon`;
       printresult($?);
 
       # Waiting for OpenVPN to finish
@@ -595,7 +598,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # for the next vlan.
     `ip route del default via $vlan_gw`;
     
-    $i++;	
   }
 } elsif ($netconf eq "config") {
   printmsg("Starting networking configuration:", "info");

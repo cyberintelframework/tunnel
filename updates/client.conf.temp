@@ -25,6 +25,8 @@ user nobody
 group nogroup
 persist-key
 persist-tun
+persist-local-ip
+persist-remote-ip
 ns-cert-type server
 up-restart
 # The script to start on the client when a tunnel comes up.

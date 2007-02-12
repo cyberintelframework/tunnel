@@ -157,16 +157,9 @@ sub set_static_ip() {
       }
     }
     if ($input =~ /^(Y|y)$/) {
-      $checkstart = `ps -ef | grep startclient | grep -v grep | wc -l`;
-      chomp($checkstart);
-      if ($checkstart == 0) {
-        # Stop client
-	system("$basedir/stopclient");
-	print "${y}Restarting client.${n}\n";
 	system("$basedir/startclient");
-      }
-      $done = 0;
     }
+      $done = 0;
   }
 }
 
@@ -180,12 +173,12 @@ sub set_dynamic_ip() {
     open(NCONF, "> $networkconf");
     print NCONF "\$netconf = \"dhcp\";\n";
     close(NCONF);
-
-  $checkstart = `ps -ef | grep startclient | grep -v grep | wc -l`;
-  if ($checkstart == 0) {
+    
+    system("/usr/bin/clear");
+    &prompt("Press enter to start sensor....");
+    
     # Start client
     system("$basedir/startclient");
-  }
 }
 
 # Set VLAN
@@ -336,15 +329,20 @@ sub set_vlan() {
         print "Enter a vlan that's between 0 and 4096 \n";	
       }
     } 	
-    print NCONF ");\n";
-    close(NCONF);
-    $done = 0;
-   
-    $checkstart = `ps -ef | grep startclient | grep -v grep | wc -l`;
-    if ($checkstart == 0) {
-      # Start client
+    $check = 1;
+    while ($check != 0) {
+     $input = &prompt("Is all the information correct [Y/n] ?: ");
+     if ($input =~ /^(Y|y|N|n)$/) {
+         $check = 0;
+     }
+   }
+    if ($input =~ /^(Y|y)$/) {
+      print NCONF ");\n";
+      close(NCONF);
       system("$basedir/startclient");
+      # Start client
     }
+    $done = 0;
   }   
 }
 

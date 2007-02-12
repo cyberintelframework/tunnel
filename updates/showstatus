@@ -106,7 +106,7 @@ if ($netconf eq "vlan") {
   # NETCONF: VLAN #
   #################
   $i = 1;
-  for my $key ( keys %vlan ) {
+  for my $key (sort keys %vlan ) {
     $vlanid = $key;
     printmsg("${y}Checking VLAN${n}:\t\t", " $vlanid ");   
   
@@ -126,7 +126,7 @@ if ($netconf eq "vlan") {
         printmsg("Sensor not active:", "info");
       } else {
         ### Checking gateway ###
-        $if_gw = `pump -i $br -s | grep "Gateway:" | awk '{print \$2}'`;
+        $if_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease | grep "routers" | awk '{print \$3}' |cut -d";" -f1 |tail -n1`;
         chomp ($if_gw);
         $chkgw = validip($if_gw);
         if ($chkgw == 0) {
@@ -142,10 +142,10 @@ if ($netconf eq "vlan") {
         } else {
           printmsg("$netconfstring Gateway:", "false");
         }
-        $if_nm = `pump -i $br -s | grep "Netmask:" | awk '{print \$2}'`;
+        $if_nm = `cat /var/lib/dhcp3/dhcp$vlanid.lease| grep "subnet-mask" | awk '{print \$3}' | cut -d";" -f1 |tail -n1`;
         chomp($if_nm);
         printmsg("$netconfstring Netmask:", $if_nm);
-        $if_bc = `pump -i $br -s | grep "Broadcast:" | awk '{print \$2}'`;
+        $if_bc = `cat /var/lib/dhcp3/dhcp$vlanid.lease| grep "broadcast" | awk '{print \$3}' | cut -d";" -f1 |tail -n1`;
         chomp($if_bc);
         printmsg("$netconfstring Broadcast:", $if_bc);
         
