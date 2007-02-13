@@ -99,7 +99,7 @@ printlog("Starting sql.pl for $sensor on $tap!");
 $dbconn = connectdb();
 
 # Get the IP address configuration for the tap device from the database.
-$sql = "SELECT netconf, netconfdetail, tapip, arp FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
+$sql = "SELECT netconf, netconfdetail, tapip FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
 $sth = $dbh->prepare($sql);
 printlog("Prepared query: $sql");
 $er = $sth->execute();
@@ -109,7 +109,6 @@ printlog("Executed query: $er");
 $netconf = $row[0];
 $netconfdetail = $row[1];
 $tapip = $row[2];
-$sensor_arp = $row[3];
 
 # Closing database connection.
 $dbh->disconnect;
@@ -241,10 +240,6 @@ if ($err == 0) {
   if ($c_enable_pof == 1) {
     system "p0f -d -i $tap -o /dev/null";
     printlog("Started p0f!");
-  }
-  if ($c_enable_tcpmonitor == 1 && $sensor_arp == 1) {
-    system "$c_surfidsdir/scripts/pcap.pl $tap &";
-    printlog("Started pcap.pl script!");
   }
 }
 
