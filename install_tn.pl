@@ -351,14 +351,30 @@ if (! -e "/dev/net/tun") {
 # Setting up crontab
 ####################
 
-$crontab = `cat /etc/crontab | grep -i crontun | wc -l`;
-chomp($crontab);
-if ($crontab == 0) {
-  `cat $targetdir/crontab.tn >> /etc/crontab`;
-  printmsg("Adding crontab rules:", $?);
-  `/etc/init.d/cron restart`;
-  printmsg("Restarting cron:", $?);
+open(CRONTAB, ">> /etc/crontab");
+open(CRONLOG, "crontab.tn");
+while (<CRONLOG>) {
+  $line = $_;
+  chomp($line);
+  if ($line ne "") {
+    @ar_line = split(/ /, $line);
+    $check = $ar_line[6];
+    chomp($check);
+    $file = `cat crontab.tn | grep -F "$line" | awk '{print \$7}' | awk -F"/" '{print \$NF}'`;
+    chomp($file);
+    $chk = checkcron($file);
+    if ($chk == 0) {
+      printmsg("Adding crontab rule for $file:", "info");
+      print CRONTAB $line ."\n";
+    }
+  }
 }
+close(CRONTAB);
+close(CRONLOG);
+
+printdelay("Restarting cron:");
+`/etc/init.d/cron restart`;
+printresult($?);
 
 ####################
 # Setting up Apache
