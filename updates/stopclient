@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 #########################################
 # Stop script for SURFnet IDS Sensor
@@ -121,19 +121,19 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   }
   
   if ($netconf eq "dhcp") {
-    # If pump is running for the bridge, kill it.
-    $chkpump = chkpump();
-    if ($chkpump == 0) {
-      `killall pump 2>/dev/null`;
+    # If dhclient is running for the bridge, kill it.
+    $chkdhclient = chkdhclient();
+    if ($chkdhclient == 0) {
+      `killall dhclient3 2>/dev/null`;
       printmsg("Killing all dhcp clients:", $?);
     }
     if ($if ne "false") {
-      printdelay("Starting pump for active interface:");
-      `pump -i $if 2>/dev/null`;
+      printdelay("Starting dhclient for active interface:");
+      `dhclient3 $if 2>/dev/null`;
       printresult($?);
       $if_gw = getnetinfo("gw", $if);
     } else {
-      printmsg("Starting pump for active interface:", "ignore");
+      printmsg("Starting dhclient for active interface:", "ignore");
       $if_gw = "false";
     }
     sleeptimer("Waiting for connection:", 5);
@@ -218,7 +218,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   $if = getif();
   printmsg("Retrieving active interface:", $if);
   $i = 1;
-  for my $key ( keys %vlan ) {
+  for my $key ( sort keys %vlan ) {
     $vlanid = $key;
     $br = "br$i";
     $tap = "tap$i";
@@ -231,6 +231,13 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $vlan_method = $vlan{$vlanid}{method};
     printmsg("$vs Retrieving VLAN Method:", $vlan_method);
     
+    # Killing up.pl scripts 
+    if (-e "/var/run/up$i.pid") {
+    $pid = `cat /var/run/up$i.pid`;
+    `kill -9 $pid`;
+    printmsg("$vs Killing up$i.pl script:", $?);
+    `rm -f /var/run/up$i.pid`;
+   } 
     if ($vlan_method eq "static") {
       $vlan_ip = $vlan{$vlanid}{if_ip};
       $vlan_gw = $vlan{$vlanid}{if_gw};
@@ -238,20 +245,15 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       $chkbr = chkif($br);
       if ($chkbr == 0) {
         $vlan_ip = getifip($br);
-	$chkpump = chkpump($br);
-	if ($chkpump == 0) {
 	  $chk = `ifconfig | grep "$br " | wc -l`;
 	  chomp($chk);
 	  if ($chk > 0) {
-            $vlan_gw = `pump -i $br -s 2>/dev/null | grep "Gateway:" | awk '{print \$2}'`;
+            $vlan_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' | cut -d";" -f1 | tail -n1`;
 	    chomp($vlan_gw);
 	  }
 	  if (!$vlan_gw) {
             $vlan_gw = "false";
 	  }
-	} else {
-          $vlan_gw = "false";
-	}
       } else {
         $vlan_ip = "false";
 	$vlan_gw = "false";
@@ -265,6 +267,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
  
     if ($vlan_gw ne "false") {
       if ($chkvlanif == 0) {
+        `ip route del default 2>/dev/null`;
         `ip route add default via $vlan_gw 2>/dev/null`;
         printmsg("$vs Adding default gw:", $?);
 	$chkgw = 0;
@@ -331,25 +334,29 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       printresult($?);
     }
 
-    if (-r "$basedir/stopclient.php") {
+    if (-r "$basedir/stopclient$vlanid.php") {
       # Check for errors with the localip and tapip update.
-      $checkerr = `cat $basedir/stopclient.php | grep "ERROR" | wc -l`;
+      $checkerr = `cat $basedir/stopclient$vlanid.php | grep "ERROR" | wc -l`;
       if ($checkerr > 0) {
         # Errors occured while updating localip and tapip.
-        $errors = `cat $basedir/stopclient.php | grep "ERROR"`;
+        $errors = `cat $basedir/stopclient$vlanid.php | grep "ERROR"`;
         print "${y}Error occured while updating status information.\n${n}";
         print "${r}$errors\n${n}";
       }
     }
     
-    $chkpump = chkpump($br);
-    if ($chkpump == 0) {
-      `killall pump 2>/dev/null`;
-      printmsg("Killing all dhcp clients:", $?);
+    
+    
+      $pid = `cat /var/run/dhcp3/dhcp$vlanid.pid 2>/dev/null`;
+      chomp($pid);
+      $chkdhclientpid = `ps -ef 2>/dev/null |grep $pid | grep -v grep |wc -l`;
+    if ($chkdhclientpid == 1) {
+      `kill $pid 2>/dev/null`;
+      printmsg("$vs Killing dhcp client pid:", " $pid ");
     } 
 
     if ($vlan_gw ne "false") {
-      $chkdefault = chkdefault($br);
+       $chkdefault = chkdefault($br);
       if ($chkdefault == 0) {
         `ip route del default via $vlan_gw 2>/dev/null`;
         printmsg("$vs Deleting default gw:", $?);
@@ -391,7 +398,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       $er = 0;
       `ip rule del from $vlan_ip 2>/dev/null`;
       if ($? != 0) { $er++; }
-      `ip rule del to $vlan_ip 2>/dev/null`;
+      #`ip rule del to $vlan_ip 2>/dev/null`;
       if ($? != 0) { $er++; }
       printmsg("$vs Removing routing rules:", $er);
       $er = 0;

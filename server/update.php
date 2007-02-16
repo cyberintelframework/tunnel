@@ -117,9 +117,10 @@ if ( isset($_GET['ssh']) ) {
 if ( isset($_GET['vlanid']) ) {
   $vlanid = stripinput(pg_escape_string($_GET['vlanid']));
 } else {
-  echo "ERRNO: 94\n";
-  echo "ERROR: Vlanid not present.\n";
-  $err = 1;
+#  echo "ERRNO: 94\n";
+#  echo "ERROR: Vlanid not present.\n";
+#  $err = 1;
+  $vlanid = 0;
 }
 
 ############

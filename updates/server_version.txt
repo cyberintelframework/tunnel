@@ -3,10 +3,15 @@ client.conf.temp:1.04.01
 confignetwork:1.04.05
 functions.inc.pl:1.04.09
 idsmenu:1.04.02
-removeupdate:1.04.02
+dhclient-script-vlan:1.04.02
+knoppix-installer:1.04.01
+knoppix-installer.config:1.04.01
 sensor.conf:1.04.01
 showstatus:1.04.06
 startclient:1.04.06
 stopclient:1.04.06
 update:1.04.02
+svnupdate:1.04.02
 wgetrc:1.04.01
+up.pl:1.04.01
+CAcert.pem:1.04.01
