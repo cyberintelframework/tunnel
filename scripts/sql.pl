@@ -3,8 +3,8 @@
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.04.04                 #
-# 17-11-2006                      #
+# Version 1.04.05                 #
+# 16-02-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
 ###################################
@@ -33,6 +33,7 @@
 
 #####################
 # Changelog:
+# 1.04.05 Removed arp from query
 # 1.04.04 Included tnfunctions.inc.pl and modified code structure
 # 1.04.03 Added vlan support 
 # 1.04.02 Added ARP monitoring support
@@ -99,7 +100,7 @@ printlog("Starting sql.pl for $sensor on $tap!");
 $dbconn = connectdb();
 
 # Get the IP address configuration for the tap device from the database.
-$sql = "SELECT netconf, netconfdetail, tapip, arp FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
+$sql = "SELECT netconf, netconfdetail, tapip FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
 $sth = $dbh->prepare($sql);
 printlog("Prepared query: $sql");
 $er = $sth->execute();
