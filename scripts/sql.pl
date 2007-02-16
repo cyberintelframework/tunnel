@@ -1,10 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.04.04                 #
-# 17-11-2006                      #
+# Version 1.04.05                 #
+# 16-02-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
 ###################################
@@ -33,6 +33,7 @@
 
 #####################
 # Changelog:
+# 1.04.05 Removed arp from query
 # 1.04.04 Included tnfunctions.inc.pl and modified code structure
 # 1.04.03 Added vlan support 
 # 1.04.02 Added ARP monitoring support
@@ -109,6 +110,7 @@ printlog("Executed query: $er");
 $netconf = $row[0];
 $netconfdetail = $row[1];
 $tapip = $row[2];
+$sensor_arp = $row[3];
 
 # Closing database connection.
 $dbh->disconnect;
@@ -240,6 +242,10 @@ if ($err == 0) {
   if ($c_enable_pof == 1) {
     system "p0f -d -i $tap -o /dev/null";
     printlog("Started p0f!");
+  }
+  if ($c_enable_tcpmonitor == 1 && $sensor_arp == 1) {
+    system "$c_surfidsdir/scripts/pcap.pl $tap &";
+    printlog("Started pcap.pl script!");
   }
 }
 
