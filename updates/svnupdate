@@ -1,0 +1,96 @@
+#!/usr/bin/perl
+
+#########################################
+# SVN Update script                     #
+# SURFnet IDS                           #
+# Version 1.04.03                       #
+# 29-11-2006                            #
+# Jan van Lith & Kees Trippelvitz	#
+#########################################
+
+##################
+# Changelog:
+# 1.04.03 Removed ls 
+# 1.04.02 Put variables in sensor.conf 
+# 1.04.01 Initial release
+##################
+
+################
+# Variables    #
+################
+$basedir = "/cdrom/scripts";
+do "$basedir/sensor.conf";
+do "$basedir/functions.inc.pl";
+do "$basedir/network_if.conf";
+
+################
+# Start script #
+################
+printmsg("Starting svnupdates:", "info");
+$update = 0;
+$menureboot = 0;
+$err = 0;
+$action = "";
+
+# Check if the disk is read/write.
+$chkrw = chkrw();
+printmsg("Checking read/write status:", $chkrw);
+if ($chkrw != 0) {
+  exit;
+}
+
+############
+# Updating #
+############
+
+printdelay("SVN Update command:");
+`svn update $basedir --username $svnuser --password $svnpass`;
+printresult($?);
+
+if ($? != 0) {
+  @file_ar = `svn ls --username $svnuser --password $svnpass $svnurl`;
+  foreach $file (@file_ar) {
+    chomp($file);
+    if (-e "$basedir/$file") {
+      printdelay("Removing old $file:");
+      `rm -f $basedir/$file`;
+      printresult($?);
+    }
+  }
+  printdelay("Starting SVN checkout:");
+  `svn checkout --username $svnuser --password $svnpass $svnurl $basedir`;
+  printresult($?);
+  if ($? != 0) { 
+  	`svn cleanup $basedir`;
+        `svn checkout --username $svnuser --password $svnpass $svnurl $basedir`;
+  }
+}
+
+$err = 0;
+@sigfile_ar = `ls -1 $basedir`;
+while ($err == 0) {
+	foreach $file (@sigfile_ar) {
+	    	chomp($file);
+		if ($file =~ /^.*\.sig\.mime$/ || $file =~ /^.*\.sig\.r[0-9]*$/) {
+			$sigfile = $file;
+			$sigfile =~ s/\.sig\..*//;
+			printdelay("Removing file: $file");
+			`rm -f $basedir/$file`;
+	  		printresult($?);
+			printdelay("SVN update for $sigfile");
+			`svn update $basedir/$sigfile.sig --username $svnuser --password $svnpass`;
+  			printresult($?);
+			`openssl smime -verify -text -inform SMIME -in $basedir/$sigfile.sig -out $basedir/$sigfile.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+			`dos2unix $basedir/$sigfile.new`;
+			`mv $basedir/$sigfile.new $basedir/$sigfile`;
+			$err=1;
+		}
+		if ($file =~ /^.*\.sig$/) {
+			$file =~ s/\.sig//;
+			`openssl smime -verify -text -inform SMIME -in $basedir/$file.sig -out $basedir/$file.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+			`dos2unix $basedir/$file.new`;
+			`mv $basedir/$file.new $basedir/$file`;
+			$err=1;
+		}
+	}
+}

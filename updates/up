@@ -1,0 +1,97 @@
+#!/usr/bin/perl
+
+#########################################
+# UP script for SURFnet IDS Sensor      #
+# SURFnet IDS                           #
+# Version 1.04.01                       #
+# 08-02-2007                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
+
+###################
+# Changelog:
+# 1.04.01 Initial release
+###################
+
+$basedir = "/cdrom/scripts";
+do "$basedir/sensor.conf";
+require "$basedir/functions.inc.pl";
+
+$tunnel = $ARGV[0];
+$gw = $ARGV[1];
+$br = $ARGV[2];
+$pid = $$;
+
+open(LOG, ">> $basedir/up.log");
+
+$chkrun = `ps -ef | grep "perl" | grep "up $tunnel" | grep -v $pid | grep -v grep | wc -l`;
+chomp($chkrun);
+if ($chkrun != 0) {
+  print LOG "[$tunnel] CHKRUN: $chkrun\n";
+  exit;
+}
+`echo $pid > /var/run/up$tunnel.pid`;
+
+$tmpfile = `mktemp -p $basedir`;
+chomp($tmpfile);
+upplstatus($tunnel, "LOCK", $tmpfile);
+
+print LOG "[$tunnel] GW: $gw\n";
+print LOG "[$tunnel] BR: $br\n";
+$nmapchk = 0;
+$checklock = 0;
+$checkrun = 0;
+$timer = 0;
+
+while ($nmapchk == 0) {
+  $mintun = $tunnel - 1;
+  for ($i = $mintun; $i > 0; $i--) {
+    $checklock = `cat $basedir/tunnel.status | grep $i | grep LOCK | wc -l`;
+    chomp($checklock);
+    if ($checklock != 0) {
+      $checktun = $i;
+      $i = 0;
+    }
+  }
+  print LOG "[$tunnel] CHECKLOCK [$checktun]: $checklock\n";
+
+  $checkrun = `cat $basedir/tunnel.status | grep RUNNING | grep -v $tunnel | wc -l`;
+  chomp($checkrun);
+  print LOG "[$tunnel] CHECKRUN: $checkrun\n";
+
+  if (($checklock == 0 && $checkrun == 0) || $run == 1) {
+    upplstatus($tunnel, "RUNNING", $tmpfile);
+    sleep 10;
+    $run = 1;
+
+    `ip route del default 2>/dev/null`;
+    print LOG "[$tunnel] Deleting default: $?\n";
+    `ip route add default via $gw`;
+    print LOG "[$tunnel] Adding default: $?\n";
+    $nmapchk = `nmap -e $br 195.169.125.66 -p 1194 -P0 | grep 1194 | grep open | wc -l`;
+    chomp($nmapchk);
+    print LOG "[$tunnel] NMAPCHECK: $nmapchk\n";
+    if ($nmapchk == 0) {
+      $timer = $timer + 5;
+      print LOG "[$tunnel] TIMER: $timer\n";
+      if ($timer == $uppl_retry) {
+        print LOG "[$tunnel] SLEEP\n";
+        upplstatus($tunnel, "SLEEP", $tmpfile);
+        sleep $uppl_sleep;
+        print LOG "[$tunnel] WAKING UP\n";
+        upplstatus($tunnel, "LOCK", $tmpfile);
+        $run = 0;
+        $timer = 0;
+      }
+    }
+  } else {
+    print LOG "[$tunnel] WAITING\n";
+  }
+  sleep 5;
+}
+print LOG "[$tunnel] Finished!\n";
+close(LOG);
+upplstatus($tunnel, "DONE", $tmpfile);
+
+#remove pid file because up is finished
+`rm -f /var/run/up$tunnel.pid`;

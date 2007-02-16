@@ -581,7 +581,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
         `touch $basedir/tunnel.status`;
       }
       printdelay("$vs Starting OpenVPN:");
-      `openvpn --config $basedir/client.conf --up "$basedir/up.pl $i $vlan_gw $br" --dev $tap --daemon`;
+      `openvpn --config $basedir/client.conf --up "$basedir/up $i $vlan_gw $br" --dev $tap --daemon`;
       printresult($?);
 
       # Waiting for OpenVPN to finish
