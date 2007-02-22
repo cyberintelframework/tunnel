@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.11
-# 16-02-2007
+# Version 1.04.12
+# 22-02-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.12 Changed path to status.php in chkwgetauth
 # 1.04.11 Changed chkwgetauth to check for status.php instead of server_version.txt
 # 1.04.10 Removed chkpump and added chkdhclient 
 # 1.04.09 Fixed a bug in getnetinfo with nameserver check
@@ -195,7 +196,7 @@ sub chkdisabled() {
 # Returns 1 if authentication failed.
 sub chkwgetauth() {
   my $wgetarg = $_[0];
-  `wget -q $wgetarg --spider $http://$server:$port/server/status.php`;
+  `wget -q $wgetarg --spider $http://$server:$port/status.php`;
   if ($? == 0) {
     return 0;
   } else {
