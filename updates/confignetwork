@@ -3,8 +3,8 @@
 ###############################################
 # Network setup script for SURFnet IDS sensor #
 # SURFnet IDS                                 #
-# Version 1.04.05                             #
-# 04-12-2006                                  #
+# Version 1.04.06                             #
+# 16-02-2007                                  #
 # Jan van Lith & Kees Trippelvitz             #
 ###############################################
 
@@ -29,6 +29,7 @@
 
 #############################################
 # Changelog:
+# 1.04.06 Removed useless variable
 # 1.04.05 Fixed type with VLAN method
 # 1.04.04 Added default values to static configs
 # 1.04.03 Fixed a bug with static IP not exiting the loop
@@ -51,7 +52,6 @@ do "$basedir/network_if.conf";
 ################
 # Setting some empty variables.
 $ipsensor = "";
-$iphoney = "";
 $netmask = "";
 $gateway = "";
 $domain = "";
