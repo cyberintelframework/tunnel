@@ -1,0 +1,25 @@
+#########################################
+# OpenVPN conf file for IDS Sensor      #
+# SURFnet IDS                           #
+# Version 1.04.01                       #
+# 07-11-2006                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
+
+remote honey.surfnet.nl
+tls-remote honey.surfnet.nl
+proto tcp-client
+port 1194
+tls-client
+dev tap
+ping 10
+ping-restart 120
+comp-lzo
+user nobody
+group nogroup
+persist-key
+persist-tun
+persist-local-ip
+persist-remote-ip
+ns-cert-type server
+up-restart
