@@ -188,7 +188,12 @@ print "\n";
 $server = "";
 while ($server eq "") {
   $server = &prompt("Server hostname.domainname or IP (example: test.domain.nl): ");
-  if ($server ne "") {
+  $check = 0;
+  if ($server eq "") { $check = 1; }
+  if ($server !~ /.*[AZaz].*/) {
+    $check = validip($server);
+  }
+  if ($check != 1) {
     $confirm = "a";
     while ($confirm !~ /^(n|N|y|Y)$/) {
       printmsg("Server hostname/IP address:", "$server");
