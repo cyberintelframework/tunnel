@@ -1,6 +1,5 @@
 client.conf:1.04.01
 client.conf.temp:1.04.01
-client.conf.temp.dist:1.04.01
 confignetwork:1.04.06
 functions.inc.pl:1.04.11
 idsmenu:1.04.02
