@@ -496,7 +496,7 @@ printmsg("Configuring client.conf:", $ec);
 $ec = 0;
 
 `sed 's/^server=\"enter_server_name\"\$/server=\"$server\"/' ./updates/sensor.conf > $targetdir/updates/sensor.conf`;
-printmsg("Configuring scripts.conf:", $?);
+printmsg("Configuring sensor.conf:", $?);
 
 open(SERVERVARS, ">>$targetdir/genkeys/servervars");
 print SERVERVARS "export KEY_COMMONNAME=\"$server\"\n";
