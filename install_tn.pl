@@ -495,8 +495,19 @@ if ($? != 0) { $ec = 3; }
 printmsg("Configuring client.conf:", $ec);
 $ec = 0;
 
-`sed 's/^server=\"enter_server_name\"\$/server=\"$server\"/' ./updates/sensor.conf > $targetdir/updates/sensor.conf`;
-printmsg("Configuring sensor.conf:", $?);
+$ec = 0;
+`sed 's/^remote.*\$/remote $server/' ./updates/client.conf.temp > $targetdir/updates/client.conf.temp`;
+if ($? != 0) { $ec = 1; }
+`cp $targetdir/updates/client.conf.temp ./updates/client.conf.temp`;
+if ($? != 0) { $ec = 2; }
+`sed 's/^tls-remote.*\$/tls-remote $server/' ./updates/client.conf.temp > $targetdir/updates/client.conf.temp`;
+if ($? != 0) { $ec = 3; }
+printmsg("Configuring client.conf.temp:", $ec);
+$ec = 0;
+
+printdelay("Configuring sensor.conf:");
+`sed 's/^\\\$server = \"enter_server_here\";\$/\\\$server = \"$server\"/' ./updates/sensor.conf > $targetdir/updates/sensor.conf`;
+printresult($?);
 
 open(SERVERVARS, ">>$targetdir/genkeys/servervars");
 print SERVERVARS "export KEY_COMMONNAME=\"$server\"\n";
