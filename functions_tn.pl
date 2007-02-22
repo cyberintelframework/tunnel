@@ -14,41 +14,6 @@ sub checkcron() {
   return $chk;
 }
 
-# 3.04 validip
-# Function to check if a given IP address is a valid IP address.
-# Returns 0 if the IP is a valid IP number
-# Returns 1 if there are not 4 numbers separated by a dot
-# Returns 2 if the first part is not a valid number
-# Returns 3 if one of the other parts is not a valid number
-# Returns 4 if one of the parts is not a number
-sub validip() {
-  my ($ip, @ip_ar, $i, $count, $dec);
-  $ip = $_[0];
-  @ip_ar = split(/\./, $ip);
-  $count = @ip_ar;
-  if ($count != 4) {
-    return 1;
-  }
-  $i = 0;
-  foreach $dec (@ip_ar) {
-    if ($dec =~ /^(\d+)$/) {
-      if ($i == 0) {
-        if ($dec <= 0 || $dec > 255) {
-          return 2;
-        }
-      } else {
-        if ($dec < 0 || $dec > 255) {
-          return 3;
-        }
-      }
-    } else {
-      return 4;
-    }
-    $i++;
-  }
-  return 0;
-}
-
 # 3.01 prompt
 # Function to prompt the user for input
 sub prompt() {
@@ -101,6 +66,26 @@ sub printmsg() {
   } else {
     print $msg . $tabstring . "[${g}$ec${n}]\n";
   }
+}
+
+# 3.04 validip
+# Function to check if a given IP address is a valid IP address.
+# Returns 0 if the IP is a valid IP number
+# Returns 1 if not
+sub validip() {
+  my ($ip, @ip_ar, $i, $count, $dec);
+  $ip = $_[0];
+  chomp($ip);
+  $regexp = "^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
+  $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
+  $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
+  $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\$";
+  if ($ip !~ /$regexp/) {
+    return 1;
+  } else {
+    return 0;
+  }
+  return 1;
 }
 
 # 3.12 printdelay
