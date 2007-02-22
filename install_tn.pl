@@ -185,8 +185,8 @@ print "\n";
 ####################
 
 # Setting server hostname and configuring config files.
-$server = "";
-while ($server eq "") {
+$check = 1;
+while ($check eq 1) {
   $server = &prompt("Server hostname.domainname or IP (example: test.domain.nl): ");
   $check = 0;
   if ($server eq "") { $check = 1; }
@@ -200,7 +200,7 @@ while ($server eq "") {
       $confirm = &prompt("Is this correct? [y/n]: ");
     }
     if ($confirm =~ /^(n|N)$/) {
-      $server = "";
+      $check = 1;
     }
   }
 }
