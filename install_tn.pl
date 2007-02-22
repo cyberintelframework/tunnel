@@ -523,7 +523,7 @@ while ($confirm !~ /^(y|Y|n|N)$/) {
   if ($confirm !~ /^(n|N)$/) {
     `ipvsadm --help`;
     if ($? != 0) {
-      printmsg("IPVS software possibly not installed", "info");
+      printmsg("IPVS software possibly not installed:", "info");
       $confirm = &prompt("Still want to enable IPVS support? [y/n]: ");
     }
   }
