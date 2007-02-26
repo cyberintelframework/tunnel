@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.13
+# Version 1.04.14
 # 26-02-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.14 Added ris support
 # 1.04.13 Added startdhcp function
 # 1.04.12 Changed path to status.php in chkwgetauth
 # 1.04.11 Changed chkwgetauth to check for status.php instead of server_version.txt
@@ -658,13 +659,22 @@ sub getresolv() {
 # Returns sensor name on success
 # Returns false on failure
 sub getcerts() {
+  my ($certfile, $sensor, $eof, $line, $chkclientconf, $fixclient, $if_ip, $vlanid, $ris, $risquery);
   $if_ip = $_[0];
   $vlanid = $_[1];
-  my ($certfile, $sensor, $eof, $line, $chkclientconf, $fixclient);
+  chomp($if_ip);
+  chomp($vlanid);
   $certfile = `mktemp -p $basedir`;
   chomp($certfile);
   `rm -f $certfile 2>/dev/null`;
-  `wget -q $wgetarg -O "$certfile" "$serverurl/cert.php?ip_localip=$if_ip&int_vlanid=$vlanid"`;
+  if (-r "$basedir/identifier.ris") {
+    $ris = `cat $basedir/identifier.ris`;
+    chomp($ris);
+    $risquery = "&md5_ris=$ris";
+  } else {
+    $risquery = "";
+  }
+  `wget -q $wgetarg -O "$certfile" "$serverurl/cert.php?ip_localip=$if_ip&int_vlanid=$vlanid$risquery"`;
   printmsg("Retrieving sensor certificates:", $?);
   if ($? != 0) {
     `rm -f $certfile 2>/dev/null`;

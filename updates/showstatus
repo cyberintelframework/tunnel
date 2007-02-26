@@ -3,13 +3,14 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.04.06
-# 04-12-2006
+# Version 1.04.07
+# 26-02-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
-# Changelog: 
+# Changelog:
+# 1.04.07 Fixed layout stuff
 # 1.04.06 Added check on broadcast and gateway addresses
 # 1.04.05 Added check on network config
 # 1.04.04 Added printdelay and printresult for pings
@@ -219,13 +220,15 @@ if ($netconf eq "vlan") {
      
       ### OpenVPN port status ###
       sleep 2;
+      printdelay("Checking OpenVPN port:");
       $chkopenvpn = getportstatus($br, 1194);
-      printmsg("Checking OpenVPN port $br:", $chkopenvpn);
+      printresult($chkopenvpn);
   
       $updateserr = 0;
       ### Update port status ###
+      printdelay("Checking updates port:");
       $chkupdates = getportstatus($br, 4443);
-      printmsg("Checking updates port:", $chkupdates); 
+      printresult($chkupdates);
 
       ### Wget authentication check ###
       if ($checkcert == 0) {
