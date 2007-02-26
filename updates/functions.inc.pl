@@ -1,15 +1,17 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.12
-# 22-02-2007
+# Version 1.04.14
+# 26-02-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.14 Added ris support
+# 1.04.13 Added startdhcp function
 # 1.04.12 Changed path to status.php in chkwgetauth
 # 1.04.11 Changed chkwgetauth to check for status.php instead of server_version.txt
 # 1.04.10 Removed chkpump and added chkdhclient 
@@ -81,6 +83,7 @@ $| = 1;
 # 3.19		cidr
 # 3.20		gw
 # 3.21		upplstatus
+# 3.22		startdhcp
 ###############################################
 
 #########################
@@ -656,13 +659,22 @@ sub getresolv() {
 # Returns sensor name on success
 # Returns false on failure
 sub getcerts() {
+  my ($certfile, $sensor, $eof, $line, $chkclientconf, $fixclient, $if_ip, $vlanid, $ris, $risquery);
   $if_ip = $_[0];
   $vlanid = $_[1];
-  my ($certfile, $sensor, $eof, $line, $chkclientconf, $fixclient);
+  chomp($if_ip);
+  chomp($vlanid);
   $certfile = `mktemp -p $basedir`;
   chomp($certfile);
   `rm -f $certfile 2>/dev/null`;
-  `wget -q $wgetarg -O "$certfile" "$serverurl/cert.php?ip_localip=$if_ip&int_vlanid=$vlanid"`;
+  if (-r "$basedir/identifier.ris") {
+    $ris = `cat $basedir/identifier.ris`;
+    chomp($ris);
+    $risquery = "&md5_ris=$ris";
+  } else {
+    $risquery = "";
+  }
+  `wget -q $wgetarg -O "$certfile" "$serverurl/cert.php?ip_localip=$if_ip&int_vlanid=$vlanid$risquery"`;
   printmsg("Retrieving sensor certificates:", $?);
   if ($? != 0) {
     `rm -f $certfile 2>/dev/null`;
@@ -1271,6 +1283,26 @@ sub upplstatus() {
   `echo $tunnel:$status >> $basedir/tunnel.status`;
   if ($? != 0) { $i++; }
   return $i;
+}
+
+# 3.22 startdhcp
+# Function to start the DHCP client for a given interface
+# Returns exit code
+sub startdhcp() {
+  my ($if, $vlanid, $ec, $dhcplib);
+  $dhcplib = "/var/lib/dhcp3";
+  $if = $_[0];
+  chomp($if);
+  if ($_[1]) {
+    $vlanid = $_[1];
+    chomp($vlanid);
+  }
+  if ($vlanid ne "") {
+    `dhclient3 -lf $dhcplib/dhcp$vlanid.lease -sf $basedir/dhclient-script-vlan -pf $dhcplib/dhcp$vlanid.pid $if 2>/dev/null`;
+  } else {
+    `dhclient3 -lf $dhcplib/$if.lease $if 2>/dev/null`;
+  }
+  return $?;
 }
 
 return "true";
