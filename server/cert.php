@@ -3,8 +3,8 @@
 ####################################
 # Certificate Generation Handler   #
 # SURFnet IDS                      #
-# Version 1.04.01                  #
-# 20-11-2006                       #
+# Version 1.04.02                  #
+# 26-02-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
@@ -35,6 +35,7 @@
 
 ####################################
 # Changelog:
+# 1.04.02 Changed identifier check order
 # 1.04.01 Organisation identifiers, removed access header
 # 1.03.01 Released as part of the 1.03 package
 # 1.02.03 Added some more input checks
@@ -93,6 +94,13 @@ if ($err == 0) {
   # Starting organisation identifier stuff
   $orgname = "false";
   $orgid = 0;
+
+  # Random Identifier String check
+  if ($orgid == 0 && isset($clean['ris'])) {
+    $ident = $clean['ris'];
+    $orgid = checkident($ident, 1);
+  }
+
   if ($c_certsoapconn == 1) {
     # SURFnet SOAP identifier check
     $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappasss);
@@ -126,15 +134,6 @@ if ($err == 0) {
       $oidtype = 2;
     } else {
       $orgid = 0;
-    }
-  }
-
-  # Random Identifier String check
-  if ($orgid == 0 && isset($clean['ris'])) {
-    $ident = $clean['ris'];
-    $pattern = "/^[a-zA-Z0-9 ]*$/";
-    if (preg_match($pattern, $ident)) {
-      $orgid = checkident($ident, 1);
     }
   }
 
