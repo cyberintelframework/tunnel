@@ -3,14 +3,15 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.06
-# 04-12-2006
+# Version 1.04.07
+# 26-02-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.07 lease file per interface for dhclient3
 # 1.04.06 Added network config check
 # 1.04.05 Added more error handling
 # 1.04.04 Changed some printmsg into printdelay
@@ -114,7 +115,7 @@ printresult($?);
 
 $chkdhclient = chkdhclient();
 if ($chkdhclient == 0) {
-  `killall dhclient3`
+  `killall -9 dhclient3 2>/dev/null`
 }
 
 # Displaying the result of the checks done before the ifcounter
@@ -161,8 +162,8 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $chkdhclient = chkdhclient($if);
     if ($chkdhclient != 0) {
       printdelay("Starting DHCP client:");
-      `dhclient3 $if 2>/dev/null`;
-      printresult($?);
+      $ec = startdhcp($if);
+      printresult($ec);
     }
     
     # Setting the if detail string
@@ -184,7 +185,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # Check if dhclient is running, if so, kill it.
     $chkdhclient = chkdhclient();
     if ( $chkdhclient == 0 ) {
-      `killall dhclient3`;
+      `killall -9 dhclient3 2>/dev/null`;
     }
   
     # Get the network information from the configuration file
@@ -201,10 +202,10 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # Checking gateway
     $chkgw = `ip route list |grep default | wc -l`;
     if ($chkgw != 0) {
-       	for ($i=0 ; $i < $chkgw ; $i++) {
-      		`ip route del default 2>/dev/null`;
-    		printmsg("Delete default route:", $?);
-	}
+      for ($i=0 ; $i < $chkgw ; $i++) {
+        `ip route del default 2>/dev/null`;
+        printmsg("Delete default route:", $?);
+      }
     }
     `ip route add default via $if_gw 2>/dev/null`;
     printmsg("Adding default route:", $?);
@@ -359,8 +360,8 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     if ($chkdhclient != 0) {
       sleeptimer("Waiting for bridging to finish:", 10);
       printdelay("Starting DHCP client for the bridge:");
-      `dhclient3 $br 2>/dev/null`;
-      printresult($?);
+      $ec = startdhcp($br);
+      printresult($ec);
     }
   }
 
@@ -469,8 +470,8 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       printdelay("$vs Starting DHCP client:");
       `rm -rf /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null`;
       `mkdir /var/run/dhcp3 2>/dev/null`;
-      `dhclient3 -lf /var/lib/dhcp3/dhcp$vlanid.lease -pf /var/run/dhcp3/dhcp$vlanid.pid $br -sf $basedir/dhclient-script-vlan 2>/dev/null`;
-      printresult($?);
+      $ec = startdhcp($br, $vlanid);
+      printresult($ec);
       sleeptimer("$vs Waiting for DHCP:", 10); 
       $vlan_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' |cut -d";" -f1| tail -n1`;
       chomp($vlan_gw);
@@ -510,8 +511,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     
     # Setting up the routing rules for the vlan
     `ip route add default via $vlan_gw table vlan$i`;	
-    printmsg("$vs Adding default route into table:", $?);
-    #`ip rule add to $vlan_ip table vlan$i`;
+    printmsg("$vs Adding vlan default route:", $?);
     `ip rule add from $vlan_ip table vlan$i`;
 
     # Adding default route for the vlan
@@ -597,7 +597,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # Deleting the default route to make sure routing goes correctly 
     # for the next vlan.
     `ip route del default via $vlan_gw`;
-    
   }
 } elsif ($netconf eq "config") {
   printmsg("Starting networking configuration:", "info");
@@ -629,11 +628,6 @@ printmsg("Changing permissions sensor cert:", $?);
 # Sync the time with a timeserver
 #$chktime = chktime();
 #printmsg("Syncing time with ntpserver:", $chktime);
-
-# Running user defined script in /cdrom/scripts/scripts.d/
-if (-e "$basedir/scripts.d/user_startclient.pl") {
-  system("$basedir/scripts.d/user_startclient.pl");
-}
 
 $chk = chkidsmenu();
 if ($chk != 0) {

@@ -3,14 +3,15 @@
 #########################################
 # Stop script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.06
-# 04-12-2006
+# Version 1.04.07
+# 26-02-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.07 Removed user script, added check for dhcp lease file
 # 1.04.06 Added 2>/dev/null to default gw stuff
 # 1.04.05 Added more error handling
 # 1.04.04 Removed $server before the chkresolv checks
@@ -407,8 +408,8 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   }
 }
 
-# Add a hook to userdefined commands/actions that could be run.
-if (-e "$basedir/scripts.d/user_stopclient.pl") {
-  `$basedir/scripts.d/user_stopclient.pl`;
-  printmsg("Starting user_stopclient.pl:", $?);
+if (-e "/var/lib/dhcp3/$br.lease") {
+  printdelay("Removing DHCP lease file:");
+  `rm -f /var/lib/dhcp3/$br.lease 2>/dev/null`;
+  printresult($?);
 }
