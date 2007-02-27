@@ -3,14 +3,15 @@
 #########################################
 # Stop script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.07
-# 26-02-2007
+# Version 1.04.08
+# 27-02-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.08 Added check for missing dhclient3 pid files
 # 1.04.07 Removed user script, added check for dhcp lease file
 # 1.04.06 Added 2>/dev/null to default gw stuff
 # 1.04.05 Added more error handling
@@ -345,16 +346,16 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
         print "${r}$errors\n${n}";
       }
     }
-    
-    
-    
-      $pid = `cat /var/run/dhcp3/dhcp$vlanid.pid 2>/dev/null`;
-      chomp($pid);
-      $chkdhclientpid = `ps -ef 2>/dev/null |grep $pid | grep -v grep |wc -l`;
-    if ($chkdhclientpid == 1) {
-      `kill $pid 2>/dev/null`;
-      printmsg("$vs Killing dhcp client pid:", " $pid ");
-    } 
+
+    $pid = `cat /var/run/dhcp3/dhcp$vlanid.pid 2>/dev/null`;
+    chomp($pid);
+    if ($pid ne "") {
+      $chkdhclientpid = `ps -ef 2>/dev/null | grep $pid | grep -v grep |wc -l`;
+      if ($chkdhclientpid == 1) {
+        `kill $pid 2>/dev/null`;
+        printmsg("$vs Killing DHCP client [$pid]:", $?);
+      }
+    }
 
     if ($vlan_gw ne "false") {
        $chkdefault = chkdefault($br);

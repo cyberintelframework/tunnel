@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.14
-# 26-02-2007
+# Version 1.04.15
+# 27-02-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.15 Fixed a bug with dhclient3 pid files
 # 1.04.14 Added ris support
 # 1.04.13 Added startdhcp function
 # 1.04.12 Changed path to status.php in chkwgetauth
@@ -1289,8 +1290,9 @@ sub upplstatus() {
 # Function to start the DHCP client for a given interface
 # Returns exit code
 sub startdhcp() {
-  my ($if, $vlanid, $ec, $dhcplib);
+  my ($if, $vlanid, $ec, $dhcplib, $dhcprun);
   $dhcplib = "/var/lib/dhcp3";
+  $dhcprun = "/var/run/dhcp3";
   $if = $_[0];
   chomp($if);
   if ($_[1]) {
@@ -1298,7 +1300,7 @@ sub startdhcp() {
     chomp($vlanid);
   }
   if ($vlanid ne "") {
-    `dhclient3 -lf $dhcplib/dhcp$vlanid.lease -sf $basedir/dhclient-script-vlan -pf $dhcplib/dhcp$vlanid.pid $if 2>/dev/null`;
+    `dhclient3 -lf $dhcplib/dhcp$vlanid.lease -sf $basedir/dhclient-script-vlan -pf $dhcprun/dhcp$vlanid.pid $if 2>/dev/null`;
   } else {
     `dhclient3 -lf $dhcplib/$if.lease $if 2>/dev/null`;
   }
