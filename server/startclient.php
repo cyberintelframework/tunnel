@@ -3,8 +3,8 @@
 ####################################
 # Startclient info update          #
 # SURFnet IDS                      #
-# Version 1.02.02                  #
-# 26-07-2006                       #
+# Version 1.04.03                  #
+# 02-03-2006                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Modified by Peter Arts           #
 ####################################
@@ -36,6 +36,7 @@
 
 ####################################
 # Changelog:
+# 1.04.03 Fixed a bug with changing netconf dhcp/static <-> vlan
 # 1.04.02 VLAN support
 # 1.04.01 Released as 1.04.01
 # 1.03.01 Released as part of the 1.03 package
@@ -127,7 +128,6 @@ if ( isset($_GET['vlanid']) ) {
   echo "VLAN ID not set.\n";
   $err = 1;
 }
-############
 
 ############
 # Database #
@@ -153,6 +153,14 @@ if ($numrows == 0) {
     echo "SQLADD: $sql_add_row\n";
     $result_add_row = pg_query($pgconn, $sql_add_row);
   }
+}
+
+if ($clientconf == "vland" || $clientconf == "vlans") {
+  $sql_reset = "UPDATE sensors SET remoteip = '0.0.0.0' WHERE keyname = '$keyname' AND vlanid = 0";
+  $result_reset = pg_query($pgconn, $sql_reset);
+} elseif ($clientconf == "dhcp" || $clientconf == "static") {
+  $sql_reset = "UPDATE sensors SET remoteip = '0.0.0.0' WHERE keyname = '$keyname' AND NOT vlanid = 0";
+  $result_reset = pg_query($pgconn, $sql_reset);
 }
  
 ###############################
