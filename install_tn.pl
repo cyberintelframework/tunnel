@@ -508,6 +508,23 @@ printdelay("Adding $svnuser to subversion group:");
 printresult($?);
 if ($? != 0) { $err++; }
 
+open(AUTHZ, "/etc/apache2/dav_svn.authz");
+print AUTHZ "[/]\n";
+print AUTHZ "$svnuser = rw\n";
+print AUTHZ "idssensor = r\n";
+close(AUTHZ);
+
+printmsg("Setting up authentication for $svnuser:", "info");
+`htpasswd -c /etc/apache2/dav_svn.passwd $svnuser 2>$logfile`;
+
+printmsg("Setting up authentication for idssensor:", "info");
+`htpasswd /etc/apache2/dav_svn.passwd idssensor 2>$logfile`;
+
+printdelay("Configuring dav_svn.conf:");
+`cat $targetdir/dav_svn.conf > /etc/apache2/mods-available/dav_svn.conf 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
 printdelay("Activating apache2 dav module:");
 `a2enmod dav 2>$logfile`;
 printresult($?);
@@ -517,8 +534,6 @@ printdelay("Activating apache2 dav_svn module:");
 `a2enmod dav_svn 2>$logfile`;
 printresult($?);
 if ($? != 0) { $err++; }
-
-
 
 ####################
 # Setting up certificate permissions
