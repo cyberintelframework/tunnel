@@ -26,6 +26,9 @@ $g = "\033[1;32m";
 $targetdir = "/opt/surfnetids";
 $configdir = "/etc/surfnetids";
 $openvpn = "/usr/sbin/openvpn";
+$logfile = "install_tn.pl.log";
+
+$err = 0;
 
 ##########################
 # Includes
@@ -63,27 +66,34 @@ print "${y}Also install the 1.04-package-log part of the SURFnet IDS system.\n${
 ##########################
 
 if (! -e "$configdir/") {
-  `mkdir -p $configdir/`;
+  `mkdir -p $configdir/ 2>$logfile`;
   printmsg("Creating $configdir/:", $?);
+  if ($? != 0) { $err++; }
 }
 
 if (! -e "$targetdir/") {
-  `mkdir -p $targetdir/`;
+  `mkdir -p $targetdir/ 2>$logfile`;
   printmsg("Creating $targetdir/:", $?);
+  if ($? != 0) { $err++; }
 }
 
 if ( -e "$configdir/surfnetids-tn.conf") {
   $ts = time();
   `mv -f $configdir/surfnetids-tn.conf $configdir/surfnetids-tn.conf-$ts`;
   printmsg("Creating backup of surfnetids-tn.conf:", $?);
+  if ($? != 0) { $err++; }
 }
 
+printdelay("Copying configuration file:");
 `cp surfnetids-tn.conf $configdir/`;
-printmsg("Copying configuration file:", $?);
+printresult($?);
+if ($? != 0) { $err++; }
 
-`cp -r ./* $targetdir/`;
-printmsg("Copying surfnetids files:", $?);
-`rm $targetdir/surfnetids-tn.conf`;
+printdelay("Copying SURFnet IDS files:");
+`cp -r ./* $targetdir/ 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+`rm $targetdir/surfnetids-tn.conf 2>$logfile`;
 
 $confirm = "n";
 while ($confirm !~ /^(Y|y)$/) {
@@ -215,8 +225,9 @@ printmsg("Generating new certificate config:", "info");
 
 # Generating root certificate
 if (! -e "$targetdir/serverkeys/ca.crt") {
-  `$targetdir/genkeys/build-ca 2>/dev/null`;
+  `$targetdir/genkeys/build-ca 2>$logfile`;
   printmsg("Generating root certificate:", $?);
+  if ($? != 0) { $err++; }
 } else {
   printmsg("Root certificate already exists:", "info");
 }
@@ -226,8 +237,10 @@ if (! -e "$targetdir/serverkeys/tunserver.crt") {
   $ENV{"KEY_COMMONNAME"} = "$server";
   $ENV{"KEY_CERTTYPE"} = "server";
 
-  `$targetdir/genkeys/build-key-server tunserver 2>/dev/null`;
-  printmsg("Generating server certificate:", $?);
+  printdelay("Generating server certificate:");
+  `$targetdir/genkeys/build-key-server tunserver 2>$logfile`;
+  printresult($?);
+  if ($? != 0) { $err++; }
 } else {
   printmsg("Server certificate already exists:", "info");
 }
@@ -235,9 +248,9 @@ if (! -e "$targetdir/serverkeys/tunserver.crt") {
 # Generate Diffie-Hellman parameters
 if (! -e "$targetdir/serverkeys/dh${key_size}.pem") {
   printmsg("Generating DH parameters. This could take a few minutes:", "info");
-  `$targetdir/genkeys/build-dh`;
+  `$targetdir/genkeys/build-dh 2>$logfile`;
   printmsg("Generating Diffie-Hellman parameters:", $?);
-  if ($? != 0) { push(@errors, "3"); }
+  if ($? != 0) { $err++; }
 } else {
   printmsg("Diffie-Hellman parameters already exist:", "info");
 }
@@ -249,12 +262,13 @@ if (! -e "$targetdir/updates/scripts.crt") {
   $ENV{"KEY_COMMONNAME"} = "scripts";
   $ENV{"KEY_CERTTYPE"} = "objsign";
 
-  `$targetdir/genkeys/build-ca 2>/dev/null`;
+  `$targetdir/genkeys/build-ca 2>$logfile`;
   if ($? != 0) { $ec++; }
-  `mv $targetdir/updates/ca.key $targetdir/scriptkeys/scripts.key`;
+  `mv $targetdir/updates/ca.key $targetdir/scriptkeys/scripts.key 2>$logfile`;
   if ($? != 0) { $ec++; }
-  `mv $targetdir/updates/ca.crt $targetdir/updates/scripts.crt`;
+  `mv $targetdir/updates/ca.crt $targetdir/updates/scripts.crt 2>$logfile`;
   if ($? != 0) { $ec++; }
+  if ($ec != 0) { $err++; }
   printmsg("Generating scripts certificate:", $ec);
   $ec = 0;
 } else {
@@ -267,12 +281,14 @@ if (! -e "$targetdir/updates/scripts.crt") {
 
 if ( -e "/etc/dhcp3/dhclient.conf") {
   $ts = time();
-  `mv -f /etc/dhcp3/dhclient.conf /etc/dhcp3/dhclient.conf-$ts`;
+  `mv -f /etc/dhcp3/dhclient.conf /etc/dhcp3/dhclient.conf-$ts 2>$logfile`;
   printmsg("Creating backup of dhclient.conf:", $?);
+  if ($? != 0) { $err++; }
 }
 
-`mv -f $targetdir/dhclient.conf /etc/dhcp3/`;
+`mv -f $targetdir/dhclient.conf /etc/dhcp3/ 2>$logfile`;
 printmsg("Installing new dhclient.conf:", $?);
+if ($? != 0) { $err++; }
 
 print "\n";
 
@@ -293,8 +309,9 @@ while ($validip != 0) {
 
 if ( -e "/etc/xinetd.d/openvpn") {
   $ts = time();
-  `mv -f /etc/xinetd.d/openvpn /etc/openvpn/xinetd.openvpn-$ts`;
+  `mv -f /etc/xinetd.d/openvpn /etc/openvpn/xinetd.openvpn-$ts 2>$logfile`;
   printmsg("Creating backup xinetd openvpn config:", $?);
+  if ($? != 0) { $err++; }
 }
 
 print "\n";
@@ -315,8 +332,9 @@ print XINETD "  server_args          = --config /etc/openvpn/server.conf\n";
 print XINETD "\}\n";
 close(XINETD);
 
-`mv $targetdir/xinetd.openvpn /etc/xinetd.d/openvpn`;
+`mv $targetdir/xinetd.openvpn /etc/xinetd.d/openvpn 2>$logfile`;
 printmsg("Creating new xinetd openvpn config:", $?);
+if ($? != 0) { $err++; }
 
 open(OPENVPN, ">>$targetdir/openvpn-server.conf");
 print OPENVPN "status $targetdir/log/openvpn-status.log\n";
@@ -335,21 +353,25 @@ close(OPENVPN);
 
 if ( -e "/etc/openvpn/server.conf") {
   $ts = time();
-  `mv -f /etc/openvpn/server.conf /etc/openvpn/server.conf-$ts`;
+  `mv -f /etc/openvpn/server.conf /etc/openvpn/server.conf-$ts 2>$logfile`;
   printmsg("Creating backup of server.conf:", $?);
+  if ($? != 0) { $err++; }
 }
 
-`mv $targetdir/openvpn-server.conf /etc/openvpn/server.conf`;
+`mv $targetdir/openvpn-server.conf /etc/openvpn/server.conf 2>$logfile`;
 printmsg("Creating new openvpn server config:", $?);
+if ($? != 0) { $err++; }
 
 if (! -d "/dev/net/") {
-  `mkdir -f /dev/net/`;
+  `mkdir -f /dev/net/ 2>$logfile`;
   printmsg("Creating /dev/net:", $?);
+  if ($? != 0) { $err++; }
 }
 
 if (! -e "/dev/net/tun") {
-  `mknod /dev/net/tun c 10 200`;
+  `mknod /dev/net/tun c 10 200 2>$logfile`;
   printmsg("Creating /dev/net/tun:", $?);
+  if ($? != 0) { $err++; }
 }
 
 ####################
@@ -365,7 +387,7 @@ while (<CRONLOG>) {
     @ar_line = split(/ /, $line);
     $check = $ar_line[6];
     chomp($check);
-    $file = `cat crontab.tn | grep -F "$line" | awk '{print \$7}' | awk -F"/" '{print \$NF}'`;
+    $file = `cat crontab.tn | grep -F "$line" | awk '{print \$7}' | awk -F"/" '{print \$NF}' 2>$logfile`;
     chomp($file);
     $chk = checkcron($file);
     if ($chk == 0) {
@@ -378,8 +400,9 @@ close(CRONTAB);
 close(CRONLOG);
 
 printdelay("Restarting cron:");
-`/etc/init.d/cron restart`;
+`/etc/init.d/cron restart 2>$logfile`;
 printresult($?);
+if ($? != 0) { $err++; }
 
 ####################
 # Setting up Apache
@@ -418,39 +441,98 @@ while (! -d $apachedir) {
 
 if ( -e "$apachedir/surfnetids-tn-apache.conf") {
   $ts = time();
-  `mv -f $apachedir/surfnetids-tn-apache.conf $apachedir/surfnetids-tn-apache.conf-$ts`;
+  `mv -f $apachedir/surfnetids-tn-apache.conf $apachedir/surfnetids-tn-apache.conf-$ts 2>$logfile`;
   printmsg("Creating backup of surfnetids-tn-apache.conf:", $?);
+  if ($? != 0) { $err++; }
 }
 
-`cp $targetdir/surfnetids-tn-apache.conf $apachedir`;
+`cp $targetdir/surfnetids-tn-apache.conf $apachedir 2>$logfile`;
 printmsg("Setting up $apachev configuration:", $?);
+if ($? != 0) { $err++; }
 
 if (! -e "$targetdir/.htpasswd") {
-  $err = 1;
-  while ($err != 0) {
+  $er = 1;
+  while ($er != 0) {
     printmsg("Starting http access configuration:", "info");
-    `htpasswd -c -m $targetdir/.htpasswd idssensor`;
+    `htpasswd -c -m $targetdir/.htpasswd idssensor 2>$logfile`;
     printmsg("Setting up http access:", $?);
-    $err = $?;
+    $er = $?;
+    if ($? != 0) { $err++; }
   }
 }
 
 printdelay("Restarting the $apachev server:");
-`/etc/init.d/$apachev restart 2>/dev/null`;
+`/etc/init.d/$apachev restart 2>$logfile`;
 printresult($?);
+if ($? != 0) { $err++; }
+
+print "\n";
+
+####################
+# Setting up SVN
+####################
+
+printdelay("Creating SVN root directory:");
+`mkdir $targetdir/svnroot/ 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
+printdelay("Creating updates repository:");
+`svnadmin create --fs-type fsfs $targetdir/svnroot/updates 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
+printdelay("Setting up SVN root ownership:");
+`chown -R www-data:subversion $targetdir/svnroot/ 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
+printdelay("Setting up SVN root permissions:");
+`chmod -R 770 $targetdir/svnroot/ 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
+printdelay("Creating subversion group:");
+`groupadd subversion 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
+$svnuser = "";
+while ($svnuser eq "") {
+  $svnuser = &prompt("Enter the name of the SVN admin user: ");
+  chomp($svnuser);
+}
+
+printdelay("Adding $svnuser to subversion group:");
+`addgroup $svnuser subversion 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
+printdelay("Activating apache2 dav module:");
+`a2enmod dav 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
+printdelay("Activating apache2 dav_svn module:");
+`a2enmod dav_svn 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
+
 
 ####################
 # Setting up certificate permissions
 ####################
 
 $ec = 0;
-`chmod 777 $targetdir/clientkeys/`;
+`chmod 777 $targetdir/clientkeys/ 2>$logfile`;
 if ($? != 0) { $ec++; }
-`chmod 777 $targetdir/serverkeys/`;
+`chmod 777 $targetdir/serverkeys/ 2>$logfile`;
 if ($? != 0) { $ec++; }
-`chmod +r $targetdir/serverkeys/ca.key`;
+`chmod +r $targetdir/serverkeys/ca.key 2>$logfile`;
 if ($? != 0) { $ec++; }
 printmsg("Setting up permissions:", $ec);
+if ($ec != 0) { $err++; }
 $ec = 0;
 
 ####################
@@ -459,14 +541,17 @@ $ec = 0;
 
 if (-e "/etc/iproute2/rt_tables") {
   if (-w "/etc/iproute2/rt_tables") {
-    $iprcheck = `cat /etc/iproute2/rt_tables | wc -l`;
+    $iprcheck = `cat /etc/iproute2/rt_tables | wc -l 2>$logfile`;
     chomp($iprcheck);
+    if ($? != 0) { $err++; }
     if ($iprcheck > 200) {
       printmsg("No need to modify /etc/iproute2/rt_tables:", "info");
     } else {
       $ts = time();
-      `cp /etc/iproute2/rt_tables /etc/iproute2/rt_tables.old-$ts`;
+      `cp /etc/iproute2/rt_tables /etc/iproute2/rt_tables.old-$ts 2>$logfile`;
       printmsg("Creating backup of rt_tables:", $?);
+      if ($? != 0) { $err++; }
+
       open(RT, ">>/etc/iproute2/rt_tables");
       $n = 0;
       for ($i=20; $i<221; $i++) {
@@ -486,42 +571,57 @@ if (-e "/etc/iproute2/rt_tables") {
 ####################
 
 $ec = 0;
-`sed 's/^remote.*\$/remote $server/' ./updates/client.conf > $targetdir/updates/client.conf`;
+`sed 's/^remote.*\$/remote $server/' ./updates/client.conf > $targetdir/updates/client.conf 2>$logfile`;
 if ($? != 0) { $ec = 1; }
-`cp $targetdir/updates/client.conf ./updates/client.conf`;
+`cp $targetdir/updates/client.conf ./updates/client.conf 2>$logfile`;
 if ($? != 0) { $ec = 2; }
-`sed 's/^tls-remote.*\$/tls-remote $server/' ./updates/client.conf > $targetdir/updates/client.conf`;
+`sed 's/^tls-remote.*\$/tls-remote $server/' ./updates/client.conf > $targetdir/updates/client.conf 2>$logfile`;
 if ($? != 0) { $ec = 3; }
 printmsg("Configuring client.conf:", $ec);
+if ($ec != 0) { $err++; }
 $ec = 0;
 
 $ec = 0;
-`sed 's/^remote.*\$/remote $server/' ./updates/client.conf.temp > $targetdir/updates/client.conf.temp`;
+`sed 's/^remote.*\$/remote $server/' ./updates/client.conf.temp > $targetdir/updates/client.conf.temp 2>$logfile`;
 if ($? != 0) { $ec = 1; }
-`cp $targetdir/updates/client.conf.temp ./updates/client.conf.temp`;
+`cp $targetdir/updates/client.conf.temp ./updates/client.conf.temp 2>$logfile`;
 if ($? != 0) { $ec = 2; }
-`sed 's/^tls-remote.*\$/tls-remote $server/' ./updates/client.conf.temp > $targetdir/updates/client.conf.temp`;
+`sed 's/^tls-remote.*\$/tls-remote $server/' ./updates/client.conf.temp > $targetdir/updates/client.conf.temp 2>$logfile`;
 if ($? != 0) { $ec = 3; }
 printmsg("Configuring client.conf.temp:", $ec);
+if ($ec != 0) { $err++; }
 $ec = 0;
 
 printdelay("Configuring sensor.conf:");
-`sed 's/^\\\$server = \"enter_server_here\";\$/\\\$server = \"$server\"/' ./updates/sensor.conf > $targetdir/updates/sensor.conf`;
+`sed 's/^\\\$server = \"enter_server_here\";\$/\\\$server = \"$server\"/' ./updates/sensor.conf > $targetdir/updates/sensor.conf 2>$logfile`;
 printresult($?);
+if ($? != 0) { $err++; }
 
 open(SERVERVARS, ">>$targetdir/genkeys/servervars");
 print SERVERVARS "export KEY_COMMONNAME=\"$server\"\n";
 close(SERVERVARS);
-$chk = `cat $targetdir/genkeys/servervars | grep -i $server | wc -l`;
+$chk = `cat $targetdir/genkeys/servervars | grep -i $server | wc -l 2>$logfile`;
 chomp($chk);
+if ($? != 0) { $err++; }
 if ($chk == 0) {
   printmsg("Configuring servervars:", "false");
 } else {
   printmsg("Configuring servervars:", 0);
 }
 
-`$targetdir/scripts/makeversion.pl >/dev/null`;
+`$targetdir/scripts/makeversion.pl >/dev/null 2>$logfile`;
 printmsg("Signing sensor scripts:", $?);
+if ($? != 0) { $err++; }
+
+printdelay("Adding sensor scripts to SVN:");
+`svn add $targetdir/updates/*.sig 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
+printdelay("Committing sensor scripts:");
+`svn commit $targetdir/updates/*.sig 2>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
 
 ####################
 # IPVS support
@@ -532,7 +632,7 @@ $confirm = "a";
 while ($confirm !~ /^(y|Y|n|N)$/) {
   $confirm = &prompt("Do you want to enable IPVS support? [y/n]: ");
   if ($confirm !~ /^(n|N)$/) {
-    `ipvsadm --help`;
+    `ipvsadm --help 2>/dev/null`;
     if ($? != 0) {
       printmsg("IPVS software possibly not installed:", "info");
       $confirm = &prompt("Still want to enable IPVS support? [y/n]: ");
@@ -541,10 +641,12 @@ while ($confirm !~ /^(y|Y|n|N)$/) {
 }
 
 if ($confirm =~ /^(y|Y)$/) {
-  `cp $targetdir/scripts/iptables.ipvs /etc/init.d/`;
+  `cp $targetdir/scripts/iptables.ipvs /etc/init.d/ 2>$logfile`;
   printmsg("Installing SURF IDS IPVS files:", $?);
-  `update-rc.d iptables.ipvs start 01 2 3 4 5 .`;
+  if ($? != 0) { $err++; }
+  `update-rc.d iptables.ipvs start 01 2 3 4 5 . 2>$logfile`;
   printmsg("Adding iptable rules to boot sequence:", $?);
+  if ($? != 0) { $err++; }
 }
 
 ####################
@@ -552,18 +654,22 @@ if ($confirm =~ /^(y|Y)$/) {
 ####################
 
 $ec = 0;
-`rm -f $targetdir/crontab.tn`;
+`rm -f $targetdir/crontab.tn 2>/dev/null`;
 if ($? != 0) { $ec++; }
-`rm -f $targetdir/surfnetids-tn-apache.conf`;
+`rm -f $targetdir/surfnetids-tn-apache.conf 2>/dev/null`;
 if ($? != 0) { $ec++; }
-`rm -f $targetdir/openvpn-server.conf`;
+`rm -f $targetdir/openvpn-server.conf 2>/dev/null`;
 if ($? != 0) { $ec++; }
-`rm -f $targetdir/install_tn.pl`;
+`rm -f $targetdir/install_tn.pl 2>/dev/null`;
 if ($? != 0) { $ec++; }
-`rm -f $targetdir/functions_tn.pl`;
+`rm -f $targetdir/functions_tn.pl 2>/dev/null`;
 if ($? != 0) { $ec++; }
 printmsg("Cleaning up the temporary files:", $ec);
 $ec = 0;
+
+if ($err > 0) {
+  print "[${r}Warning${n}] $err error(s) occurred while installing. Check out the logfile 'install_tn.pl.log'.\n";
+}
 
 print "#####################################\n";
 print "# ${g}SURFnet IDS installation complete${n} #\n";
