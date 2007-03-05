@@ -1,5 +1,12 @@
 #!/bin/bash
 
+#########################################
+# Modified for SURFnet IDS              #
+# Version 1.04.01                       #
+# 05-03-2007                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
+
 # dhclient-script for Linux. Dan Halbert, March, 1997.
 # Updated for Linux 2.[12] by Brian J. Murrell, January 1999.
 # Modified for Debian.  Matt Zimmerman and Eloy Paris, December 2003
