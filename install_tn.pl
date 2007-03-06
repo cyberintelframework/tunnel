@@ -525,7 +525,7 @@ printmsg("Setting up authentication for idssensor:", "info");
 `htpasswd /etc/apache2/dav_svn.passwd idssensor 2>$logfile`;
 
 printdelay("Configuring dav_svn.conf:");
-`cat $targetdir/dav_svn.conf > /etc/apache2/mods-available/dav_svn.conf 2>$logfile`;
+`cat $targetdir/dav_svn.conf >> /etc/apache2/mods-available/dav_svn.conf 2>$logfile`;
 printresult($?);
 if ($? != 0) { $err++; }
 
@@ -538,6 +538,8 @@ printdelay("Activating apache2 dav_svn module:");
 `a2enmod dav_svn 2>$logfile`;
 printresult($?);
 if ($? != 0) { $err++; }
+
+print "\n";
 
 ####################
 # Setting up certificate permissions
