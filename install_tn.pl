@@ -252,7 +252,7 @@ if (! -e "$targetdir/serverkeys/tunserver.crt") {
 # Generate Diffie-Hellman parameters
 if (! -e "$targetdir/serverkeys/dh${key_size}.pem") {
   printmsg("Generating DH parameters. This could take a few minutes:", "info");
-  `$targetdir/genkeys/build-dh 2>$logfile`;
+  `$targetdir/genkeys/build-dh`;
   printmsg("Generating Diffie-Hellman parameters:", $?);
   if ($? != 0) { $err++; }
 } else {
