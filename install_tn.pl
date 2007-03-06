@@ -639,10 +639,10 @@ printdelay("Adding sensor scripts to SVN:");
 printresult($?);
 if ($? != 0) { $err++; }
 
-printdelay("Committing sensor scripts:");
-`svn commit $targetdir/updates/*.sig 2>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
+#printdelay("Committing sensor scripts:");
+#`svn commit $targetdir/updates/*.sig 2>$logfile`;
+#printresult($?);
+#if ($? != 0) { $err++; }
 
 ####################
 # IPVS support
