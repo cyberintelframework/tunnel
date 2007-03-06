@@ -59,6 +59,10 @@ if (-e "$targetdir/server/") {
   }
 }
 
+if (-e "./install_tn.pl.log") {
+  `rm -f ./install_tn.pl.log 2>/dev/null`;
+}
+
 print "${y}Also install the 1.04-package-log part of the SURFnet IDS system.\n${n}";
 
 ##########################
