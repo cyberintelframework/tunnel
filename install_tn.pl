@@ -512,7 +512,7 @@ printdelay("Adding $svnuser to subversion group:");
 printresult($?);
 if ($? != 0) { $err++; }
 
-open(AUTHZ, "/etc/apache2/dav_svn.authz");
+open(AUTHZ, ">/etc/apache2/dav_svn.authz");
 print AUTHZ "[/]\n";
 print AUTHZ "$svnuser = rw\n";
 print AUTHZ "idssensor = r\n";
