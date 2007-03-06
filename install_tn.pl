@@ -685,6 +685,8 @@ if ($? != 0) { $ec++; }
 if ($? != 0) { $ec++; }
 `rm -f $targetdir/functions_tn.pl 2>/dev/null`;
 if ($? != 0) { $ec++; }
+`rm -f $targetdir/install_tn.pl.log 2>/dev/null`;
+if ($? != 0) { $ec++; }
 printmsg("Cleaning up the temporary files:", $ec);
 $ec = 0;
 
