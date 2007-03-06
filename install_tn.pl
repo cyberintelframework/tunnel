@@ -486,6 +486,11 @@ printdelay("Creating updates repository:");
 printresult($?);
 if ($? != 0) { $err++; }
 
+printdelay("Creating subversion group:");
+`groupadd subversion 2>>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
+
 printdelay("Setting up SVN root ownership:");
 `chown -R www-data:subversion $targetdir/svnroot/ 2>>$logfile`;
 printresult($?);
@@ -493,11 +498,6 @@ if ($? != 0) { $err++; }
 
 printdelay("Setting up SVN root permissions:");
 `chmod -R 770 $targetdir/svnroot/ 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
-
-printdelay("Creating subversion group:");
-`groupadd subversion 2>>$logfile`;
 printresult($?);
 if ($? != 0) { $err++; }
 
