@@ -14,6 +14,30 @@ sub checkcron() {
   return $chk;
 }
 
+# 2.01 getcrtvalue
+# Function to retrieve a value from the ca.crt
+sub getcrtvalue() {
+  my ($target, @target_ar, @issuer_ar, $issuer, $key, $value);
+  $target = $_[0];
+  chomp($target);
+  $issuer = `openssl x509 -in $targetdir/serverkeys/ca.crt -text | grep "Issuer"`;
+  @issuer_ar = split(/ /, $issuer);
+  foreach (@issuer_ar) {
+    chomp();
+    s/,$//;
+    @target_ar = split(/=/, $_);
+    $key = $target_ar[0];
+    if ($key eq $target) {
+      if ($key eq "CN") {
+        $value = $target_ar[1];
+      } else {
+        $value = $target_ar[2];
+      }
+      return $value;
+    }
+  }
+}
+
 # 3.01 prompt
 # Function to prompt the user for input
 sub prompt() {

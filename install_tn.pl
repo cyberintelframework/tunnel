@@ -109,44 +109,56 @@ while ($confirm !~ /^(Y|y)$/) {
 
   # The key country abbreviation (example: NL)
   $key_country = "none";
+  $default = getcrtvalue("C");
   while ($key_country !~ /^[a-zA-Z]{2}$/) {
-    $key_country = &prompt("Enter the country (2 character abbreviation): ");
+    $key_country = &prompt("Enter the country (2 character abbreviation) [$default]: ");
+    if ($key_country eq "") {
+      $key_country = $default;
+    }
   }
 
   # The province or state you are located
   $key_prov = 0;
+  $default = getcrtvalue("ST");
   while ($key_prov !~ /^[a-zA-Z ]*$/) {
-    $key_prov = &prompt("Enter the province or state: ");
+    $key_prov = &prompt("Enter the province or state [$default]: ");
     chomp($key_prov);
     if ($key_prov eq "") {
-      $key_prov = 0;
+      $key_prov = $default;
     }
   }
 
   # The city you are located
   $key_city = 0;
+  $default = getcrtvalue("L");
   while ($key_city !~ /^[a-zA-Z ]*$/) {
-    $key_city = &prompt("Enter the city: ");
+    $key_city = &prompt("Enter the city [$default]: ");
     chomp($key_city);
     if ($key_city eq "") {
-      $key_city = 0;
+      $key_city = $default;
     }
   }
 
   # The organisation name
   $key_org = 0;
+  $default = getcrtvalue("O");
   while ($key_org !~ /^[a-zA-Z ]*$/) {
-    $key_org = &prompt("Enter the organisation: ");
+    $key_org = &prompt("Enter the organisation [$default]: ");
     chomp($key_org);
     if ($key_org eq "") {
-      $key_org = 0;
+      $key_org = $default;
     }
   }
 
   # The province or state you are located
   $key_email = "none";
+  $default = getcrtvalue("CN");
   while ($key_email !~ /^.{1,}@.{1,}\.[a-zA-Z]{2,4}$/) {
-    $key_email = &prompt("Enter the admin email address: ");
+    $key_email = &prompt("Enter the admin email address [$default]: ");
+    chomp($key_email);
+    if ($key_email eq "") {
+      $key_email = $default;
+    }
   }
   printmsg("Key size", " $key_size ");
   printmsg("Country", $key_country);
