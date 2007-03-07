@@ -514,8 +514,10 @@ printresult($?);
 if ($? != 0) { $err++; }
 
 $svnuser = "";
+$a = 0;
 while ($svnuser eq "") {
-  $svnuser = &prompt("Enter the name of the SVN admin user: ");
+  $a++;
+  $svnuser = &prompt("Enter the name of the SVN admin user [$a]: ");
   chomp($svnuser);
 }
 
