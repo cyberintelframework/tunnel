@@ -646,10 +646,10 @@ if ($chk == 0) {
 printmsg("Signing sensor scripts:", $?);
 if ($? != 0) { $err++; }
 
-printdelay("Adding sensor scripts to SVN:");
-`svn add $targetdir/updates/*.sig 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
+#printdelay("Adding sensor scripts to SVN:");
+#`svn add $targetdir/updates/*.sig 2>>$logfile`;
+#printresult($?);
+#if ($? != 0) { $err++; }
 
 #printdelay("Committing sensor scripts:");
 #`svn commit $targetdir/updates/*.sig 2>>$logfile`;
