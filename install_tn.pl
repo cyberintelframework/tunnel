@@ -716,6 +716,7 @@ print "For extra security keep the scripts key (/opt/surfnetids/scriptkeys/scrip
 print "\n";
 print "Interesting configuration files:\n";
 print "  ${g}/etc/crontab\n";
+print "  /etc/apache2/mods-enabled/dav_svn.conf\n";
 print "  $targetdir/updates/client.conf\n";
 print "  $targetdir/updates/sensor.conf${n}\n";
 
