@@ -1,0 +1,126 @@
+#!/usr/bin/perl
+
+#########################################
+# IDSmenu script for IDS Sensor
+# SURFnet IDS
+# Version 1.04.02
+# 24-11-2006
+# Jan van Lith & Kees Trippelvitz
+# Modified by Peter Arts
+#########################################
+
+#############################################
+# Changelog:
+# 1.04.02 Added HD install option
+# 1.04.01 Rerelease as perl script
+# 1.02.04 Key and certificate check bugfix
+# 1.02.03 Initial release
+#############################################
+
+use File::Basename;
+
+$basedir = "/cdrom/scripts/";
+do "$basedir/sensor.conf";
+require "$basedir/functions.inc.pl";
+
+$ip_error = 0;
+
+sub idsmenu_showstatus() {
+  system("$basedir/showstatus");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_startsensor() {
+  system("$basedir/startclient");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_stopsensor() {
+  system("$basedir/stopclient");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_update() {
+  system("$basedir/update");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_login() {
+  system("/usr/bin/clear");
+  system("/sbin/getty 38400 tty1");
+}
+
+sub idsmenu_netconfig() {
+  system("$basedir/confignetwork");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_copyhd() {
+  system("/usr/sbin/knoppix-installer");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_ssh() {
+  my ($chkssh);
+  $chkssh = chkssh();
+  if ($chkssh == 0) {
+    `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/sshd.pid`;
+    printmsg("Stopping SSH daemon:", $?);
+  } else {
+    `/etc/init.d/ssh start`;
+    printmsg("Starting SSH daemon:", $?);
+  }
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_reboot() {
+  system("/usr/bin/clear");
+  system("/sbin/init 6");
+}
+
+sub idsmenu_shutdown() {
+  system("/usr/bin/clear");
+  system("/sbin/init 0");
+}
+
+$input = "";
+while (1==1) {
+  system("/usr/bin/clear");
+  print "SURFnet IDS menu:\n";
+  print "\t1. Status info\n";
+  print "\t2. Start Sensor\n";
+  print "\t3. Stop Sensor\n";
+  print "\t4. Update\n";
+  print "\t5. Login\n";
+  print "\t6. Configure network\n";
+  print "\t7. Enable/Disable SSH\n";
+  print "\t8. Sensor HD install\n";
+  print "\t9. Reboot\n";
+  print "\t10. Shutdown\n";
+  $input = &prompt("\tPlease select one of the above (1-9): ");
+  chomp($input);
+  system("/usr/bin/clear");
+  if ("$input" eq 1) {
+    idsmenu_showstatus();
+  } elsif ($input eq 2) {
+    idsmenu_startsensor();
+  } elsif ($input eq 3) {
+    idsmenu_stopsensor();
+  } elsif ($input eq 4) {
+    idsmenu_update();
+  } elsif ($input eq 5) {
+    idsmenu_login();
+  } elsif ($input eq 6) {
+    idsmenu_netconfig();
+  } elsif ($input eq 7) {
+    idsmenu_ssh();
+  } elsif ($input eq 8) {
+    idsmenu_copyhd();
+  } elsif ($input eq 9) {
+    idsmenu_reboot();
+  } elsif ($input eq 10) {
+    idsmenu_shutdown();
+  } else {
+    print "${r}Invalid input. Try again!${n}\n";
+  }
+}
