@@ -29,9 +29,9 @@ sub getcrtvalue() {
     $key = $target_ar[0];
     if ($key eq $target) {
       if ($key eq "CN") {
-        $value = $target_ar[1];
-      } else {
         $value = $target_ar[2];
+      } else {
+        $value = $target_ar[1];
       }
       return $value;
     }
