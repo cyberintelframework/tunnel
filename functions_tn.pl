@@ -2,6 +2,32 @@
 
 use POSIX;
 
+# 1.01 rmsvn
+# Function to remove the remaining .svn directories
+sub rmsvn() {
+  my ($chk, $dir, $newdir, $file);
+  $dir = $_[0];
+  chomp($dir);
+  opendir(DH, $dir);
+  foreach (readdir(DH)) {
+    $file = $_;
+    chomp($file);
+    if ($file !~ /^(\.|\.\.)$/) {
+      if ($file ne "svnroot") {
+        if (-d "$dir$file") {
+          if ($file =~ /^\.svn$/) {
+            `rm -r $dir$file/`;
+          } else {
+            $newdir = "$dir$file/";
+            &rmsvn($newdir);
+          }
+        }
+      }
+    }
+  }
+  closedir(DH);
+}
+
 # 1.03 checkcron
 # Function to check if a certain cron rule is already in the crontab
 # Returns amount of cronrules found

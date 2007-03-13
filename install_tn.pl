@@ -28,6 +28,9 @@ $configdir = "/etc/surfnetids";
 $openvpn = "/usr/sbin/openvpn";
 $logfile = "install_tn.pl.log";
 
+$subversion_group = "subversion";
+$apache_user = "www-data";
+
 $err = 0;
 
 ##########################
@@ -427,20 +430,21 @@ if ($? != 0) { $err++; }
 print "\n";
 
 $apachev = "";
-while ($apachev !~ /^(apache|apache2|apache-ssl)$/) {
-  $apachev = &prompt("Which apache are you using [apache/apache2/apache-ssl]?: ");
-  if (! -e "/etc/$apachev/") {
-    printmsg("Checking for $apachev:", "false");
-    $confirm = "a";
-    while ($confirm !~ /^(n|N|y|Y)$/) {
-      printmsg("Apache server:", "$apachev");
-      $confirm = &prompt("Is this correct? [y/n]: ");
-    }
-    if ($confirm =~ /^(n|N)$/) {
-      $apachev = "none";
-    }
-  }
-}
+#while ($apachev !~ /^(apache|apache2|apache-ssl)$/) {
+#  $apachev = &prompt("Which apache are you using [apache/apache2/apache-ssl]?: ");
+#  if (! -e "/etc/$apachev/") {
+#    printmsg("Checking for $apachev:", "false");
+#    $confirm = "a";
+#    while ($confirm !~ /^(n|N|y|Y)$/) {
+#      printmsg("Apache server:", "$apachev");
+#      $confirm = &prompt("Is this correct? [y/n]: ");
+#    }
+#    if ($confirm =~ /^(n|N)$/) {
+#      $apachev = "none";
+#    }
+#  }
+#}
+$apachev = "apache2";
 
 if ($apachev eq "apache2") {
   $apachedir = "/etc/$apachev/sites-enabled/";
@@ -457,7 +461,7 @@ while (! -d $apachedir) {
 
 if ( -e "$apachedir/surfnetids-tn-apache.conf") {
   $ts = time();
-  `mv -f $apachedir/surfnetids-tn-apache.conf $apachedir/surfnetids-tn-apache.conf-$ts 2>>$logfile`;
+  `mv -f $apachedir/surfnetids-tn-apache.conf $targetdir/surfnetids-tn-apache.conf-$ts 2>>$logfile`;
   printmsg("Creating backup of surfnetids-tn-apache.conf:", $?);
   if ($? != 0) { $err++; }
 }
@@ -498,13 +502,16 @@ printdelay("Creating updates repository:");
 printresult($?);
 if ($? != 0) { $err++; }
 
-printdelay("Creating subversion group:");
-`groupadd subversion 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
+$chk = `cat /etc/group | grep $subversion_group | wc -l`;
+if ($chk == 0) {
+  printdelay("Creating $subversion_group group:");
+  `groupadd $subversion_group 2>>$logfile`;
+  printresult($?);
+  if ($? != 0) { $err++; }
+}
 
 printdelay("Setting up SVN root ownership:");
-`chown -R www-data:subversion $targetdir/svnroot/ 2>>$logfile`;
+`chown -R $apache_user:$subversion_group $targetdir/svnroot/ 2>>$logfile`;
 printresult($?);
 if ($? != 0) { $err++; }
 
@@ -519,8 +526,8 @@ while ($svnuser eq "") {
   chomp($svnuser);
 }
 
-printdelay("Adding $svnuser to subversion group:");
-`addgroup $svnuser subversion 2>>$logfile`;
+printdelay("Adding $svnuser to $subversion_group group:");
+`addgroup $svnuser $subversion_group 2>>$logfile`;
 printresult($?);
 if ($? != 0) { $err++; }
 
@@ -536,10 +543,13 @@ printmsg("Setting up authentication for $svnuser:", "info");
 printmsg("Setting up authentication for idssensor:", "info");
 `htpasswd /etc/apache2/dav_svn.passwd idssensor 2>>$logfile`;
 
-printdelay("Configuring dav_svn.conf:");
-`cat $targetdir/dav_svn.conf >> /etc/apache2/mods-available/dav_svn.conf 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
+$chk = `cat /etc/apache2/mods-available/dav_svn.conf | grep "SURFnet IDS updates" | wc -l 2>>$logfile`;
+if ($chk == 0) {
+  printdelay("Configuring dav_svn.conf:");
+  `cat $targetdir/dav_svn.conf >> /etc/apache2/mods-available/dav_svn.conf 2>>$logfile`;
+  printresult($?);
+  if ($? != 0) { $err++; }
+}
 
 printdelay("Activating apache2 dav module:");
 `a2enmod dav 2>>$logfile`;
@@ -550,6 +560,70 @@ printdelay("Activating apache2 dav_svn module:");
 `a2enmod dav_svn 2>>$logfile`;
 printresult($?);
 if ($? != 0) { $err++; }
+
+$confirm = "none";
+while ($confirm !~ /^(n|N|y|Y)$/) {
+  $confirm = &prompt("Do you want to generate a self-signed certificate for SVN? [Y/n]: ");
+}
+if ($confirm =~ /^(y|Y)$/) {
+  if (! -d "/etc/apache2/ssl/") {
+    printdelay("Creating apache2 ssl directory:");
+    `mkdir /etc/apache2/ssl/ 2>>$logfile`;
+    printresult($?);
+  }
+  if (! -e "/etc/apache2/ssl/ca.key") {
+    printdelay("Generating root CA certificate key:);
+    `openssl genrsa -des3 -out /etc/apache2/ssl/ca.key $key_size 2>>$logfile`;
+    printresult($?);
+    if ($? != 0) { $err++; }
+
+    printdelay("Generating root CA certificate:);
+    `openssl req -new -x509 -days 365 -key /etc/apache2/ssl/ca.key -out /etc/apache2/ssl/ca.crt 2>>$logfile`;
+    printresult($?);
+    if ($? != 0) { $err++; }
+  }
+
+  if (! -e "/etc/apache2/ssl/key.pem") {
+    printdelay("Generating server key:");
+    `openssl genrsa -des3 -out /etc/apache2/ssl/key.pem 4096 2>>$logfile`;
+    printresult($?);
+    if ($? != 0) { $err++; }
+
+    printdelay("Generating signing request:");
+    `openssl req -new -key /etc/apache2/ssl/key.pem -out /etc/apache2/ssl/request.pem 2>>$logfile`;
+    printresult($?);
+    if ($? != 0) { $err++; }
+
+    printdelay("Generating server certificate:");
+    `openssl x509 -req -days 365 -in request.pem -CA ca.crt -CAkey ca.key -set_serial 01 -out cert.pem 2>>$logfile`;
+    printresult($?);
+    if ($? != 0) { $err++; }
+
+    $ec = 0;
+    printdelay("Finishing certificate generation:");
+    `openssl rsa -in key.pem -out key.pem.insecure 2>>$logfile`;
+    if ($? != 0) { $ec++; }
+    `mv key.pem key.pem.secure 2>>$logfile`;
+    if ($? != 0) { $ec++; }
+    `mv key.pem.insecure key.pem 2>>$logfile`;
+    if ($? != 0) { $ec++; }
+    printresult($i);
+    if ($i != 0) { $err++; }
+    $ec = 0;
+  }
+
+  if (! -e "$targetdir/updates/CAcert.pem") {
+    printdelay("Creating CAcert.pem for SVN:");
+    `cp /etc/apache2/ssl/ca.crt $targetdir/updates/CAcert.pem 2>>$logfile`;
+    printresult($?);
+    if ($? != 0) { $err++; }
+  }
+
+  printdelay("Restarting the $apachev server:");
+  `/etc/init.d/$apachev restart 2>>$logfile`;
+  printresult($?);
+  if ($? != 0) { $err++; }
+}
 
 print "\n";
 
@@ -683,6 +757,15 @@ if ($confirm =~ /^(y|Y)$/) {
 }
 
 ####################
+# RRDtool
+####################
+if (! -d "/var/lib/rrd/") {
+  printdelay("Creating /var/lib/rrd/:");
+  `mkdir /var/lib/rrd/ 2>>$logfile`;
+  printresult($?);
+}
+
+####################
 # Cleaning up
 ####################
 
@@ -701,6 +784,7 @@ if ($? != 0) { $ec++; }
 if ($? != 0) { $ec++; }
 printmsg("Cleaning up the temporary files:", $ec);
 $ec = 0;
+rmsvn($targetdir);
 
 print "\n";
 if ($err > 0) {
