@@ -572,12 +572,12 @@ if ($confirm =~ /^(y|Y)$/) {
     printresult($?);
   }
   if (! -e "/etc/apache2/ssl/ca.key") {
-    printdelay("Generating root CA certificate key:);
+    printdelay("Generating root CA certificate key:");
     `openssl genrsa -des3 -out /etc/apache2/ssl/ca.key $key_size 2>>$logfile`;
     printresult($?);
     if ($? != 0) { $err++; }
 
-    printdelay("Generating root CA certificate:);
+    printdelay("Generating root CA certificate:");
     `openssl req -new -x509 -days 365 -key /etc/apache2/ssl/ca.key -out /etc/apache2/ssl/ca.crt 2>>$logfile`;
     printresult($?);
     if ($? != 0) { $err++; }
