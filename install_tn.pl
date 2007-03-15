@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.01                 #
-# 05-02-2007                      #
+# Version 1.04.02                 #
+# 15-03-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.02 Added some more logfile stuff
 # 1.04.01 Initial release
 #####################
 
@@ -86,13 +87,13 @@ if (! -e "$targetdir/") {
 
 if ( -e "$configdir/surfnetids-tn.conf") {
   $ts = time();
-  `mv -f $configdir/surfnetids-tn.conf $configdir/surfnetids-tn.conf-$ts`;
+  `mv -f $configdir/surfnetids-tn.conf $configdir/surfnetids-tn.conf-$ts 2>>$logfile`;
   printmsg("Creating backup of surfnetids-tn.conf:", $?);
   if ($? != 0) { $err++; }
 }
 
 printdelay("Copying configuration file:");
-`cp surfnetids-tn.conf $configdir/`;
+`cp surfnetids-tn.conf $configdir/ 2>>$logfile`;
 printresult($?);
 if ($? != 0) { $err++; }
 
