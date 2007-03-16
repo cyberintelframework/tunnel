@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.03                 #
+# Version 1.04.04                 #
 # 16-03-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.04 Added a2enmod ssl command
 # 1.04.03 Fixed certificate generation bug
 # 1.04.02 Added some more logfile stuff
 # 1.04.01 Initial release
@@ -624,6 +625,10 @@ if ($confirm =~ /^(y|Y)$/) {
     printresult($?);
     if ($? != 0) { $err++; }
   }
+
+  printdelay("Enabling SSL for $apachev:");
+  `a2enmod ssl 2>>$logfile`;
+  printresult($?);
 
   printdelay("Restarting the $apachev server:");
   `/etc/init.d/$apachev restart 2>>$logfile`;
