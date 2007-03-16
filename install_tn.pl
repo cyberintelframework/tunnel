@@ -455,7 +455,7 @@ if ($apachev eq "apache2") {
 }
 
 while (! -d $apachedir) {
-  printmsg("Could not find the $apachev config dir. Is $apachev installed?", "info");
+  printmsg("Could not find the $apachev config dir. Is $apachev installed?", "warning");
   $apachedir = &prompt("Location of the $apachev config dir [q to quit]: ");
   if ($apachedir eq "q") {
     exit;
