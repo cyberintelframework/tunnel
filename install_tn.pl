@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.02                 #
-# 15-03-2007                      #
+# Version 1.04.03                 #
+# 16-03-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.03 Fixed certificate generation bug
 # 1.04.02 Added some more logfile stuff
 # 1.04.01 Initial release
 #####################
@@ -454,7 +455,11 @@ if ($apachev eq "apache2") {
 }
 
 while (! -d $apachedir) {
-  $apachedir = &prompt("Location of the $apachev config dir: ");
+  printmsg("Could not find the $apachev config dir. Is $apachev installed?", "info");
+  $apachedir = &prompt("Location of the $apachev config dir [q to quit]: ");
+  if ($apachedir eq "q") {
+    exit;
+  }
   if (! -d $apachedir) {
     printmsg("Checking for $apachedir:", "false");
   }
@@ -579,19 +584,19 @@ if ($confirm =~ /^(y|Y)$/) {
     if ($? != 0) { $err++; }
 
     printdelay("Generating root CA certificate:");
-    `openssl req -new -x509 -days 365 -key /etc/apache2/ssl/ca.key -out /etc/apache2/ssl/ca.crt 2>>$logfile`;
+    `openssl req -new -x509 -days 365 -key /etc/apache2/ssl/ca.key -out /etc/apache2/ssl/ca.crt`;
     printresult($?);
     if ($? != 0) { $err++; }
   }
 
   if (! -e "/etc/apache2/ssl/key.pem") {
     printdelay("Generating server key:");
-    `openssl genrsa -des3 -out /etc/apache2/ssl/key.pem 4096 2>>$logfile`;
+    `openssl genrsa -des3 -out /etc/apache2/ssl/key.pem $key_size 2>>$logfile`;
     printresult($?);
     if ($? != 0) { $err++; }
 
     printdelay("Generating signing request:");
-    `openssl req -new -key /etc/apache2/ssl/key.pem -out /etc/apache2/ssl/request.pem 2>>$logfile`;
+    `openssl req -new -key /etc/apache2/ssl/key.pem -out /etc/apache2/ssl/request.pem`;
     printresult($?);
     if ($? != 0) { $err++; }
 

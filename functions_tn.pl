@@ -112,6 +112,8 @@ sub printmsg() {
     print $msg . $tabstring . "[${g}OK${n}]\n";
   } elsif ($ec eq "false" || $ec eq "filtered") {
     print $msg . $tabstring . "[${r}Failed${n}]\n";
+  } elsif ($ec eq "warning") {
+    print $msg . $tabstring . "[${r}Warning${n}]\n";
   } elsif ($ec =~ /^([0-9]*)$/) {
     print $msg . $tabstring . "[${r}Failed (error: $ec)${n}]\n";
   } elsif ($ec eq "ignore") {
