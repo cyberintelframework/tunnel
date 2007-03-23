@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.15
-# 27-02-2007
+# Version 1.04.16
+# 23-03-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.16 Fixed a bug with chkssh
 # 1.04.15 Fixed a bug with dhclient3 pid files
 # 1.04.14 Added ris support
 # 1.04.13 Added startdhcp function
@@ -286,12 +287,12 @@ sub chksensorkey() {
 
 # 1.11 chkssh
 # Function to check if the SSH daemon is running or not
-# Returns 0 if an SSH daemon was found running.
-# Returns 1 if no SSH daemon was found running.
+# Returns 0 if no SSH daemon was found running.
+# Returns 1 if an SSH daemon was found running.
 sub chkssh() {
   my $chechssh;
   $checkssh = `ps -ef | grep -i sshd | grep -v grep | wc -l`;
-  if ($checkssh > 0) {
+  if ($checkssh == 0) {
     return 0;
   } else {
     return 1;
