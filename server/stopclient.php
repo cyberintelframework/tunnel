@@ -87,9 +87,15 @@ $err = 0;
 ###########
 if (isset($clean['keyname'])) {
   $keyname = $clean['keyname'];
+  $pattern = '/^sensor[0-9]+$/';
+  if (!preg_match($pattern, $keyname)) {
+    echo "ERRNO: 91\n";
+    echo "ERROR: Keyname not valid.\n";
+    $err = 1;
+  }
 } else {
   echo "ERRNO: 91\n";
-  echo "ERROR: Keyname not present.\n";
+  echo "ERROR: Keyname not valid.\n";
   $err = 1;
 }
 
