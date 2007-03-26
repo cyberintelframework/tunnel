@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.17
-# 23-03-2007
+# Version 1.04.18
+# 26-03-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.18 Fixed upplstatus
 # 1.04.17 Fixed typo
 # 1.04.16 Fixed a bug with chkssh
 # 1.04.15 Fixed a bug with dhclient3 pid files
@@ -1274,16 +1275,26 @@ sub gw() {
 # Returns 0 on success
 # Returns non-zero on failure
 sub upplstatus() {
-  my ($status, $tmpfile, $tunnel, $i);
+  my ($status, $tmpfile, $tunnel, $i, $try, $oldaction);
   $tunnel = $_[0];
   $status = $_[1];
   $tmpfile = $_[2];
   $i = 0;
+  $try = `grep "$tunnel:" $basedir/tunnel.status | awk -F":" '{print \$3}'`;
+  $oldaction = `grep "$tunnel:" $basedir/tunnel.status | awk -F":" '{print \$2}'`;
+  chomp($try);
+  chomp($oldaction);
+  if ("$try" eq "" || $oldaction eq "DONE") {
+    $try = 0;
+  }
+  if ($oldaction eq "SLEEP") {
+    $try++;
+  }
   `sed '/^$tunnel:.*\$/d' $basedir/tunnel.status > $tmpfile`;
   if ($? != 0) { $i++; }
   `mv $tmpfile $basedir/tunnel.status`;
   if ($? != 0) { $i++; }
-  `echo $tunnel:$status >> $basedir/tunnel.status`;
+  `echo $tunnel:$status:$try >> $basedir/tunnel.status`;
   if ($? != 0) { $i++; }
   return $i;
 }
