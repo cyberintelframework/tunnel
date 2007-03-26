@@ -48,7 +48,7 @@ $err = 0;
 $remoteip = $_SERVER['REMOTE_ADDR'];
 
 $allowed_get = array(
-                "sensor",
+                "strip_html_escape_keyname",
                 "ip_localip",
                 "int_ssh",
                 "int_vlanid"
@@ -59,15 +59,15 @@ debug_input();
 ###########
 # Keyname #
 ###########
-if (isset($tainted['sensor'])) {
-  $chkkey = $tainted['sensor'];
+if (isset($tainted['keyname'])) {
+  $chkkey = $tainted['keyname'];
   $pattern = '/^sensor[0-9]+$/';
   if (!preg_match($pattern, $chkkey)) {
     $err = 91;
     echo "ERRNO: $err\n";
     echo "ERROR: Invalid or missing sensor name!\n";
   } else {
-    $keyname = $tainted['sensor'];
+    $keyname = $tainted['keyname'];
   }
 } else {
   $err = 91;
