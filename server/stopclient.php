@@ -3,8 +3,8 @@
 ####################################
 # Stopclient info update           #
 # SURFnet IDS                      #
-# Version 1.04.02                  #
-# 04-12-2006                       #
+# Version 1.04.03                  #
+# 26-03-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Modified by Peter Arts           #
 ####################################
@@ -36,6 +36,7 @@
 
 ####################################
 # Changelog:
+# 1.04.03 Added extractvars stuff
 # 1.04.02 Fixed an uptime calculation bug
 # 1.04.01 Released as 1.04.01
 # 1.03.01 Released as part of the 1.03 package
@@ -47,6 +48,14 @@
 include 'include/certconf.inc.php';
 include 'include/certconn.inc.php';
 include 'include/certfunc.inc.php';
+
+$allowed_get = array(
+                "ip_localip",
+                "int_vlanid",
+                "strip_html_escape_keyname"
+);
+$check = extractvars($_GET, $allowed_get);
+debug_input();
 
 # Get remoteip and querystring.
 $remoteip = $_SERVER['REMOTE_ADDR'];
@@ -76,8 +85,8 @@ $err = 0;
 ###########
 # Keyname #
 ###########
-if ( isset($_GET['keyname']) ) {
-  $keyname = stripinput(pg_escape_string($_GET['keyname']));
+if (isset($clean['keyname'])) {
+  $keyname = $clean['keyname'];
 } else {
   echo "ERRNO: 91\n";
   echo "ERROR: Keyname not present.\n";
@@ -87,8 +96,8 @@ if ( isset($_GET['keyname']) ) {
 ###########
 # localip #
 ###########
-if ( isset($_GET['localip']) ) {
-  $localip = stripinput(pg_escape_string($_GET['localip']));
+if (isset($clean['localip'])) {
+  $localip = $clean['localip'];
 } else {
   echo "ERRNO: 92\n";
   echo "ERROR: Localip not present.\n";
@@ -98,8 +107,8 @@ if ( isset($_GET['localip']) ) {
 ###########
 # vlanid  #
 ###########
-if ( isset($_GET['vlanid']) ) {
-  $vlanid = stripinput(pg_escape_string($_GET['vlanid']));
+if (isset($clean['vlanid'])) {
+  $vlanid = $clean['vlanid'];
 } else {
   echo "ERRNO: 93\n";
   echo "ERROR: vlanid not present.\n";
@@ -109,7 +118,7 @@ if ( isset($_GET['vlanid']) ) {
 ############
 # Database #
 ############
-$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname' AND vlanid='$vlanid'";
+$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
 $result_sensors = pg_query($pgconn, $sql_sensors);
 $numrows = pg_num_rows($result_sensors);
 if ($numrows == 0) {
