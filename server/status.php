@@ -3,8 +3,8 @@
 ####################################
 # Status info                      #
 # SURFnet IDS                      #
-# Version 1.04.01                  #
-# 20-11-2006                       #
+# Version 1.04.02                  #
+# 26-03-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Modified by Peter Arts           #
 ####################################
@@ -33,6 +33,7 @@
 
 ####################################
 # Changelog:
+# 1.04.02 Added remoteip and localip updates
 # 1.04.01 Initial release
 ####################################
 
@@ -47,27 +48,26 @@ $err = 0;
 $remoteip = $_SERVER['REMOTE_ADDR'];
 
 $allowed_get = array(
-                "sensor",
+                "strip_html_escape_keyname",
                 "ip_localip",
                 "int_ssh",
                 "int_vlanid"
 );
 $check = extractvars($_GET, $allowed_get);
-$c_debug_input = 1;
 debug_input();
 
 ###########
 # Keyname #
 ###########
-if ( isset($tainted['sensor']) ) {
-  $chkkey = $tainted['sensor'];
-  $pattern = '/^sensor[0-9]*$/';
+if (isset($tainted['keyname'])) {
+  $chkkey = $tainted['keyname'];
+  $pattern = '/^sensor[0-9]+$/';
   if (!preg_match($pattern, $chkkey)) {
     $err = 91;
     echo "ERRNO: $err\n";
     echo "ERROR: Invalid or missing sensor name!\n";
   } else {
-    $keyname = $tainted['sensor'];
+    $keyname = $tainted['keyname'];
   }
 } else {
   $err = 91;
@@ -78,7 +78,7 @@ if ( isset($tainted['sensor']) ) {
 ###########
 # localip #
 ###########
-if ( isset($clean['localip']) ) {
+if (isset($clean['localip'])) {
   $localip = $clean['localip'];
 } else {
   $err = 92;
@@ -89,7 +89,7 @@ if ( isset($clean['localip']) ) {
 ############
 # checkssh #
 ############
-if ( isset($clean['ssh']) ) {
+if (isset($clean['ssh'])) {
   $checkssh = $clean['ssh'];
   if ($checkssh > 0) {
     $checkssh = 1;
@@ -104,7 +104,7 @@ if ( isset($clean['ssh']) ) {
 ###########
 # vlanid  #
 ###########
-if ( isset($clean['vlanid']) ) {
+if (isset($clean['vlanid'])) {
   $vlanid = $clean['vlanid'];
 } else {
   $err = 94;
@@ -175,6 +175,16 @@ if ($err == 0) {
     $result_checkssh = pg_query($pgconn, $sql_checkssh);
     echo "[Database] SSH update!\n";
   }
+
+  if ($remoteip != "") {
+    $sql_rip = "UPDATE sensors SET remoteip = '$remoteip' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
+    $result_rip = pg_query($pgconn, $sql_rip);
+    echo "[Database] Remoteip update!\n";
+  }
+
+  $sql_lip = "UPDATE sensors SET localip = '$localip' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
+  $result_lip = pg_query($pgconn, $sql_lip);
+  echo "[Database] Localip update!\n";
 
   if ($tap != "" && $status == 1) {
     $sql_lastupdate = "UPDATE sensors SET lastupdate = '$date' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
