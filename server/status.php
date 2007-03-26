@@ -59,15 +59,15 @@ debug_input();
 ###########
 # Keyname #
 ###########
-if (isset($tainted['keyname'])) {
-  $chkkey = $tainted['keyname'];
+if (isset($clean['keyname'])) {
+  $chkkey = $clean['keyname'];
   $pattern = '/^sensor[0-9]+$/';
   if (!preg_match($pattern, $chkkey)) {
     $err = 91;
     echo "ERRNO: $err\n";
     echo "ERROR: Invalid or missing sensor name!\n";
   } else {
-    $keyname = $tainted['keyname'];
+    $keyname = $clean['keyname'];
   }
 } else {
   $err = 91;
