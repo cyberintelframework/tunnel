@@ -3,16 +3,19 @@
 ######################################
 # Function library for tunnel server #
 # SURFnet IDS                        #
-# Version 1.04.01                    #
-# 10-01-2007                         #
+# Version 1.04.03                    #
+# 14-03-2007                         #
 # Jan van Lith & Kees Trippelvitz    #
 ######################################
 
 #####################
 # Changelog:
+# 1.04.03 Added getdatetime
 # 1.04.02 Modified info header
 # 1.04.01 Initial release
 #####################
+
+use POSIX;
 
 ###############################################
 # INDEX
@@ -151,6 +154,27 @@ sub getifip() {
   return "false";
 }
 
+# 2.06 getdatetime
+# Function to generate a human readable date/time string
+# Returns string
+sub getdatetime {
+  my $stamp = $_[0];
+  $tm = localtime($stamp);
+  my $ss = $tm->sec;
+  my $mm = $tm->min;
+  my $hh = $tm->hour;
+  my $dd = $tm->mday;
+  my $mo = $tm->mon + 1;
+  my $yy = $tm->year + 1900;
+  if ($ss < 10) { $ss = "0" .$ss; }
+  if ($mm < 10) { $mm = "0" .$mm; }
+  if ($hh < 10) { $hh = "0" .$hh; }
+  if ($dd < 10) { $dd = "0" .$dd; }
+  if ($mo < 10) { $mo = "0" .$mo; }
+  my $datestring = "$dd-$mo-$yy $hh:$mm:$ss";
+  return $datestring;
+}
+
 # 3.01 dbremoteip
 # Function that retrieves the remoteip given a tap device
 # Returns remoteip on success
@@ -235,7 +259,7 @@ sub printlog() {
     }
   }
   if ($err) {
-    if ($err ne "") {
+    if ("$err" ne "") {
       $logstring .= " - $err";
     }
   }
