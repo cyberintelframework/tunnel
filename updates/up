@@ -1,16 +1,17 @@
 #!/usr/bin/perl
 
 #########################################
-## UP script for SURFnet IDS Sensor      #
-## SURFnet IDS                           #
-## Version 1.04.01                       #
-## 08-02-2007                            #
-## Jan van Lith & Kees Trippelvitz       #
-##########################################
-#
+# UP script for SURFnet IDS Sensor      #
+# SURFnet IDS                           #
+# Version 1.04.02                       #
+# 23-03-2007                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
+
 ###################
-## Changelog:
-## 1.04.01 Initial release
+# Changelog:
+# 1.04.02 More stable distribution of the VLAN's
+# 1.04.01 Initial release
 ###################
 
 $basedir = "/cdrom/scripts";
@@ -90,7 +91,7 @@ while ($nmapchk == 0) {
     print LOG "[$tunnel] Deleting default: $?\n";
     `ip route add default via $gw`;
     print LOG "[$tunnel] Adding default: $?\n";
-    $nmapchk = `nmap -e $br 195.169.125.66 -p 1194 -P0 | grep 1194 | grep open | wc -l`;
+    $nmapchk = `nmap -e $br $server -p 1194 -P0 | grep 1194 | grep open | wc -l`;
     chomp($nmapchk);
     print LOG "[$tunnel] NMAPCHECK: $nmapchk\n";
     if ($nmapchk == 0) {
