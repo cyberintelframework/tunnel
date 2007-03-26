@@ -3,14 +3,16 @@
 #########################################
 # Stop script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.08
-# 27-02-2007
+# Version 1.04.10
+# 26-03-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.10 Fixed wget request
+# 1.04.09 Added fix to remove remaining vlan interfaces
 # 1.04.08 Added check for missing dhclient3 pid files
 # 1.04.07 Removed user script, added check for dhcp lease file
 # 1.04.06 Added 2>/dev/null to default gw stuff
@@ -200,7 +202,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   }
   if ($chkresolv == 0 && $chkgw == 0) {
     printdelay("Updating status information:");
-    `wget -q $wgetarg -O $basedir/stopclient.php "$serverurl/stopclient.php?localip=$if_ip&vlanid=0&keyname=$sensor"`;
+    `wget -q $wgetarg -O $basedir/stopclient.php "$serverurl/stopclient.php?ip_localip=$if_ip&int_vlanid=0&strip_html_escape_keyname=$sensor"`;
     printresult($?);
   } else {
     printmsg("Updating status information:", "ignore");
@@ -219,6 +221,15 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 } elsif ($netconf eq "vlan") {
   $if = getif();
   printmsg("Retrieving active interface:", $if);
+  if ($if eq "false") {
+    # Retrieving active interface failed, see if we
+    # can get the interface we need from remaining vlan devices
+    $if = `ifconfig -a | grep "^eth[0-9]*\\.[1-9][0-9]*.*\$" | head -n1 | awk '{print \$1}' | awk -F"." '{print \$1}'`;
+    chomp($if);
+    if ("$if" eq "") {
+      $if = "false";
+    }
+  }
   $i = 1;
   for my $key ( sort keys %vlan ) {
     $vlanid = $key;
@@ -332,7 +343,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # Get the localip.
     if ($chkresolv == 0 && $if ne "false" && $chkvlanif == 0) {
       printdelay("$vs Updating status information:");
-      `wget -q $wgetarg -O $basedir/stopclient$vlanid.php "$serverurl/stopclient.php?localip=$vlan_ip&vlanid=$vlanid&keyname=$sensor"`;
+      `wget -q $wgetarg -O $basedir/stopclient$vlanid.php "$serverurl/stopclient.php?ip_localip=$vlan_ip&int_vlanid=$vlanid&strip_html_escape_keyname=$sensor"`;
       printresult($?);
     }
 

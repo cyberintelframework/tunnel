@@ -3,13 +3,14 @@
 #########################################
 # Update script for SURFnet IDS Sensor	#
 # SURFnet IDS                           #
-# Version 1.04.03                       #
-# 12-02-2007                            #
+# Version 1.04.04                       #
+# 26-03-2007                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 1.04.04 Fixed update wget request
 # 1.04.03 Redone the update system, added svnupdate stuff
 # 1.04.02 Added printmsg when no active VLANs are found
 # 1.04.01 Rereleased as 1.04.01
@@ -160,7 +161,7 @@ sub update_process() {
   system("$basedir/svnupdate");
 
   # Updating sensor information to the server
-  `wget -q $wgetarg -O $basedir/update$vlanid.php "$serverurl/update.php?localip=$if_ip&keyname=$sensor&vlanid=$vlanid&ssh=$chkssh"`;
+  `wget -q $wgetarg -O $basedir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh"`;
   &printmsg("Updating status information:", $?);
 
   # Check for errors with the localip and tapip update.
