@@ -3,14 +3,15 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.07
-# 26-02-2007
+# Version 1.04.08
+# 26-03-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.08 Fixed wget request
 # 1.04.07 lease file per interface for dhclient3
 # 1.04.06 Added network config check
 # 1.04.05 Added more error handling
@@ -306,7 +307,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   if ($sensor ne "false" && $chkgw == 0 && $chkresolv == 0) {
     # Updating the current configuration to the server
     printdelay("Updating status info:");
-    `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?localip=$if_ip&ifmethod=$netconf&detail=$ifdetail&vlanid=0&keyname=$sensor"`;
+    `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?ip_localip=$if_ip&strip_html_escape_ifmethod=$netconf&strip_html_escape_detail=$ifdetail&int_vlanid=0&strip_html_escape_keyname=$sensor"`;
     printresult($?);
   }
 
@@ -533,7 +534,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     if ($sensor ne "false") {
       # Updating the current configuration to the server
       printdelay("$vs Updating status info:");
-      `wget -q $wgetarg -O $basedir/startclient$vlanid.php "$serverurl/startclient.php?localip=$vlan_ip&ifmethod=$ifmethodstring&detail=$netconfdetail&vlanid=$vlanid&keyname=$sensor"`;
+      `wget -q $wgetarg -O $basedir/startclient$vlanid.php "$serverurl/startclient.php?ip_localip=$vlan_ip&strip_html_escape_ifmethod=$ifmethodstring&strip_html_escape_detail=$netconfdetail&int_vlanid=$vlanid&strip_html_escape_keyname=$sensor"`;
       printresult($?);
     }
 
