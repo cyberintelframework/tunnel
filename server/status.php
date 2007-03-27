@@ -3,7 +3,7 @@
 ####################################
 # Status info                      #
 # SURFnet IDS                      #
-# Version 1.04.02                  #
+# Version 1.04.04                  #
 # 27-03-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Modified by Peter Arts           #
@@ -33,6 +33,7 @@
 
 ####################################
 # Changelog:
+# 1.04.04 Fixed missing tap from sql query result
 # 1.04.03 Removed remoteip update
 # 1.04.02 Added remoteip and localip updates
 # 1.04.01 Initial release
@@ -142,6 +143,7 @@ if ($err == 0) {
   $laststart = $row['laststart'];
   $uptime = $row['uptime'];
   $server = $row['server'];
+  $tap = $row['tap'];
   $tapip = $row['tapip'];
   $serverconf = $row['netconf'];
   $newuptime = $uptime + ($date - $laststart);
