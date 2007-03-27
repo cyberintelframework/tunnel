@@ -4,7 +4,7 @@
 # Status info                      #
 # SURFnet IDS                      #
 # Version 1.04.02                  #
-# 26-03-2007                       #
+# 27-03-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Modified by Peter Arts           #
 ####################################
@@ -33,6 +33,7 @@
 
 ####################################
 # Changelog:
+# 1.04.03 Removed remoteip update
 # 1.04.02 Added remoteip and localip updates
 # 1.04.01 Initial release
 ####################################
@@ -176,11 +177,11 @@ if ($err == 0) {
     echo "[Database] SSH update!\n";
   }
 
-  if ($remoteip != "") {
-    $sql_rip = "UPDATE sensors SET remoteip = '$remoteip' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
-    $result_rip = pg_query($pgconn, $sql_rip);
-    echo "[Database] Remoteip update!\n";
-  }
+#  if ($remoteip != "") {
+#    $sql_rip = "UPDATE sensors SET remoteip = '$remoteip' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
+#    $result_rip = pg_query($pgconn, $sql_rip);
+#    echo "[Database] Remoteip update!\n";
+#  }
 
   $sql_lip = "UPDATE sensors SET localip = '$localip' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
   $result_lip = pg_query($pgconn, $sql_lip);
