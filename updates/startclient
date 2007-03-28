@@ -33,7 +33,7 @@ use File::Basename;
 
 $basedir = "/cdrom/scripts/";
 do "$basedir/sensor.conf";
-require "$basedir/network_if.conf";
+require "$basedir/functions.inc.pl";
 require "$networkconf";
 
 # Disabling dmesg output on the console
