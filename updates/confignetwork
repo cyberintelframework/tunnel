@@ -3,8 +3,8 @@
 ###############################################
 # Network setup script for SURFnet IDS sensor #
 # SURFnet IDS                                 #
-# Version 1.04.06                             #
-# 16-02-2007                                  #
+# Version 1.04.07                             #
+# 28-03-2007                                  #
 # Jan van Lith & Kees Trippelvitz             #
 ###############################################
 
@@ -29,6 +29,7 @@
 
 #############################################
 # Changelog:
+# 1.04.07 Added networkconf variable
 # 1.04.06 Removed useless variable
 # 1.04.05 Fixed type with VLAN method
 # 1.04.04 Added default values to static configs
@@ -45,7 +46,7 @@
 $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
 require "$basedir/functions.inc.pl";
-do "$basedir/network_if.conf";
+do "$networkconf";
 
 ################
 # Start script #
