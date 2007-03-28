@@ -3,13 +3,14 @@
 #########################################
 # Update script for SURFnet IDS Sensor	#
 # SURFnet IDS                           #
-# Version 1.04.04                       #
-# 26-03-2007                            #
+# Version 1.04.05                       #
+# 28-03-2007                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 1.04.05 Added networkconf variable
 # 1.04.04 Fixed update wget request
 # 1.04.03 Redone the update system, added svnupdate stuff
 # 1.04.02 Added printmsg when no active VLANs are found
@@ -27,7 +28,7 @@
 $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
 do "$basedir/functions.inc.pl";
-do "$basedir/network_if.conf";
+do "$networkconf";
 
 ################
 # Start script #

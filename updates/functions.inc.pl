@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.18
-# 26-03-2007
+# Version 1.04.19
+# 28-03-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.19 Added networkconf variable
 # 1.04.18 Fixed upplstatus
 # 1.04.17 Fixed typo
 # 1.04.16 Fixed a bug with chkssh
@@ -436,13 +437,13 @@ sub chkdefault() {
 # Returns false if perl syntax was not correct
 sub chknetworkconf() {
   my ($chk);
-  if (-e "$basedir/network_if.conf") {
-    $chk = `wc -l $basedir/network_if.conf`;
+  if (-e "$networkconf") {
+    $chk = `wc -l $networkconf`;
     chomp($chk);
     if ($chk == 0) {
       return "false";
     }
-    `perl $basedir/network_if.conf 2>/dev/null`;
+    `perl $networkconf 2>/dev/null`;
     $chk = $?;
     if ($chk == 0) {
       return "true";
@@ -525,8 +526,8 @@ sub getnetinfo() {
 #sub getnetconf() {
 #  my $netconf = "false";
 #  while ($netconf eq "false") {
-#    if (-e "$basedir/network_if.conf") {
-#      $netconf = `cat $basedir/network_if.conf | grep "Method: " | cut -d" " -f2`;
+#    if (-e "$networkconf") {
+#      $netconf = `cat $networkconf | grep "Method: " | cut -d" " -f2`;
 #      chomp($netconf);
 #      if (!$netconf =~ /^(dhcp|static)$/) {
 #        $netconf = "false";

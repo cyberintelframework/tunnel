@@ -3,13 +3,14 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.04.07
-# 26-02-2007
+# Version 1.04.08
+# 28-03-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
+# 1.04.08 Added networkconf variable
 # 1.04.07 Fixed layout stuff
 # 1.04.06 Added check on broadcast and gateway addresses
 # 1.04.05 Added check on network config
@@ -24,7 +25,7 @@ use File::Basename;
 $basedir = "/cdrom/scripts/";
 do "$basedir/sensor.conf";
 require "$basedir/functions.inc.pl";
-require "$basedir/network_if.conf";
+require "$networkconf";
 
 $ip_error = 0;
 $netconfstring = "[Network config]";
@@ -97,9 +98,9 @@ if ($chkclient != 0) {
   printmsg("Fixing client.conf:", $fixclient);
 }
 
-### Checking network_if.conf ###
+### Checking network config ###
 $chknetconf = chknetworkconf();
-printmsg("Checking network_if.conf:", $chknetconf);
+printmsg("Checking network config:", $chknetconf);
 &prompt("Press enter to continue...");
 
 if ($netconf eq "vlan") {

@@ -3,13 +3,14 @@
 #########################################
 # SVN Update script                     #
 # SURFnet IDS                           #
-# Version 1.04.04                       #
-# 22-03-2007                            #
+# Version 1.04.05                       #
+# 28-03-2007                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 1.04.05 Added networkconf variable
 # 1.04.04 Added config-dir switch
 # 1.04.03 Removed ls 
 # 1.04.02 Put variables in sensor.conf 
@@ -23,7 +24,7 @@ $basedir = "/cdrom/scripts";
 $svndir = "$basedir/svn";
 do "$basedir/sensor.conf";
 do "$basedir/functions.inc.pl";
-do "$basedir/network_if.conf";
+do "$networkconf";
 
 ################
 # Start script #
