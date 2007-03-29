@@ -3,13 +3,14 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.04.08
-# 28-03-2007
+# Version 1.04.09
+# 29-03-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
+# 1.04.09 Improved error checking
 # 1.04.08 Added networkconf variable
 # 1.04.07 Fixed layout stuff
 # 1.04.06 Added check on broadcast and gateway addresses
@@ -128,19 +129,21 @@ if ($netconf eq "vlan") {
         printmsg("Sensor not active:", "info");
       } else {
         ### Checking gateway ###
-        $if_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease | grep "routers" | awk '{print \$3}' |cut -d";" -f1 |tail -n1`;
+        $if_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease | grep "routers" | awk '{print \$3}' | cut -d";" -f1 | tail -n1`;
         chomp ($if_gw);
         $chkgw = validip($if_gw);
         if ($chkgw == 0) {
           printmsg("$netconfstring Gateway:", $if_gw);
-          `ip route add default via $if_gw`;
-          if ($? != 0) {
-            printmsg("Adding default route:", "false");
-          } else {
-            printdelay("$netconfstring Pinging gateway:");
-            $chkgw = chkreach($if_gw);
-            printresult($chkgw);
+          $chkdef = chkdefault($vif);
+          if ($chkdef == 1 && "$if" ne "false") {
+            `ip route add default via $if_gw 2>/dev/null`;
+            if ($? != 0) {
+              printmsg("Adding default route:", "false");
+            }
           }
+          printdelay("$netconfstring Pinging gateway:");
+          $chkgw = chkreach($if_gw);
+          printresult($chkgw);
         } else {
           printmsg("$netconfstring Gateway:", "false");
         }
@@ -213,7 +216,7 @@ if ($netconf eq "vlan") {
       }
     }
 
-    if ($chkstatus == 0){
+    if ($chkstatus == 0 && $chkname == 0 && $chkgw == 0) {
       ### Checking DNS resolving ###
       printdelay("Checking name resolving:");
       $chkresolv = getresolv($server);
