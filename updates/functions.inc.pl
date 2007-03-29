@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.19
-# 28-03-2007
+# Version 1.04.20
+# 29-03-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.20 Added chkupscript
 # 1.04.19 Added networkconf variable
 # 1.04.18 Fixed upplstatus
 # 1.04.17 Fixed typo
@@ -57,6 +58,7 @@ $| = 1;
 # 1.16		chkdefault
 # 1.17		chknetworkconf
 # 1.18		chkgateway
+# 1.19		chkupscript
 # 2		All GET functions
 # 2.01		getnetinfo
 # 2.02		getnetconf
@@ -474,6 +476,22 @@ sub chkgateway() {
   } else {
     return 0;
   }
+}
+
+# 1.19 chkupscript
+# Function to check if an up script is running given a default gateway
+# Returns 0 if no up script is running
+# Returns 1 if an up script is running
+sub chkupscript() {
+  my ($chk, $gw);
+  $gw = $_[0];
+  chomp($gw);
+  $chk = `ps -ef | grep -v grep | grep perl | grep up | grep $gw | wc -l`;
+  chomp($chk);
+  if ($chk > 0) {
+    $chk = 1;
+  }
+  return $chk;
 }
 
 #########################

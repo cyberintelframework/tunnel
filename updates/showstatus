@@ -216,6 +216,13 @@ if ($netconf eq "vlan") {
       }
     }
 
+    if ($if_gw ne "false") {
+      $chkup = chkupscript($if_gw);
+      if ($chkup == 1) {
+        printmsg("Up script is running:", "warning");
+      }
+    }
+
     if ($chkstatus == 0 && $chkname == 0 && $chkgw == 0) {
       ### Checking DNS resolving ###
       printdelay("Checking name resolving:");
