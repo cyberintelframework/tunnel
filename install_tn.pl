@@ -594,9 +594,8 @@ if ($confirm =~ /^(y|Y)$/) {
     `openssl genrsa -des3 -out /etc/apache2/ssl/key.pem $key_size 2>>$logfile`;
     if ($? != 0) { $err++; }
 
-    printdelay("Generating signing request:");
+    printmsg("Generating signing request:", "info");
     `openssl req -new -key /etc/apache2/ssl/key.pem -out /etc/apache2/ssl/request.pem`;
-    printresult($?);
     if ($? != 0) { $err++; }
 
     printdelay("Generating server certificate:");
