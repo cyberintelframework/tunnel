@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.04                 #
-# 16-03-2007                      #
+# Version 1.04.05                 #
+# 29-03-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.05 Fixed some messages
 # 1.04.04 Added a2enmod ssl command
 # 1.04.03 Fixed certificate generation bug
 # 1.04.02 Added some more logfile stuff
@@ -579,21 +580,18 @@ if ($confirm =~ /^(y|Y)$/) {
     printresult($?);
   }
   if (! -e "/etc/apache2/ssl/ca.key") {
-    printdelay("Generating root CA certificate key:");
+    printmsg("Generating root CA certificate key:", "info");
     `openssl genrsa -des3 -out /etc/apache2/ssl/ca.key $key_size 2>>$logfile`;
-    printresult($?);
     if ($? != 0) { $err++; }
 
-    printdelay("Generating root CA certificate:");
+    printmsg("Generating root CA certificate:", "info");
     `openssl req -new -x509 -days 365 -key /etc/apache2/ssl/ca.key -out /etc/apache2/ssl/ca.crt`;
-    printresult($?);
     if ($? != 0) { $err++; }
   }
 
   if (! -e "/etc/apache2/ssl/key.pem") {
-    printdelay("Generating server key:");
+    printmsg("Generating server key:", "info");
     `openssl genrsa -des3 -out /etc/apache2/ssl/key.pem $key_size 2>>$logfile`;
-    printresult($?);
     if ($? != 0) { $err++; }
 
     printdelay("Generating signing request:");
