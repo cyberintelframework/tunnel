@@ -219,7 +219,7 @@ if ($netconf eq "vlan") {
     if ($if_gw ne "false") {
       $chkup = chkupscript($if_gw);
       if ($chkup == 1) {
-        printmsg("Up script is running:", "warning");
+        printmsg("Tunnel is trying to reconnect:", "warning");
       }
     }
 
