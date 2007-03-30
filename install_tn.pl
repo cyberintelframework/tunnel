@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.05                 #
-# 29-03-2007                      #
+# Version 1.04.06                 #
+# 30-03-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.06 Fixed printdelay message
 # 1.04.05 Fixed some messages
 # 1.04.04 Added a2enmod ssl command
 # 1.04.03 Fixed certificate generation bug
@@ -337,8 +338,6 @@ if ( -e "/etc/xinetd.d/openvpn") {
   if ($? != 0) { $err++; }
 }
 
-print "\n";
-
 open(XINETD, ">$targetdir/xinetd.openvpn");
 print XINETD "service openvpn\n";
 print XINETD "\{\n";
@@ -604,7 +603,7 @@ if ($confirm =~ /^(y|Y)$/) {
     if ($? != 0) { $err++; }
 
     $ec = 0;
-    printdelay("Finishing certificate generation:");
+    printmsg("Finishing certificate generation:", "info");
     `openssl rsa -in key.pem -out key.pem.insecure 2>>$logfile`;
     if ($? != 0) { $ec++; }
     `mv key.pem key.pem.secure 2>>$logfile`;
