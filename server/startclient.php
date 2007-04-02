@@ -3,8 +3,8 @@
 ####################################
 # Startclient info update          #
 # SURFnet IDS                      #
-# Version 1.04.03                  #
-# 02-03-2006                       #
+# Version 1.04.04                  #
+# 23-03-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Modified by Peter Arts           #
 ####################################
@@ -36,6 +36,7 @@
 
 ####################################
 # Changelog:
+# 1.04.04 Changed input handling (added extractvars)
 # 1.04.03 Fixed a bug with changing netconf dhcp/static <-> vlan
 # 1.04.02 VLAN support
 # 1.04.01 Released as 1.04.01
@@ -49,6 +50,16 @@
 include 'include/certconf.inc.php';
 include 'include/certconn.inc.php';
 include 'include/certfunc.inc.php';
+
+$allowed_get = array(
+                "ip_localip",
+                "int_vlanid",
+                "strip_html_escape_keyname",
+		"strip_html_escape_ifmethod",
+		"strip_html_escape_detail"
+);
+$check = extractvars($_GET, $allowed_get);
+debug_input();
 
 # Get remoteip and querystring.
 $remoteip = $_SERVER['REMOTE_ADDR'];
@@ -78,19 +89,25 @@ $err = 0;
 ###########
 # Keyname #
 ###########
-if ( isset($_GET['keyname']) ) {
-  $keyname = stripinput(pg_escape_string($_GET['keyname']));
+if (isset($clean['keyname'])) {
+  $keyname = $clean['keyname'];
+  $pattern = '/^sensor[0-9]+$/';
+  if (!preg_match($pattern, $keyname)) {
+    echo "ERRNO: 91\n";
+    echo "ERROR: Keyname not valid.\n";
+    $err = 1;
+  }
 } else {
   echo "ERRNO: 91\n";
-  echo "ERROR: Keyname not present.\n";
+  echo "ERROR: Keyname not valid.\n";
   $err = 1;
 }
 
 ###########
 # localip #
 ###########
-if ( isset($_GET['localip']) ) {
-  $localip = stripinput(pg_escape_string($_GET['localip']));
+if (isset($clean['localip'])) {
+  $localip = $clean['localip'];
 } else {
   echo "ERRNO: 92\n";
   echo "ERROR: Localip not present.\n";
@@ -100,29 +117,36 @@ if ( isset($_GET['localip']) ) {
 ############
 # ifmethod #
 ############
-if ( isset($_GET['ifmethod']) ) {
-  $clientconf = stripinput(pg_escape_string($_GET['ifmethod']));
+if (isset($clean['ifmethod'])) {
+  $clientconf = $clean['ifmethod'];
+  $pattern = '/^(dhcp|static|vlans|vland)$/';
+  if (!preg_match($pattern, $clientconf)) {
+    echo "ERRNO: 93\n";
+    echo "ERROR: Invalid client network config (ifmethod).\n";
+    $err = 1;
+  }
 } else {
   echo "ERRNO: 93\n";
-  echo "ERROR: Client network config (ifmethod) not present.\n";
+  echo "ERROR: Invalid client network config (ifmethod).\n";
   $err = 1;
 }
 
 ####################
 # ifmethod detail  #
 ####################
-if ( isset($_GET['detail']) ) {
-  $netconfdetail = stripinput(pg_escape_string($_GET['detail']));
+if (isset($clean['detail'])) {
+  $netconfdetail = $clean['detail'];
 } else {
   echo "ERRNO: 94\n";
   echo "ERROR: Details of ifmethod not present.\n";
   $err = 1;
 }
+
 ############
 # vlan id  #
 ############
-if ( isset($_GET['vlanid']) ) {
-  $vlanid = stripinput(pg_escape_string($_GET['vlanid']));
+if (isset($clean['vlanid']) ) {
+  $vlanid = $clean['vlanid'];
 } else {
   echo "ERRNO: 95\n";
   echo "VLAN ID not set.\n";
