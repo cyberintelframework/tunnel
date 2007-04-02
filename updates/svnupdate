@@ -3,13 +3,14 @@
 #########################################
 # SVN Update script                     #
 # SURFnet IDS                           #
-# Version 1.04.05                       #
-# 28-03-2007                            #
+# Version 1.04.06                       #
+# 02-04-2007                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 1.04.06 Removed config-dir switch (use CAcert.pem instead)
 # 1.04.05 Added networkconf variable
 # 1.04.04 Added config-dir switch
 # 1.04.03 Removed ls 
@@ -21,7 +22,7 @@
 # Variables    #
 ################
 $basedir = "/cdrom/scripts";
-$svndir = "$basedir/svn";
+#$svndir = "$basedir/svn";
 do "$basedir/sensor.conf";
 do "$basedir/functions.inc.pl";
 do "$networkconf";
@@ -42,20 +43,22 @@ if ($chkrw != 0) {
   exit;
 }
 
-if (! -e "$svndir") {
-  `mkdir -f $svndir 2>/dev/null`;
-}
+#if (! -e "$svndir") {
+#  `mkdir -f $svndir 2>/dev/null`;
+#}
 
 ############
 # Updating #
 ############
 
 printdelay("SVN Update command:");
-`svn update $basedir --username $svnuser --password $svnpass --config-dir $svndir`;
+#`svn update $basedir --username $svnuser --password $svnpass --config-dir $svndir`;
+`svn update $basedir --username $svnuser --password $svnpass`;
 printresult($?);
 
 if ($? != 0) {
-  @file_ar = `svn ls --username $svnuser --password $svnpass --config-dir $svndir $svnurl`;
+#  @file_ar = `svn ls --username $svnuser --password $svnpass --config-dir $svndir $svnurl`;
+  @file_ar = `svn ls --username $svnuser --password $svnpass $svnurl`;
   foreach $file (@file_ar) {
     chomp($file);
     if (-e "$basedir/$file") {
@@ -65,11 +68,13 @@ if ($? != 0) {
     }
   }
   printdelay("Starting SVN checkout:");
+#  `svn checkout --username $svnuser --password $svnpass --config-dir $svndir $svnurl $basedir`;
   `svn checkout --username $svnuser --password $svnpass --config-dir $svndir $svnurl $basedir`;
   printresult($?);
   if ($? != 0) { 
     `svn cleanup $basedir`;
-    `svn checkout --username $svnuser --password $svnpass --config-dir $svndir $svnurl $basedir`;
+#    `svn checkout --username $svnuser --password $svnpass --config-dir $svndir $svnurl $basedir`;
+    `svn checkout --username $svnuser --password $svnpass $svnurl $basedir`;
   }
 }
 
@@ -85,7 +90,8 @@ while ($err == 0) {
 			`rm -f $basedir/$file`;
 	  		printresult($?);
 			printdelay("SVN update for $sigfile");
-			`svn update $basedir/$sigfile.sig --username $svnuser --password $svnpass --config-dir $svndir`;
+#			`svn update $basedir/$sigfile.sig --username $svnuser --password $svnpass --config-dir $svndir`;
+			`svn update $basedir/$sigfile.sig --username $svnuser --password $svnpass`;
   			printresult($?);
 			`openssl smime -verify -text -inform SMIME -in $basedir/$sigfile.sig -out $basedir/$sigfile.new -CAfile $basedir/scripts.crt 2>/dev/null`;
 			`dos2unix $basedir/$sigfile.new`;
