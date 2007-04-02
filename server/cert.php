@@ -3,8 +3,8 @@
 ####################################
 # Certificate Generation Handler   #
 # SURFnet IDS                      #
-# Version 1.04.02                  #
-# 26-02-2007                       #
+# Version 1.04.03                  #
+# 02-04-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
@@ -35,6 +35,7 @@
 
 ####################################
 # Changelog:
+# 1.04.03 Fixed typo in SURFnet SOAP stuff
 # 1.04.02 Changed identifier check order
 # 1.04.01 Organisation identifiers, removed access header
 # 1.03.01 Released as part of the 1.03 package
@@ -103,7 +104,7 @@ if ($err == 0) {
 
   if ($c_certsoapconn == 1) {
     # SURFnet SOAP identifier check
-    $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappasss);
+    $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappass);
     if ($ident != "false") {
       $orgid = checkident($ident, 4);
       $orgname = $ident;
