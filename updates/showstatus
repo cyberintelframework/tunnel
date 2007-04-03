@@ -3,13 +3,14 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.04.09
-# 29-03-2007
+# Version 1.04.10
+# 03-04-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
+# 1.04.10 Fixed chkssh stuff
 # 1.04.09 Improved error checking
 # 1.04.08 Added networkconf variable
 # 1.04.07 Fixed layout stuff
@@ -57,7 +58,7 @@ if ($chkstatus == 0) {
 }
 
 $chkssh = chkssh();
-if ($chkssh == 0) {
+if ($chkssh == 1) {
   printmsg("SSH daemon:", "${y}Running${n}");
 } else {
   printmsg("SSH daemon:", "${y}Stopped${n}");
