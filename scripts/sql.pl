@@ -3,8 +3,8 @@
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.04.05                 #
-# 16-02-2007                      #
+# Version 1.04.06                 #
+# 04-04-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
 ###################################
@@ -33,6 +33,7 @@
 
 #####################
 # Changelog:
+# 1.04.06 Removed pcap.pl script
 # 1.04.05 Removed arp from query
 # 1.04.04 Included tnfunctions.inc.pl and modified code structure
 # 1.04.03 Added vlan support 
@@ -242,10 +243,6 @@ if ($err == 0) {
   if ($c_enable_pof == 1) {
     system "p0f -d -i $tap -o /dev/null";
     printlog("Started p0f!");
-  }
-  if ($c_enable_tcpmonitor == 1 && $sensor_arp == 1) {
-    system "$c_surfidsdir/scripts/pcap.pl $tap &";
-    printlog("Started pcap.pl script!");
   }
 }
 
