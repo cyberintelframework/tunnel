@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.20
-# 29-03-2007
+# Version 1.04.21
+# 05-04-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.21 Fixed getsensor bug with .key files
 # 1.04.20 Added chkupscript
 # 1.04.19 Added networkconf variable
 # 1.04.18 Fixed upplstatus
@@ -565,9 +566,11 @@ sub getsensor() {
   opendir(BDIR, $basedir);
   while($file = readdir(BDIR)) {
     if (! -d $file) {
-      if ($file =~ /\.key$/) {
+      if ($file =~ /sensor[0-9]+\.key$/) {
         ($sensor, $key) = split(/\./, $file);
-        return $sensor;
+        if ("$sensor" ne "") {
+          return $sensor;
+        }
       }
     }
   }
