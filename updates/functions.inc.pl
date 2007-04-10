@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.21
-# 05-04-2007
+# Version 1.04.22
+# 10-04-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.22 Fixed a bug with firewire interfaces and getif()
 # 1.04.21 Fixed getsensor bug with .key files
 # 1.04.20 Added chkupscript
 # 1.04.19 Added networkconf variable
@@ -590,7 +591,7 @@ sub getif() {
       @if_ar = split(/ +/, $_);
       @if_ar = split(/:/, $if_ar[1]);
       $if = $if_ar[0];
-      $checkif = `ifconfig $if | grep "RUNNING" | wc -l`;
+      $checkif = `ifconfig | grep -v UNSPEC | grep -A3 $if | grep "RUNNING" | wc -l`;
       chomp($checkif);
       if ($checkif != 0) {
         $found_if = $if;
