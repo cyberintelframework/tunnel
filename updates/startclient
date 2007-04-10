@@ -3,14 +3,15 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.09
-# 28-03-2007
+# Version 1.04.10
+# 10-04-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.10 Added subdir to serverurl
 # 1.04.09 Added networkconf variable
 # 1.04.08 Fixed wget request
 # 1.04.07 lease file per interface for dhclient3
@@ -132,7 +133,7 @@ $sensor = getsensor();
 printmsg("Retrieving sensor name:", $sensor);
 
 # Setting the serverurl
-$serverurl = "$http://$server:$port";
+$serverurl = "$http://$server:$port/server";
 
 # Checking if wget needs to authenticate the server certificate.
 if ($checkcert == 0) {
