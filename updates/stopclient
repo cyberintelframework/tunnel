@@ -3,14 +3,16 @@
 #########################################
 # Stop script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.10
-# 26-03-2007
+# Version 1.04.12
+# 10-04-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.12 Added server subdir to serverurl
+# 1.04.11 Added networkconf variable
 # 1.04.10 Fixed wget request
 # 1.04.09 Added fix to remove remaining vlan interfaces
 # 1.04.08 Added check for missing dhclient3 pid files
@@ -35,7 +37,7 @@
 $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
 require "$basedir/functions.inc.pl";
-require "$basedir/network_if.conf";
+require "$networkconf";
 
 ################
 # Start script #
@@ -194,7 +196,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   }
 
   # Generate the server URL
-  $serverurl = "$http://$server:$port";
+  $serverurl = "$http://$server:$port/server";
 
   # Get the localip.
   if ($netconf eq "dhcp" && $if ne "false") {
