@@ -3,13 +3,14 @@
 #########################################
 # Update script for SURFnet IDS Sensor	#
 # SURFnet IDS                           #
-# Version 1.04.05                       #
-# 28-03-2007                            #
+# Version 1.04.06                       #
+# 10-04-2007                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 1.04.06 Added server subdir to serverurl
 # 1.04.05 Added networkconf variable
 # 1.04.04 Fixed update wget request
 # 1.04.03 Redone the update system, added svnupdate stuff
@@ -183,7 +184,7 @@ sub update_process() {
   $chkssh = chkssh();
 
   # Creating the serverurl
-  $serverurl = "$http://$server:$port";
+  $serverurl = "$http://$server:$port/server";
    
   # Update the scripts
   system("$basedir/svnupdate");
