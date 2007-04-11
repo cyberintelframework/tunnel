@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.22
-# 10-04-2007
+# Version 1.04.23
+# 11-04-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.23 Added server subdir to chkwgetauth function
 # 1.04.22 Fixed a bug with firewire interfaces and getif()
 # 1.04.21 Fixed getsensor bug with .key files
 # 1.04.20 Added chkupscript
@@ -208,7 +209,7 @@ sub chkdisabled() {
 # Returns 1 if authentication failed.
 sub chkwgetauth() {
   my $wgetarg = $_[0];
-  `wget -q $wgetarg --spider $http://$server:$port/status.php`;
+  `wget -q $wgetarg --spider $http://$server:$port/server/status.php`;
   if ($? == 0) {
     return 0;
   } else {
