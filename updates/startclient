@@ -3,14 +3,15 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.10
-# 10-04-2007
+# Version 1.04.11
+# 13-04-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.11 Fixed bug with multiple static vlans and webinterface tapip warning
 # 1.04.10 Added subdir to serverurl
 # 1.04.09 Added networkconf variable
 # 1.04.08 Fixed wget request
@@ -507,10 +508,9 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       if ($chk != 0) {
         system("$basedir/idsmenu");
       }
-      printmsg("$vs Skipping this VLAN:" );
+      printmsg("$vs Skipping this VLAN:", "info");
       next;
     }
-
     
     # Setting up the routing rules for the vlan
     `ip route add default via $vlan_gw table vlan$i`;	
@@ -557,14 +557,20 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
         $errno = `grep "ERRNO" $basedir/startclient$vlanid.php | awk '{print \$2}'`;
         chomp($errno);
         if ($errno == 99) {
+          # Deleting the default route to make sure routing goes correctly 
+          # for the next vlan.
+          `ip route del default via $vlan_gw`;
+
           print "${y}A tap IP address needs to be configured in the webinterface.\n";
-          print "Start the sensor again when this is done.${n}\n";
-          `$basedir/stopclient >/dev/null`;
-          $chk = chkidsmenu();
-          if ($chk != 0) {
-            system("$basedir/idsmenu");
-          }
-          exit;
+          #print "Start the sensor again when this is done.${n}\n";
+          #`$basedir/stopclient >/dev/null`;
+          #$chk = chkidsmenu();
+          #if ($chk != 0) {
+          #  system("$basedir/idsmenu");
+          #}
+          #exit;
+          print "Continuing with the next VLAN. Restart the sensor when tap IP addresses have been configured.${n}\n";
+          next;
         } else {
           print "${r}An error occurred while updating status information.\n";
           print "$errors${n}\n";
