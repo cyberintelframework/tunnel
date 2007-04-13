@@ -340,9 +340,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       printresult($chkwgetauth);
     }
 
-    # Generate the server URL
-    $serverurl = "$http://$server:$port/server";
-
     # Get the localip.
     if ($chkresolv == 0 && $if ne "false" && $chkvlanif == 0) {
       printdelay("$vs Updating status information:");
