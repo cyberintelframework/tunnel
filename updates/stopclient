@@ -3,14 +3,15 @@
 #########################################
 # Stop script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.12
-# 10-04-2007
+# Version 1.04.13
+# 13-04-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.13 Fixed serverurl bug
 # 1.04.12 Added server subdir to serverurl
 # 1.04.11 Added networkconf variable
 # 1.04.10 Fixed wget request
@@ -48,6 +49,9 @@ if ($netconf eq "vlan") {
 } else { 
   $statusif = "$br";
 }
+
+# Generate the server URL
+$serverurl = "$http://$server:$port/server";
 
 # Check the disk for read/write status.
 $chkrw = chkrw();
@@ -195,9 +199,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $chkresolv = 1;
   }
 
-  # Generate the server URL
-  $serverurl = "$http://$server:$port/server";
-
   # Get the localip.
   if ($netconf eq "dhcp" && $if ne "false") {
     $if_ip = getifip($if);
@@ -340,7 +341,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     }
 
     # Generate the server URL
-    $serverurl = "$http://$server:$port";
+    $serverurl = "$http://$server:$port/server";
 
     # Get the localip.
     if ($chkresolv == 0 && $if ne "false" && $chkvlanif == 0) {
