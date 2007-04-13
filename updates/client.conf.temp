@@ -1,13 +1,14 @@
 #########################################
 # OpenVPN conf file for IDS Sensor      #
 # SURFnet IDS                           #
-# Version 1.04.02                       #
-# 12-02-2007                            #
+# Version 1.04.03                       #
+# 13-04-2007                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ################
 # Changelog:
+# 1.04.03 Removed user/group nobody
 # 1.04.02 Added ping-restart and up-restart
 ################
 
@@ -21,8 +22,6 @@ dev tap
 ping 10
 ping-restart 120
 comp-lzo
-user nobody
-group nogroup
 persist-key
 persist-tun
 persist-local-ip
