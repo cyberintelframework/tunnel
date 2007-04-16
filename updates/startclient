@@ -3,14 +3,15 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.11
-# 13-04-2007
+# Version 1.04.12
+# 16-04-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.12 Increased waiting for connection timer, fixed bug with empty netconf variable
 # 1.04.11 Fixed bug with multiple static vlans and webinterface tapip warning
 # 1.04.10 Added subdir to serverurl
 # 1.04.09 Added networkconf variable
@@ -36,7 +37,11 @@ use File::Basename;
 $basedir = "/cdrom/scripts/";
 do "$basedir/sensor.conf";
 require "$basedir/functions.inc.pl";
-require "$networkconf";
+do "$networkconf";
+
+if ("$netconf" eq "") {
+  $netconf = "config";
+}
 
 # Disabling dmesg output on the console
 `dmesg -n 1`;
@@ -496,7 +501,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     } else {
       printmsg("$vs Retrieving gateway:", $vlan_gw);
     }
-    sleeptimer("$vs Waiting for connection:", 5);
+    sleeptimer("$vs Waiting for connection:", 15);
     printdelay("$vs Checking gateway connectivity:");
     $chkgw = chkgateway($vlan_gw);
     printresult($chkgw);

@@ -235,36 +235,43 @@ if ($err == 0) {
   # If remoteip has changed, update it to the database.
   if ($row['remoteip'] != $remoteip) {
     echo "Updated remote IP address.\n";
-    $sql_update_remote = "UPDATE sensors SET remoteip = '" .$remoteip. "' WHERE keyname = '$keyname' AND vlanid='$vlanid'";
+    $sql_update_remote = "UPDATE sensors SET remoteip = '" .$remoteip. "' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
     $result_update_remote = pg_query($pgconn, $sql_update_remote);
   }
   
   # If localip has changed, update it to the database.
   if ($row['localip'] != $localip) {
     echo "Updated local IP address.\n";
-    $sql_update = "UPDATE sensors SET localip = '" .$localip. "' WHERE keyname = '$keyname' AND vlanid='$vlanid'";
+    $sql_update = "UPDATE sensors SET localip = '" .$localip. "' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
     $result_update = pg_query($pgconn, $sql_update);
   }
   
   # Setting network config in the database
-  $sql_netconf = "UPDATE sensors SET netconf = '$clientconf', netconfdetail = '$netconfdetail' WHERE keyname = '$keyname' and vlanid='$vlanid'";
+  $sql_netconf = "UPDATE sensors SET netconf = '$clientconf', netconfdetail = '$netconfdetail' WHERE keyname = '$keyname' and vlanid = '$vlanid'";
   $result_netconf = pg_query($pgconn, $sql_netconf);
   echo "Network config updated.\n";
 
   # Set status 
   if ($clientconf == "dhcp" | $clientconf == "vland") {
-      $sql_laststart = "UPDATE sensors SET laststart = '$date', status = 1, tapip = NULL WHERE keyname = '$keyname' and vlanid='$vlanid'";
+      $sql_laststart = "UPDATE sensors SET laststart = '$date', status = 1, tapip = NULL WHERE keyname = '$keyname' and vlanid = '$vlanid'";
       $result_laststart = pg_query($pgconn, $sql_laststart);
       echo "Sensor status updated.\n";
   } else {
     if ($tapip != "NULL") {
-      $sql_laststart = "UPDATE sensors SET laststart = '$date', status = 1 WHERE keyname = '$keyname' AND vlanid='$vlanid'";
+      $sql_laststart = "UPDATE sensors SET laststart = '$date', status = 1 WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
       $result_laststart = pg_query($pgconn, $sql_laststart);
       echo "Sensor status updated.\n";
     } else {
       echo "ERRNO: 99\n";
       echo "ERROR: No static ip configuration on the server.\n";
     }
+  }
+  if ($vlanid == 0) {
+    $sql_laststart = "UPDATE sensors SET status = 3 WHERE keyname = '$keyname' AND NOT vlanid = 0";
+    $result_laststart = pg_query($pgconn, $sql_laststart);
+  } else {
+    $sql_laststart = "UPDATE sensors SET status = 3 WHERE keyname = '$keyname' AND vlanid = 0";
+    $result_laststart = pg_query($pgconn, $sql_laststart);
   }
 }
 
