@@ -3,14 +3,15 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.04.03
-# 03-04-2007
+# Version 1.04.04
+# 16-04-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 #############################################
 # Changelog:
+# 1.04.04 Fixed typo in menu prompt
 # 1.04.03 Fixed ssh check
 # 1.04.02 Added HD install option
 # 1.04.01 Rerelease as perl script
@@ -98,7 +99,7 @@ while (1==1) {
   print "\t8. Sensor HD install\n";
   print "\t9. Reboot\n";
   print "\t10. Shutdown\n";
-  $input = &prompt("\tPlease select one of the above (1-9): ");
+  $input = &prompt("\tPlease select one of the above (1-10): ");
   chomp($input);
   system("/usr/bin/clear");
   if ("$input" eq 1) {
