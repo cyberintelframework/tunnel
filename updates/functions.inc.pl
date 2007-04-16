@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.24
-# 13-04-2007
+# Version 1.04.25
+# 16-04-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.25 Removed chkgateway (use chkreach)
 # 1.04.24 ifconfig -a switch added
 # 1.04.23 Added server subdir to chkwgetauth function
 # 1.04.22 Fixed a bug with firewire interfaces and getif()
@@ -61,7 +62,6 @@ $| = 1;
 # 1.15		chkdhclient
 # 1.16		chkdefault
 # 1.17		chknetworkconf
-# 1.18		chkgateway
 # 1.19		chkupscript
 # 2		All GET functions
 # 2.01		getnetinfo
@@ -460,26 +460,6 @@ sub chknetworkconf() {
     return "false";
   }
   return "false";
-}
-
-# 1.18 chkgateway
-# Function to check if the gateway can be reached
-# Returns 0 on success
-# Returns non-zero on failure
-sub chkgateway() {
-  my ($chk, $gw);
-  $gw = $_[0];
-  chomp($gw);
-  $chk = validip($gw);
-  if ($chk != 0) {
-    return 1;
-  }
-  $chk = &chkreach($gw);
-  if ($chk != 0) {
-    return 2;
-  } else {
-    return 0;
-  }
 }
 
 # 1.19 chkupscript

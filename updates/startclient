@@ -3,7 +3,7 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.12
+# Version 1.04.13
 # 16-04-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
@@ -11,6 +11,7 @@
 
 ################
 # Changelog:
+# 1.04.13 Removed chkgateway
 # 1.04.12 Increased waiting for connection timer, fixed bug with empty netconf variable
 # 1.04.11 Fixed bug with multiple static vlans and webinterface tapip warning
 # 1.04.10 Added subdir to serverurl
@@ -503,7 +504,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     }
     sleeptimer("$vs Waiting for connection:", 15);
     printdelay("$vs Checking gateway connectivity:");
-    $chkgw = chkgateway($vlan_gw);
+    $chkgw = chkreach($vlan_gw);
     printresult($chkgw);
     
     $chkip = validip($vlan_ip);
