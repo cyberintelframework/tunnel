@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.06                 #
-# 30-03-2007                      #
+# Version 1.04.07                 #
+# 18-04-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.07 Fixed regular expression bug
 # 1.04.06 Fixed printdelay message
 # 1.04.05 Fixed some messages
 # 1.04.04 Added a2enmod ssl command
@@ -224,7 +225,7 @@ while ($check eq 1) {
   $server = &prompt("Server hostname.domainname or IP (example: test.domain.nl): ");
   $check = 0;
   if ($server eq "") { $check = 1; }
-  if ($server !~ /.*[AZaz].*/) {
+  if ($server !~ /.*[A-Za-z].*/) {
     $check = validip($server);
   }
   if ($check != 1) {
