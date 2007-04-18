@@ -612,8 +612,7 @@ if ($confirm =~ /^(y|Y)$/) {
     if ($? != 0) { $ec++; }
     `mv key.pem.insecure key.pem 2>>$logfile`;
     if ($? != 0) { $ec++; }
-    printresult($i);
-    if ($i != 0) { $err++; }
+    if ($ec != 0) { $err++; }
     $ec = 0;
   }
 
