@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.07                 #
+# Version 1.04.08                 #
 # 18-04-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.08 Fixed self-signed certificate generation stuff
 # 1.04.07 Fixed regular expression bug
 # 1.04.06 Fixed printdelay message
 # 1.04.05 Fixed some messages
@@ -599,7 +600,7 @@ if ($confirm =~ /^(y|Y)$/) {
     if ($? != 0) { $err++; }
 
     printdelay("Generating server certificate:");
-    `openssl x509 -req -days 365 -in request.pem -CA ca.crt -CAkey ca.key -set_serial 01 -out cert.pem 2>>$logfile`;
+    `openssl x509 -req -days 365 -in request.pem -CA ca.crt -CAkey ca.key -set_serial 01 -out cert.pem`;
     printresult($?);
     if ($? != 0) { $err++; }
 
