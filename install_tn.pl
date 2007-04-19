@@ -582,7 +582,7 @@ if ($confirm =~ /^(y|Y)$/) {
   }
   if (! -e "/etc/apache2/ssl/ca.key") {
     printmsg("Generating root CA certificate key:", "info");
-    `openssl genrsa -des3 -out /etc/apache2/ssl/ca.key $key_size 2>>$logfile`;
+    `openssl genrsa -des3 -out /etc/apache2/ssl/ca.key $key_size`;
     if ($? != 0) { $err++; }
 
     printmsg("Generating root CA certificate:", "info");
@@ -592,7 +592,7 @@ if ($confirm =~ /^(y|Y)$/) {
 
   if (! -e "/etc/apache2/ssl/key.pem") {
     printmsg("Generating server key:", "info");
-    `openssl genrsa -des3 -out /etc/apache2/ssl/key.pem $key_size 2>>$logfile`;
+    `openssl genrsa -des3 -out /etc/apache2/ssl/key.pem $key_size`;
     if ($? != 0) { $err++; }
 
     printmsg("Generating signing request:", "info");
