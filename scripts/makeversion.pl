@@ -1,10 +1,10 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 #########################################
 # Status check                          #
 # SURFnet IDS                           #
-# Version 1.04.01                       #
-# 07-11-2006                            #
+# Version 1.04.02                       #
+# 20-04-2007                            #
 # Kees Trippelvitz                      #
 #########################################
 
@@ -31,6 +31,7 @@
 
 #############################################
 # Changelog:
+# 1.04.02 Removed the server_version.txt stuff
 # 1.04.01 Initial release. Converted from makeversion.sh.
 #############################################
 
@@ -51,10 +52,10 @@ do '/etc/surfnetids/surfnetids-tn.conf';
 `rm -f $c_surfidsdir/updates/server_version.txt`;
 
 # Setting up ignored files
-%ignore = ("client.conf.dist", 0, "wgetrc.dist", 0, "sensor.conf.dist", 0);
+%ignore = ("client.conf.dist", 0, "client.conf.temp.dist", 0, "wgetrc.dist", 0, "sensor.conf.dist", 0);
 
 # Opening server_version.txt for writing
-open(VERS, "> $c_surfidsdir/updates/server_version.txt");
+#open(VERS, "> $c_surfidsdir/updates/server_version.txt");
 
 # Looping through the updates directory
 @file_ar = `grep -I Version $c_surfidsdir/updates/* | grep -v ".sig" | awk '{print \$1}' | cut -d":" -f1`;
@@ -69,10 +70,10 @@ foreach $file (@file_ar) {
     `$c_surfidsdir/scripts/sign_file.pl $file`;
     # Updating the server_version.txt
     print "$file:$version\n";
-    print VERS "${file}:${version}\n";
+#    print VERS "${file}:${version}\n";
   }
 }
-close(VERS);
+#close(VERS);
 
-print "Creation of $c_surfidsdir/updates/server_version.txt done!\n";
-
+#print "Creation of $c_surfidsdir/updates/server_version.txt done!\n";
+Print "Signing scripts done!\n";
