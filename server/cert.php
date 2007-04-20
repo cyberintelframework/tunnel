@@ -3,8 +3,8 @@
 ####################################
 # Certificate Generation Handler   #
 # SURFnet IDS                      #
-# Version 1.04.03                  #
-# 02-04-2007                       #
+# Version 1.04.04                  #
+# 20-04-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
@@ -35,6 +35,7 @@
 
 ####################################
 # Changelog:
+# 1.04.04 Fixed bug with sensor numbering
 # 1.04.03 Fixed typo in SURFnet SOAP stuff
 # 1.04.02 Changed identifier check order
 # 1.04.01 Organisation identifiers, removed access header
@@ -81,13 +82,24 @@ if (isset($clean['vlanid'])) {
 
 if ($err == 0) {
   
+  # Check for is_called
+  $sql_iscalled = "SELECT is_called FROM sensors_id_seq";
+  $result_iscalled = pg_query($pgconn, $sql_iscalled);
+  $iscalled_row = pg_fetch_assoc($result_iscalled);
+  $iscalled = $iscalled_row['is_called'];
+
   # Select all records in the table Sensors.
   $sql_sensors = "SELECT last_value FROM sensors_id_seq";
   $result_sensors = pg_query($pgconn, $sql_sensors);
   # Check for the total amount of sensors in the table.
   $total_sensors = pg_fetch_row($result_sensors);
-  # Add 1 to the total amount of sensors.
-  $new_sensor_nr = $total_sensors[0] + 1;
+
+  if ($iscalled != "f") {
+    # Add 1 to the total amount of sensors.
+    $new_sensor_nr = $total_sensors[0] + 1;
+  } else {
+    $new_sensor_nr = $total_sensors[0];
+  }
 
   # The new sensor will be given a name.
   $keyname = "sensor" . $new_sensor_nr;
