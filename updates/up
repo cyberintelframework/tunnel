@@ -1,0 +1,126 @@
+#!/usr/bin/perl
+
+#########################################
+# UP script for SURFnet IDS Sensor      #
+# SURFnet IDS                           #
+# Version 1.04.03                       #
+# 16-04-2007                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
+
+###################
+# Changelog:
+# 1.04.03 Removed logging messages
+# 1.04.02 More stable distribution of the VLAN's
+# 1.04.01 Initial release
+###################
+
+$basedir = "/cdrom/scripts";
+do "$basedir/sensor.conf";
+require "$basedir/functions.inc.pl";
+
+$tunnel = $ARGV[0];
+$gw = $ARGV[1];
+$br = $ARGV[2];
+$pid = $$;
+
+#open(LOG, ">> $basedir/up.log");
+
+$chkrun = `ps -ef | grep "perl" | grep "up.pl $tunnel" | grep -v $pid | grep -v grep | wc -l`;
+chomp($chkrun);
+if ($chkrun != 0) {
+#  print LOG "[$tunnel] CHKRUN: $chkrun\n";
+  exit;
+}
+`echo $pid > /var/run/up$tunnel.pid`;
+
+$tmpfile = `mktemp -p $basedir`;
+chomp($tmpfile);
+upplstatus($tunnel, "LOCK", $tmpfile);
+
+#print LOG "[$tunnel] GW: $gw\n";
+#print LOG "[$tunnel] BR: $br\n";
+$nmapchk = 0;
+$checklock = 0;
+$checkrun = 0;
+$timer = 0;
+$go = 0;
+
+while ($nmapchk == 0) {
+  $count_tun = `cat $basedir/tunnel.status | grep LOCK | awk -F":" '{print \$3}' | sort -r | head -n1`;
+  chomp($count_tun);
+  for ($i = 0; $i < $count_tun; $i++) {
+    $next_tun = `cat $basedir/tunnel.status | grep LOCK | grep ":$i" | awk -F":" '{print \$1}'`;
+    chomp($next_tun);
+    if ("$next_tun" ne "") {
+      $i = $count_tun;
+    }
+  }
+#  print LOG "[$tunnel] NEXT_TUN: $next_tun\n";
+
+  if ("$next_tun" eq "") {
+    $mintun = $tunnel - 1;
+    for ($i = $mintun; $i > 0; $i--) {
+      $checklock = `cat $basedir/tunnel.status | grep "$i:" | grep LOCK | wc -l`;
+      chomp($checklock);
+      if ($checklock != 0) {
+        $next_tun = $i;
+        $i = 0;
+      }
+    }
+  }
+#  print LOG "[$tunnel] NEXT_TUN: $next_tun\n";
+  if ($next_tun == $tunnel) {
+    $go = 1;
+  }
+
+  $checkrun = `cat $basedir/tunnel.status | grep RUNNING | grep -v "$tunnel:" | wc -l`;
+  chomp($checkrun);
+#  print LOG "[$tunnel] CHECKRUN: $checkrun\n";
+  if ($checkrun != 0) {
+    $go = 0;
+  } else {
+    $go = 1;
+  }
+
+  if ($go == 1 || $run == 1) {
+    upplstatus($tunnel, "RUNNING", $tmpfile);
+    sleep 10;
+    $run = 1;
+
+    `ip route del default 2>/dev/null`;
+#    print LOG "[$tunnel] Deleting default: $?\n";
+    `ip route add default via $gw`;
+#    print LOG "[$tunnel] Adding default: $?\n";
+    $nmapchk = `nmap -e $br $server -p 1194 -P0 | grep 1194 | grep open | wc -l`;
+    chomp($nmapchk);
+#    print LOG "[$tunnel] NMAPCHECK: $nmapchk\n";
+    if ($nmapchk == 0) {
+      $timer = $timer + 5;
+#      print LOG "[$tunnel] TIMER: $timer\n";
+      if ($timer == $uppl_retry) {
+#        print LOG "[$tunnel] SLEEP\n";
+        upplstatus($tunnel, "SLEEP", $tmpfile);
+        sleep $uppl_sleep;
+#        print LOG "[$tunnel] WAKING UP\n";
+        upplstatus($tunnel, "LOCK", $tmpfile);
+        $run = 0;
+        $timer = 0;
+      }
+    }
+  } else {
+    $c = `cat $basedir/tunnel.status | grep "$tunnel:LOCK" | wc -l`;
+    chomp($c);
+    if ($c == 0) {
+      upplstatus($tunnel, "LOCK", $tmpfile);
+    }
+#    print LOG "[$tunnel] WAITING\n";
+  }
+  sleep 5;
+}
+#print LOG "[$tunnel] Finished!\n";
+#close(LOG);
+upplstatus($tunnel, "DONE", $tmpfile);
+
+#remove pid file because up.pl is finished
+`rm -f /var/run/up$tunnel.pid`;
