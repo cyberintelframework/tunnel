@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.10                 #
+# Version 1.04.11                 #
 # 20-04-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.11 Fixed missing semi-colon
 # 1.04.10 Reverted CAcert.pem stuff, removed dav_svn.conf stuff
 # 1.04.09 Fixed CAcert.pem stuff
 # 1.04.08 Fixed self-signed certificate generation stuff
@@ -710,7 +711,7 @@ if ($ec != 0) { $err++; }
 $ec = 0;
 
 printdelay("Configuring sensor.conf:");
-`sed 's/^\\\$server = \"enter_server_here\";\$/\\\$server = \"$server\"/' ./updates/sensor.conf > $targetdir/updates/sensor.conf 2>>$logfile`;
+`sed 's/^\\\$server = \"enter_server_here\";\$/\\\$server = \"$server\";/' ./updates/sensor.conf > $targetdir/updates/sensor.conf 2>>$logfile`;
 printresult($?);
 if ($? != 0) { $err++; }
 
