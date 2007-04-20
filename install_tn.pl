@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.09                 #
+# Version 1.04.10                 #
 # 20-04-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.10 Reverted CAcert.pem stuff, removed dav_svn.conf stuff
 # 1.04.09 Fixed CAcert.pem stuff
 # 1.04.08 Fixed self-signed certificate generation stuff
 # 1.04.07 Fixed regular expression bug
@@ -553,13 +554,13 @@ printmsg("Setting up authentication for $svnuser:", "info");
 printmsg("Setting up authentication for idssensor:", "info");
 `htpasswd /etc/apache2/dav_svn.passwd idssensor 2>>$logfile`;
 
-$chk = `cat /etc/apache2/mods-available/dav_svn.conf | grep "SURFnet IDS updates" | wc -l 2>>$logfile`;
-if ($chk == 0) {
-  printdelay("Configuring dav_svn.conf:");
-  `cat $targetdir/dav_svn.conf >> /etc/apache2/mods-available/dav_svn.conf 2>>$logfile`;
-  printresult($?);
-  if ($? != 0) { $err++; }
-}
+#$chk = `cat /etc/apache2/mods-available/dav_svn.conf | grep "SURFnet IDS updates" | wc -l 2>>$logfile`;
+#if ($chk == 0) {
+#  printdelay("Configuring dav_svn.conf:");
+#  `cat $targetdir/dav_svn.conf >> /etc/apache2/mods-available/dav_svn.conf 2>>$logfile`;
+#  printresult($?);
+#  if ($? != 0) { $err++; }
+#}
 
 printdelay("Activating apache2 dav module:");
 `a2enmod dav 2>>$logfile`;
@@ -619,7 +620,7 @@ if ($confirm =~ /^(y|Y)$/) {
 
   if (! -e "$targetdir/updates/CAcert.pem") {
     printdelay("Creating CAcert.pem for SVN:");
-    `cp /etc/apache2/ssl/cert.pem $targetdir/updates/CAcert.pem 2>>$logfile`;
+    `cp /etc/apache2/ssl/ca.crt $targetdir/updates/CAcert.pem 2>>$logfile`;
     printresult($?);
     if ($? != 0) { $err++; }
   }
@@ -809,7 +810,7 @@ print "For extra security keep the scripts key (/opt/surfnetids/scriptkeys/scrip
 print "\n";
 print "Interesting configuration files:\n";
 print "  ${g}/etc/crontab\n";
-print "  /etc/apache2/mods-enabled/dav_svn.conf\n";
+#print "  /etc/apache2/mods-enabled/dav_svn.conf\n";
 print "  $targetdir/updates/client.conf\n";
 print "  $targetdir/updates/sensor.conf${n}\n";
 
