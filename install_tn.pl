@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.08                 #
-# 18-04-2007                      #
+# Version 1.04.09                 #
+# 20-04-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.09 Fixed CAcert.pem stuff
 # 1.04.08 Fixed self-signed certificate generation stuff
 # 1.04.07 Fixed regular expression bug
 # 1.04.06 Fixed printdelay message
@@ -618,7 +619,7 @@ if ($confirm =~ /^(y|Y)$/) {
 
   if (! -e "$targetdir/updates/CAcert.pem") {
     printdelay("Creating CAcert.pem for SVN:");
-    `cp /etc/apache2/ssl/ca.crt $targetdir/updates/CAcert.pem 2>>$logfile`;
+    `cp /etc/apache2/ssl/cert.pem $targetdir/updates/CAcert.pem 2>>$logfile`;
     printresult($?);
     if ($? != 0) { $err++; }
   }
