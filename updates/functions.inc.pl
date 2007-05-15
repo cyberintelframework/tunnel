@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.26
-# 25-04-2007
+# Version 1.04.27
+# 08-05-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.27 Fixed client.conf updating bug
 # 1.04.26 Added extra ping within chkreach 
 # 1.04.25 Removed chkgateway (use chkreach)
 # 1.04.24 ifconfig -a switch added
@@ -698,7 +699,7 @@ sub getcerts() {
   
   # Updating client.conf
   printmsg("Updating client.conf:", "info");
-  open(CLIENT, "> $basedir/client.conf");
+  open(CLIENT, ">> $basedir/client.conf");
   print CLIENT "ca $basedir/ca.crt\n";
   print CLIENT "key $basedir/$sensor.key\n";
   print CLIENT "cert $basedir/$sensor.crt\n";
