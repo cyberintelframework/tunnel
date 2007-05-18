@@ -3,13 +3,14 @@
 ######################################
 # Function library for tunnel server #
 # SURFnet IDS                        #
-# Version 1.04.03                    #
-# 14-03-2007                         #
+# Version 1.04.04                    #
+# 18-05-2007                         #
 # Jan van Lith & Kees Trippelvitz    #
 ######################################
 
 #####################
 # Changelog:
+# 1.04.04 Added getifmask, hextoip, colonmac
 # 1.04.03 Added getdatetime
 # 1.04.02 Modified info header
 # 1.04.01 Initial release
@@ -22,12 +23,15 @@ use POSIX;
 ###############################################
 # 1             All CHK functions
 # 1.01          chkdhclient
+# 1.02		chk_static_arp
 # 2		All GET functions
 # 2.01		getts
 # 2.02		getec
 # 2.03		getlocalgw
 # 2.04		getnetwork
 # 2.05		getifip
+# 2.06		getdatetime
+# 2.07		getifmask
 # 3		ALL DB functions
 # 3.01		dbremoteip
 # 3.02		dbnetconf
@@ -44,6 +48,17 @@ use POSIX;
 # 4.09		addroute
 # 4.10		delroute
 # 4.11		adddefault
+# 4.12		add_arp_cache
+# 4.13		hextoip
+# 4.14		colonmac
+# 4.15		add_arp_alert
+# 4.16		ip2long
+# 4.17		long2ip
+# 4.18		bc
+# 4.19		network
+# 4.20		dec2bin
+# 4.21		bin2dec
+# 4.22		validip
 ###############################################
 
 # 1.01 chkdhclient
@@ -58,6 +73,69 @@ sub chkdhclient() {
     return 0;
   } else {
     return 1;
+  }
+  return 0;
+}
+
+# 1.02 chk_static_arp
+# Function to check an IP/MAC pair versus the static list in the database
+# Returns 0 on success
+# Returns non-zero on failure
+sub chk_static_arp() {
+  my ($mac, $ip, $sensorid, $chk, $staticmac, @row, $sql, $sth, $er);
+  $mac = $_[0];
+  $ip = $_[1];
+  $sensorid = $_[2];
+  chomp($mac);
+  chomp($ip);
+  chomp($sensorid);
+
+  if ("$sensorid" eq "") {
+    return 1;
+  }
+
+  if ("$ip" eq "") {
+    return 2;
+  }
+
+  if ("$mac" eq "") {
+    return 3;
+  } elsif ("$mac" eq "00:00:00:00:00:00") {
+    return 4;
+  } elsif ("$mac" eq "FF:FF:FF:FF:FF:FF") {
+    return 4;
+  } elsif ("$mac" eq "ff:ff:ff:ff:ff:ff") {
+    return 4;
+  }
+
+  $sql = "SELECT mac, ip FROM arp_static WHERE sensorid = $sensorid AND ip = '$ip'";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+
+  # Get the tap ip address of tap device ($tap) from the query result.
+  @row = $sth->fetchrow_array;
+  if ("@row" eq "") {
+    return 5;
+  } else {
+    $staticmac = "$row[0]";
+    if ("$staticmac" eq "") {
+      return 5;
+    } else {
+      print "Checking: $mac - $staticmac\n";
+      if ("$mac" ne "$staticmac") {
+        # Alert!!
+        $chk = &add_arp_alert($staticmac, $mac, $ip, $sensorid);
+        # Modifying ARP cache
+        $sql = "UPDATE arp_cache SET mac = '$mac' WHERE sensorid = $sensorid AND ip = '$ip'";
+        $sth = $dbh->prepare($sql);
+        $er = $sth->execute();
+
+        `sed 's/^.*$ip\$/$mac $ip/' /home/kees/test/arpcache.txt > /home/kees/test/temp.txt`;
+        `mv /home/kees/test/temp.txt /home/kees/test/arpcache.txt`;
+        delete $arp_cache{"$staticmac"};
+        $arp_cache{"mac"} = $ip;
+      }
+    }
   }
   return 0;
 }
@@ -173,6 +251,23 @@ sub getdatetime {
   if ($mo < 10) { $mo = "0" .$mo; }
   my $datestring = "$dd-$mo-$yy $hh:$mm:$ss";
   return $datestring;
+}
+
+# 2.07 getifmask
+# Function to retrieve the subnet mask from an interface
+# Returns subnet mask on success
+# Returns false on failure
+sub getifmask() {
+  my ($if, $ip);
+  $if = $_[0];
+  $ip = `ifconfig $if | grep "Mask:" | awk -F":" '{print \$4}'`;
+  chomp($ip);
+  if ("$ip" ne "") {
+    return $ip;
+  } else {
+    return "false";
+  }
+  return "false";
 }
 
 # 3.01 dbremoteip
@@ -494,5 +589,318 @@ sub adddefault() {
   }
   return 1;
 }
+
+# 4.12 add_arp_cache
+# Function to add an entry in the scripts ARP cache
+# Returns 0 on success
+# Returns non-zero on failure
+sub add_arp_cache() {
+  my ($mac, $ip, $sensorid, $sql, $sth, $er, $cache_ip, $ts);
+  $mac = $_[0];
+  $ip = $_[1];
+  $sensorid = $_[2];
+  chomp($mac);
+  chomp($ip);
+  chomp($sensorid);
+  $ts = time();
+
+  if ("$sensorid" eq "") {
+    return 1;
+  }
+
+  if ("$ip" eq "") {
+    return 2;
+  }
+
+  if ("$mac" eq "") {
+    return 3;
+  } elsif ("$mac" eq "00:00:00:00:00:00") {
+    return 4;
+  } elsif ("$mac" eq "FF:FF:FF:FF:FF:FF") {
+    return 4;
+  } elsif ("$mac" eq "ff:ff:ff:ff:ff:ff") {
+    return 4;
+  }
+
+  if (exists $arp_cache{"$mac"}) {
+    print "Existing in arp cache ($mac)\n";
+    # MAC address exists in the ARP cache
+    $cache_ip = $arp_cache{"$mac"};
+    if ("$ip" ne "$cache_ip") {
+      # MAC address has a new IP address.
+      $arp_cache{"$mac"} = $ip;
+
+      if ("$dbconn" ne "false") {
+        # Update Tap info to the database for the current $sensor.
+        $sql = "UPDATE arp_cache SET ip = '$ip', sensorid = $sensorid, last_seen = $ts WHERE mac = '$mac'";
+        $er = $dbh->do($sql);
+
+        `sed 's/^$mac.*\$/$mac $ip/' /home/kees/test/arpcache.txt > /home/kees/test/temp.txt`;
+        `mv /home/kees/test/temp.txt /home/kees/test/arpcache.txt`;
+      }
+    }
+  } else {
+    print "New arp cache entry!\n";
+    if ("$dbconn" ne "false") {
+      # Update Tap info to the database for the current $sensor.
+      $sql = "SELECT id FROM arp_cache WHERE sensorid = $sensorid AND ip = '$ip'";
+      $sth = $dbh->prepare($sql);
+      $er = $sth->execute();
+
+      # Get the tap ip address of tap device ($tap) from the query result.
+      @row = $sth->fetchrow_array;
+      $cacheid = $row[0];
+      if ("$cacheid" ne "") {
+        # Modifying ARP cache
+        $sql = "UPDATE arp_cache SET mac = '$mac' WHERE sensorid = $sensorid AND ip = '$ip'";
+        $sth = $dbh->prepare($sql);
+        $er = $sth->execute();
+
+        `sed 's/^.*$ip\$/$mac $ip/' /home/kees/test/arpcache.txt > /home/kees/test/temp.txt`;
+        `mv /home/kees/test/temp.txt /home/kees/test/arpcache.txt`;
+
+        for my $cachemac ( keys %arp_cache ) {
+          my $cacheip = $arp_cache{$cachemac};
+          if ("$cacheip" eq "$ip") {
+            delete $arp_cache{"$cachemac"};
+            $arp_cache{"$mac"} = $ip;
+          }
+        }
+
+        return 0;
+      }
+      # Update Tap info to the database for the current $sensor.
+      $sql = "INSERT INTO arp_cache (mac, ip, sensorid, last_seen) VALUES ('$mac', '$ip', $sensorid, $ts)";
+      $er = $dbh->do($sql);
+    }
+    `echo $mac $ip >> /home/kees/test/arpcache.txt`;
+    $arp_cache{"$mac"} = $ip;
+  }
+  return 0;
+}
+
+# 4.13 hextoip
+# Function to convert a hexadecimal IP address to a regular IP address
+# Returns IP address
+sub hextoip {
+  my ($hex) = @_;
+  my $P1 = hex(substr($hex,0,2));
+  my $P2 = hex(substr($hex,2,2));
+  my $P3 = hex(substr($hex,4,2));
+  my $P4 = hex(substr($hex,6,2));
+  my $quad = "$P1.$P2.$P3.$P4";
+  return $quad;
+}
+
+# 4.14 colonmac
+# Function to convert a string to a regular MAC address
+# Returns MAC address
+sub colonmac {
+  my ($mac) = @_;
+  my $P1 = substr($mac,0,2);
+  my $P2 = substr($mac,2,2);
+  my $P3 = substr($mac,4,2);
+  my $P4 = substr($mac,6,2);
+  my $P5 = substr($mac,8,2);
+  my $P6 = substr($mac,10,2);
+  my $colmac = "$P1:$P2:$P3:$P4:$P5:$P6";
+  return $colmac;
+}
+
+# 4.15 add_arp_alert
+# Function to add an ARP alert to the database
+# Returns 0 on success
+# Returns non-zero on failure
+sub add_arp_alert() {
+  my ($targetmac, $targetip, $sourcemac, $sensorid, $chk, @row, $sql, $sth, $er, $ts, $expires, $expiry);
+  $targetmac = $_[0];
+  $sourcemac = $_[1];
+  $targetip = $_[2];
+  $sensorid = $_[3];
+  chomp($targetmac);
+  chomp($targetip);
+  chomp($sourcemac);
+  chomp($sensorid);
+  $ts = time();
+
+  if ("$sensorid" eq "") {
+    return 1;
+  }
+
+  if ("$targetip" eq "") {
+    return 2;
+  }
+
+  if ("$targetmac" eq "") {
+    return 3;
+  }
+
+  if ("$sourcemac" eq "") {
+    return 4;
+  }
+
+  if (!exists $arp_alert{"$sensorid-$sourcemac-$targetip"}) {
+    $sql = "INSERT INTO arp_alert (sensorid, timestamp, targetmac, sourcemac, targetip) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip')";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+    print "Added alert!\n";
+    $expires = $ts + $c_arp_alert_expiry;
+    $arp_alert{"$sensorid-$sourcemac-$targetip"} = $expires;
+  } else {
+    $expiry = $arp_alert{"$sensorid-$sourcemac-$targetip"};
+    print "EXPIRY: $expiry - $sensorid - $sourcemac - $targetip\n";
+    $cs = time();
+    if ($cs > $expiry) {
+      $sql = "INSERT INTO arp_alert (sensorid, timestamp, targetmac, sourcemac, targetip) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip')";
+      $sth = $dbh->prepare($sql);
+      $er = $sth->execute();
+      print "Added alert!\n";
+      $expires = $ts + $c_arp_alert_expiry;
+      $arp_alert{"$sensorid-$sourcemac-$targetip"} = $expires;
+    } else {
+      print "Ignoring alert (expiry: $expiry)\n";
+    }
+  }
+  return 0;
+}
+
+# 4.16 ip2long
+# Function to convert an IP address to a long integer
+sub ip2long() {
+  return unpack("l*", pack("l*", unpack("N*", inet_aton(shift))));
+}
+
+# 4.17 long2ip
+# Function to convert a long integer to an IP address
+sub long2ip() {
+  return inet_ntoa(pack("N*", shift));
+}
+
+# 4.18 bc
+# Function to calculate the broadcast address given an IP address and subnet mask
+# Returns broadcast IP address on success
+# Returns false on failure
+sub bc() {
+  my ($address, $mask, $chkip, $bina, $binm, $binn, $cidr, $bcpart, $binbc, $bc);
+  $address = $_[0];
+  $mask = $_[1];
+  chomp($address);
+  chomp($mask);
+  $chkip = &validip($address);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $bina = &dec2bin($address);
+  $binm = &dec2bin($mask);
+  $cidr = ($binm =~ tr/1//);
+  $binn = substr($bina, 0, $cidr);
+  $bcpart = 32 - $cidr;
+  $binbc = $binn . "1" x $bcpart;
+  $bc = &bin2dec($binbc);
+  return $bc;
+}
+
+# 4.19 network
+# Function to calculate the network given an IP address and subnet mask
+# Returns network IP address on success
+# Returns false on failure
+sub network() {
+  my ($address, $chkip, $mask, $bina, $binm, $binn, $cidr, $net);
+  $address = $_[0];
+  $mask = $_[1];
+  chomp($address);
+  chomp($mask);
+  $chkip = &validip($address);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $bina = &dec2bin($address);
+  $binm = &dec2bin($mask);
+  $cidr = ($binm =~ tr/1//);
+  $binn = substr($bina, 0, $cidr);
+  $net = &bin2dec($binn);
+  return $net;
+}
+
+# 4.20 dec2bin
+# Function to convert a dotted decimal IP address to a binary string
+# Returns binary string on success
+# Returns false on failure
+sub dec2bin() {
+  my ($ip, $chkip, @ip_ar, $bin, $pad, $diff, $i);
+  $ip = $_[0];
+  chomp($ip);
+  $chkip = &validip($ip);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $bin = "";
+  $pad = "";
+  chomp($ip);
+  @ip_ar = split(/\./, $ip);
+
+  foreach $dec (@ip_ar) {
+    $pad = "";
+    $dec = unpack("B32", pack("N", $dec));
+    $dec =~ s/^0+(?=\d)//;   # otherwise you'll get leading zeros
+    $diff = 8 - length($dec);
+    if ($diff > 0) {
+      for (1...$diff) {
+        $pad .= "0";
+      }
+    }
+    $dec = $pad . $dec;
+    $bin .= $dec;
+  }
+  return $bin;
+}
+
+# 4.21 bin2dec
+# Function to convert a binary string to a dotted decimal IP address
+# Returns IP address on success
+sub bin2dec() {
+  my ($bin, $dec, $val, $dot, $i, $off);
+  $bin = $_[0];
+  $dec = "";
+  chomp($bin);
+  for ($i=0; $i<4; $i++) {
+    $off = $i * 8;
+    $part = substr($bin, $off, 8);
+    $dec .= unpack("N", pack("B32", substr("0" x 32 . $part, -32)));
+    if ($i != 3) {
+      $dec .= ".";
+    }
+  }
+  return $dec;
+}
+
+# 4.22 validip
+# Function to check if a given IP address is a valid IP address.
+# Returns 0 if the IP is a valid IP number
+# Returns 1 if not
+sub validip() {
+  my ($ip, @ip_ar, $i, $count, $dec);
+  $ip = $_[0];
+  chomp($ip);
+  $regexp = "^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
+  $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
+  $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))";
+  $regexp .= "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\$";
+  if ($ip !~ /$regexp/) {
+    return 1;
+  } else {
+    return 0;
+  }
+  return 1;
+}
+
 
 return "true";
