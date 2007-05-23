@@ -108,20 +108,19 @@ sub chk_static_arp() {
     return 4;
   }
 
-  $sql = "SELECT mac, ip FROM arp_static WHERE sensorid = $sensorid AND ip = '$ip'";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
+#  $sql = "SELECT mac, ip FROM arp_static WHERE sensorid = $sensorid AND ip = '$ip'";
+#  $sth = $dbh->prepare($sql);
+#  $er = $sth->execute();
 
-  # Get the tap ip address of tap device ($tap) from the query result.
-  @row = $sth->fetchrow_array;
-  if ("@row" eq "") {
+#  # Get the tap ip address of tap device ($tap) from the query result.
+#  @row = $sth->fetchrow_array;
+  if (! exists $arp_static{"$ip"}) {
     return 5;
   } else {
-    $staticmac = "$row[0]";
+    $staticmac = $arp_static{"$ip"};;
     if ("$staticmac" eq "") {
       return 5;
     } else {
-      print "Checking: $mac - $staticmac\n";
       if ("$mac" ne "$staticmac") {
         # Alert!!
         $chk = &add_arp_alert($staticmac, $mac, $ip, $sensorid);
@@ -130,8 +129,6 @@ sub chk_static_arp() {
         $sth = $dbh->prepare($sql);
         $er = $sth->execute();
 
-        `sed 's/^.*$ip\$/$mac $ip/' /home/kees/test/arpcache.txt > /home/kees/test/temp.txt`;
-        `mv /home/kees/test/temp.txt /home/kees/test/arpcache.txt`;
         delete $arp_cache{"$staticmac"};
         $arp_cache{"mac"} = $ip;
       }
@@ -623,7 +620,6 @@ sub add_arp_cache() {
   }
 
   if (exists $arp_cache{"$mac"}) {
-    print "Existing in arp cache ($mac)\n";
     # MAC address exists in the ARP cache
     $cache_ip = $arp_cache{"$mac"};
     if ("$ip" ne "$cache_ip") {
@@ -634,13 +630,9 @@ sub add_arp_cache() {
         # Update Tap info to the database for the current $sensor.
         $sql = "UPDATE arp_cache SET ip = '$ip', sensorid = $sensorid, last_seen = $ts WHERE mac = '$mac'";
         $er = $dbh->do($sql);
-
-        `sed 's/^$mac.*\$/$mac $ip/' /home/kees/test/arpcache.txt > /home/kees/test/temp.txt`;
-        `mv /home/kees/test/temp.txt /home/kees/test/arpcache.txt`;
       }
     }
   } else {
-    print "New arp cache entry!\n";
     if ("$dbconn" ne "false") {
       # Update Tap info to the database for the current $sensor.
       $sql = "SELECT id FROM arp_cache WHERE sensorid = $sensorid AND ip = '$ip'";
@@ -656,9 +648,6 @@ sub add_arp_cache() {
         $sth = $dbh->prepare($sql);
         $er = $sth->execute();
 
-        `sed 's/^.*$ip\$/$mac $ip/' /home/kees/test/arpcache.txt > /home/kees/test/temp.txt`;
-        `mv /home/kees/test/temp.txt /home/kees/test/arpcache.txt`;
-
         for my $cachemac ( keys %arp_cache ) {
           my $cacheip = $arp_cache{$cachemac};
           if ("$cacheip" eq "$ip") {
@@ -673,7 +662,6 @@ sub add_arp_cache() {
       $sql = "INSERT INTO arp_cache (mac, ip, sensorid, last_seen) VALUES ('$mac', '$ip', $sensorid, $ts)";
       $er = $dbh->do($sql);
     }
-    `echo $mac $ip >> /home/kees/test/arpcache.txt`;
     $arp_cache{"$mac"} = $ip;
   }
   return 0;
@@ -740,25 +728,20 @@ sub add_arp_alert() {
   }
 
   if (!exists $arp_alert{"$sensorid-$sourcemac-$targetip"}) {
-    $sql = "INSERT INTO arp_alert (sensorid, timestamp, targetmac, sourcemac, targetip) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip')";
+    $sql = "INSERT INTO arp_alert (sensorid, timestamp, targetmac, sourcemac, targetip, type) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip', 1)";
     $sth = $dbh->prepare($sql);
     $er = $sth->execute();
-    print "Added alert!\n";
     $expires = $ts + $c_arp_alert_expiry;
     $arp_alert{"$sensorid-$sourcemac-$targetip"} = $expires;
   } else {
     $expiry = $arp_alert{"$sensorid-$sourcemac-$targetip"};
-    print "EXPIRY: $expiry - $sensorid - $sourcemac - $targetip\n";
     $cs = time();
     if ($cs > $expiry) {
-      $sql = "INSERT INTO arp_alert (sensorid, timestamp, targetmac, sourcemac, targetip) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip')";
+      $sql = "INSERT INTO arp_alert (sensorid, timestamp, targetmac, sourcemac, targetip, type) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip', 1)";
       $sth = $dbh->prepare($sql);
       $er = $sth->execute();
-      print "Added alert!\n";
       $expires = $ts + $c_arp_alert_expiry;
       $arp_alert{"$sensorid-$sourcemac-$targetip"} = $expires;
-    } else {
-      print "Ignoring alert (expiry: $expiry)\n";
     }
   }
   return 0;

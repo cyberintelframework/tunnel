@@ -29,6 +29,11 @@
 # Contact ids@surfnet.nl                                                                #
 #########################################################################################
 
+#####################
+# Changelog:
+# 1.04.01 Initial release
+#####################
+
 ##################
 # Modules used
 ##################
@@ -48,9 +53,32 @@ use Socket;
 ##################
 # Variables used
 ##################
-do 'tnfunctions.inc.pl';
 do '/etc/surfnetids/surfnetids-tn.conf';
+require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 $tap = $ARGV[0];
+
+$logfile = $c_logfile;
+$logfile =~ s|.*/||;
+if ($c_logstamp == 1) {
+  $day = localtime->mday();
+  if ($day < 10) {
+    $day = "0" . $day;
+  }
+  $month = localtime->mon() + 1;
+  if ($month < 10) {
+    $month = "0" . $month;
+  }
+  $year = localtime->year() + 1900;
+  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
+    mkdir("$c_surfidsdir/log/$day$month$year");
+  }
+  if ( ! -d "$c_surfidsdir/log/$day$month$year/$tap" ) {
+    mkdir("$c_surfidsdir/log/$day$month$year/$tap");
+  }
+  $logfile = "$c_surfidsdir/log/$day$month$year/$tap/$logfile";
+} else {
+  $logfile = "$c_surfidsdir/log/$logfile";
+}
 
 $argcount = @ARGV;
 if ($argcount == 0) {
@@ -85,6 +113,8 @@ if ($argcount == 0) {
 # Main script
 ##################
 
+printlog("Starting detectarp.pl!");
+
 # Connect to the database (dbh = DatabaseHandler or linkserver)
 $dbconn = connectdb();
 
@@ -108,8 +138,9 @@ if ("$dbconn" ne "false") {
 # Initialize the scripts arp cache
 %arp_cache = ();
 %arp_alert = ();
-`echo "" > /home/kees/test/arpcache.txt`;
+%arp_static = ();
 
+printlog("Filling arp cache!");
 #### ARP CACHE ####
 # Filling the local scripts arp cache
 $sql = "SELECT mac, ip FROM arp_cache WHERE sensorid = $sensorid";
@@ -119,10 +150,23 @@ $er = $sth->execute();
 while (@row = $sth->fetchrow_array) {
   $db_mac = $row[0];
   $db_ip = $row[1];
-  print "DB: $db_mac - $db_ip\n";
   $arp_cache{"$db_mac"} = $db_ip;
-  `echo $db_mac $db_ip >> /home/kees/test/arpcache.txt`;
 }
+
+printlog("Filling static arp list!");
+#### ARP STATIC ####
+# Filling the local scripts static arp list
+$sql = "SELECT mac, ip FROM arp_static WHERE sensorid = $sensorid";
+$sth = $dbh->prepare($sql);
+$er = $sth->execute();
+
+while (@row = $sth->fetchrow_array) {
+  $db_mac = $row[0];
+  $db_ip = $row[1];
+  $arp_static{"$db_ip"} = $db_mac;
+}
+$ts = time();
+$refresh_time = $ts + $c_arp_static_refresh;
 
 ##################
 # Getting interface info
@@ -150,6 +194,7 @@ my %args = (
 
 # Putting the interface on promiscuous mode to catch more traffic
 `ifconfig $tap promisc up`;
+printlog("Setting interface in promisc", $?);
 
 $i = 0;
 $e = 0;
@@ -157,7 +202,6 @@ $e = 0;
 # Function to handle the sniffing
 sub filter_packets {
   my ($userdata, $header, $pckt) = @_;
-
   my $eth_obj = NetPacket::Ethernet->decode($pckt);
   $eth_type = $eth_obj->{type};
 
@@ -185,10 +229,28 @@ sub filter_packets {
     }
   }
   elsif ($eth_obj->{type} == ETH_TYPE_SNMP) {
-    print "ETH_TYPE_SNMP\n";
+#    print "ETH_TYPE_SNMP\n";
   }
   elsif ($eth_obj->{type} == ETH_TYPE_ARP) {
     $ts = time();
+
+    if ($ts > $refresh_time) {
+      %arp_static = ();
+
+      #### ARP STATIC ####
+      # Filling the local scripts static arp list
+      $sql = "SELECT mac, ip FROM arp_static WHERE sensorid = $sensorid";
+      $sth = $dbh->prepare($sql);
+      $er = $sth->execute();
+
+      while (@row = $sth->fetchrow_array) {
+        $db_mac = $row[0];
+        $db_ip = $row[1];
+        $arp_static{"$db_ip"} = $db_mac;
+      }
+      $refresh_time = $ts + $c_arp_static_refresh;
+    }
+
     my $arp_obj = NetPacket::ARP->decode($eth_obj->{data});
     $arp_opcode = $arp_obj->{opcode};
     if ($arp_opcode == 1) {
@@ -216,7 +278,6 @@ sub filter_packets {
 
       # Reply source check
       $arp_source_ip_long = ip2long($arp_source_ip);
-      print "ARPSOURCE: $arp_source_ip - $arp_source_ip_long > $ifmin AND $ifmax > $arp_source_ip_long\n";
       if ($arp_source_ip_long > $ifmin && $ifmax > $arp_source_ip_long) {
         $check = add_arp_cache($arp_source_mac, $arp_source_ip, $sensorid);
         $check = chk_static_arp($arp_source_mac, $arp_source_ip, $sensorid);
@@ -228,5 +289,4 @@ sub filter_packets {
 # Call the filter_arp function for packets received with type "ARP"
 Net::PcapUtils::loop(\&filter_packets, %args);
 
-
-    
+printlog("--------Finished detectarp.pl--------");

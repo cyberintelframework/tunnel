@@ -14,6 +14,7 @@
 # 1.04.02 More stable distribution of the VLAN's
 # 1.04.01 Initial release
 ###################
+use Time::localtime;
 
 $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
@@ -23,13 +24,35 @@ $tunnel = $ARGV[0];
 $gw = $ARGV[1];
 $br = $ARGV[2];
 $pid = $$;
+$sleep = $ARGV[0];
+
+sub getdatetime {
+  my $stamp = time();
+  $tm = localtime($stamp);
+  my $ss = $tm->sec;
+  my $mm = $tm->min;
+  my $hh = $tm->hour;
+  my $dd = $tm->mday;
+  my $mo = $tm->mon + 1;
+  my $yy = $tm->year + 1900;
+  if ($ss < 10) { $ss = "0" .$ss; }
+  if ($mm < 10) { $mm = "0" .$mm; }
+  if ($hh < 10) { $hh = "0" .$hh; }
+  if ($dd < 10) { $dd = "0" .$dd; }
+  if ($mo < 10) { $mo = "0" .$mo; }
+  my $datestring = "$dd-$mo-$yy $hh:$mm:$ss";
+  return $datestring;
+}
 
 open(LOG, ">> $basedir/up.log");
+$ts = getdatetime();
+sleep $sleep;
+print LOG "$ts [$tunnel] First Sleep: $sleep sec\n";
 
 $chkrun = `ps -ef | grep "perl" | grep "up.pl $tunnel" | grep -v $pid | grep -v grep | wc -l`;
 chomp($chkrun);
 if ($chkrun != 0) {
-  print LOG "[$tunnel] CHKRUN: $chkrun\n";
+  print LOG "$ts [$tunnel] CHKRUN: $chkrun\n";
   exit;
 }
 `echo $pid > /var/run/up$tunnel.pid`;
@@ -38,8 +61,9 @@ $tmpfile = `mktemp -p $basedir`;
 chomp($tmpfile);
 upplstatus($tunnel, "LOCK", $tmpfile);
 
-print LOG "[$tunnel] GW: $gw\n";
-print LOG "[$tunnel] BR: $br\n";
+$ts = getdatetime();
+print LOG "$ts [$tunnel] GW: $gw\n";
+print LOG "$ts [$tunnel] BR: $br\n";
 $nmapchk = 0;
 $checklock = 0;
 $checkrun = 0;
@@ -56,7 +80,8 @@ while ($nmapchk == 0) {
       $i = $count_tun;
     }
   }
-  print LOG "[$tunnel] NEXT_TUN: $next_tun\n";
+  $ts = getdatetime();
+  print LOG "$ts [$tunnel] NEXT_TUN: $next_tun\n";
 
   if ("$next_tun" eq "") {
     $mintun = $tunnel - 1;
@@ -69,14 +94,16 @@ while ($nmapchk == 0) {
       }
     }
   }
-  print LOG "[$tunnel] NEXT_TUN: $next_tun\n";
+  $ts = getdatetime();
+  print LOG "$ts [$tunnel] NEXT_TUN: $next_tun\n";
   if ($next_tun == $tunnel) {
     $go = 1;
   }
 
   $checkrun = `cat $basedir/tunnel.status | grep RUNNING | grep -v "$tunnel:" | wc -l`;
   chomp($checkrun);
-  print LOG "[$tunnel] CHECKRUN: $checkrun\n";
+  $ts = getdatetime();
+  print LOG "$ts [$tunnel] CHECKRUN: $checkrun\n";
   if ($checkrun != 0) {
     $go = 0;
   } else {
@@ -88,21 +115,24 @@ while ($nmapchk == 0) {
     sleep 10;
     $run = 1;
 
+    $ts = getdatetime();
     `ip route del default 2>/dev/null`;
-    print LOG "[$tunnel] Deleting default: $?\n";
+    print LOG "$ts [$tunnel] Deleting default: $?\n";
     `ip route add default via $gw`;
-    print LOG "[$tunnel] Adding default: $?\n";
+    print LOG "$ts [$tunnel] Adding default: $?\n";
     $nmapchk = `nmap -e $br $server -p 1194 -P0 | grep 1194 | grep open | wc -l`;
     chomp($nmapchk);
-    print LOG "[$tunnel] NMAPCHECK: $nmapchk\n";
+    $ts = getdatetime();
+    print LOG "$ts [$tunnel] NMAPCHECK: $nmapchk\n";
     if ($nmapchk == 0) {
       $timer = $timer + 5;
-      print LOG "[$tunnel] TIMER: $timer\n";
+      $ts = getdatetime();
+      print LOG "$ts [$tunnel] TIMER: $timer\n";
       if ($timer == $uppl_retry) {
-        print LOG "[$tunnel] SLEEP\n";
+        print LOG "$ts [$tunnel] SLEEP\n";
         upplstatus($tunnel, "SLEEP", $tmpfile);
         sleep $uppl_sleep;
-        print LOG "[$tunnel] WAKING UP\n";
+        print LOG "$ts [$tunnel] WAKING UP\n";
         upplstatus($tunnel, "LOCK", $tmpfile);
         $run = 0;
         $timer = 0;
@@ -114,11 +144,13 @@ while ($nmapchk == 0) {
     if ($c == 0) {
       upplstatus($tunnel, "LOCK", $tmpfile);
     }
-    print LOG "[$tunnel] WAITING\n";
+    $ts = getdatetime();
+    print LOG "$ts [$tunnel] WAITING\n";
   }
   sleep 5;
 }
-print LOG "[$tunnel] Finished!\n";
+$ts = getdatetime();
+print LOG "$ts [$tunnel] Finished!\n";
 close(LOG);
 upplstatus($tunnel, "DONE", $tmpfile);
 

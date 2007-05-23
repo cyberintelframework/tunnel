@@ -3,8 +3,8 @@
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 1.04.06                 #
-# 04-04-2007                      #
+# Version 1.04.07                 #
+# 22-05-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 # Modified by Peter Arts          #
 ###################################
@@ -33,6 +33,7 @@
 
 #####################
 # Changelog:
+# 1.04.07 Added detectarp.pl stuff
 # 1.04.06 Removed pcap.pl script
 # 1.04.05 Removed arp from query
 # 1.04.04 Included tnfunctions.inc.pl and modified code structure
@@ -101,7 +102,7 @@ printlog("Starting sql.pl for $sensor on $tap!");
 $dbconn = connectdb();
 
 # Get the IP address configuration for the tap device from the database.
-$sql = "SELECT netconf, netconfdetail, tapip FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
+$sql = "SELECT netconf, netconfdetail, tapip, arp FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
 $sth = $dbh->prepare($sql);
 printlog("Prepared query: $sql");
 $er = $sth->execute();
@@ -111,7 +112,7 @@ printlog("Executed query: $er");
 $netconf = $row[0];
 $netconfdetail = $row[1];
 $tapip = $row[2];
-$sensor_arp = $row[3];
+$arp = $row[3];
 
 # Closing database connection.
 $dbh->disconnect;
@@ -243,6 +244,13 @@ if ($err == 0) {
   if ($c_enable_pof == 1) {
     system "p0f -d -i $tap -o /dev/null";
     printlog("Started p0f!");
+  }
+
+  if ($c_enable_arp == 1) {
+    if ($arp == 1) {
+      system("$c_surfidsdir/scripts/detectarp.pl $tap &");
+      printlog("Started detectarp.pl!");
+    }
   }
 }
 
