@@ -152,6 +152,8 @@ while (@row = $sth->fetchrow_array) {
   $db_ip = $row[1];
   $arp_cache{"$db_mac"} = $db_ip;
 }
+$ts = time();
+$cache_refresh = $ts + $c_arp_cache_refresh;
 
 printlog("Filling static arp list!");
 #### ARP STATIC ####
@@ -166,7 +168,7 @@ while (@row = $sth->fetchrow_array) {
   $arp_static{"$db_ip"} = $db_mac;
 }
 $ts = time();
-$refresh_time = $ts + $c_arp_static_refresh;
+$static_refresh = $ts + $c_arp_static_refresh;
 
 ##################
 # Getting interface info
@@ -234,7 +236,7 @@ sub filter_packets {
   elsif ($eth_obj->{type} == ETH_TYPE_ARP) {
     $ts = time();
 
-    if ($ts > $refresh_time) {
+    if ($ts > $static_refresh) {
       %arp_static = ();
 
       #### ARP STATIC ####
@@ -248,7 +250,20 @@ sub filter_packets {
         $db_ip = $row[1];
         $arp_static{"$db_ip"} = $db_mac;
       }
-      $refresh_time = $ts + $c_arp_static_refresh;
+      $static_refresh = $ts + $c_arp_static_refresh;
+    }
+
+    if ($ts > $cache_refresh) {
+      #### ARP CACHE ####
+      $sql = "SELECT COUNT(id) as total FROM arp_cache WHERE sensorid = $sensorid";
+      $sth = $dbh->prepare($sql);
+      $er = $sth->execute();
+      @row = $sth->fetchrow_array;
+      $count = $row[0];
+      if ($count == 0) {
+        %arp_cache = ();
+      }
+      $cache_refresh = $ts + $c_arp_static_refresh;
     }
 
     my $arp_obj = NetPacket::ARP->decode($eth_obj->{data});

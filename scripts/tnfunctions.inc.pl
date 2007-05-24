@@ -3,13 +3,14 @@
 ######################################
 # Function library for tunnel server #
 # SURFnet IDS                        #
-# Version 1.04.04                    #
-# 18-05-2007                         #
+# Version 1.04.05                    #
+# 24-05-2007                         #
 # Jan van Lith & Kees Trippelvitz    #
 ######################################
 
 #####################
 # Changelog:
+# 1.04.05 Added get_man
 # 1.04.04 Added getifmask, hextoip, colonmac
 # 1.04.03 Added getdatetime
 # 1.04.02 Modified info header
@@ -59,6 +60,7 @@ use POSIX;
 # 4.20		dec2bin
 # 4.21		bin2dec
 # 4.22		validip
+# 4.23		get_man
 ###############################################
 
 # 1.01 chkdhclient
@@ -82,13 +84,14 @@ sub chkdhclient() {
 # Returns 0 on success
 # Returns non-zero on failure
 sub chk_static_arp() {
-  my ($mac, $ip, $sensorid, $chk, $staticmac, @row, $sql, $sth, $er);
+  my ($mac, $ip, $sensorid, $chk, $staticmac, @row, $sql, $sth, $er, $man, $ts);
   $mac = $_[0];
   $ip = $_[1];
   $sensorid = $_[2];
   chomp($mac);
   chomp($ip);
   chomp($sensorid);
+  $ts = time();
 
   if ("$sensorid" eq "") {
     return 1;
@@ -125,7 +128,11 @@ sub chk_static_arp() {
         # Alert!!
         $chk = &add_arp_alert($staticmac, $mac, $ip, $sensorid);
         # Modifying ARP cache
-        $sql = "UPDATE arp_cache SET mac = '$mac' WHERE sensorid = $sensorid AND ip = '$ip'";
+        $man = get_man($mac);
+        if ("$man" eq "false") {
+          $man = "";
+        }
+        $sql = "UPDATE arp_cache SET mac = '$mac', last_seen = $ts, manufacturer = '$man' WHERE sensorid = $sensorid AND ip = '$ip'";
         $sth = $dbh->prepare($sql);
         $er = $sth->execute();
 
@@ -592,7 +599,7 @@ sub adddefault() {
 # Returns 0 on success
 # Returns non-zero on failure
 sub add_arp_cache() {
-  my ($mac, $ip, $sensorid, $sql, $sth, $er, $cache_ip, $ts);
+  my ($mac, $ip, $sensorid, $sql, $sth, $er, $cache_ip, $ts, $man);
   $mac = $_[0];
   $ip = $_[1];
   $sensorid = $_[2];
@@ -639,12 +646,17 @@ sub add_arp_cache() {
       $sth = $dbh->prepare($sql);
       $er = $sth->execute();
 
+      $man = get_man($mac);
+      if ("$man" eq "false") {
+        $man = "";
+      }
+
       # Get the tap ip address of tap device ($tap) from the query result.
       @row = $sth->fetchrow_array;
       $cacheid = $row[0];
       if ("$cacheid" ne "") {
         # Modifying ARP cache
-        $sql = "UPDATE arp_cache SET mac = '$mac' WHERE sensorid = $sensorid AND ip = '$ip'";
+        $sql = "UPDATE arp_cache SET mac = '$mac', last_seen = $ts, manufacturer = '$man' WHERE sensorid = $sensorid AND ip = '$ip'";
         $sth = $dbh->prepare($sql);
         $er = $sth->execute();
 
@@ -655,11 +667,9 @@ sub add_arp_cache() {
             $arp_cache{"$mac"} = $ip;
           }
         }
-
         return 0;
       }
-      # Update Tap info to the database for the current $sensor.
-      $sql = "INSERT INTO arp_cache (mac, ip, sensorid, last_seen) VALUES ('$mac', '$ip', $sensorid, $ts)";
+      $sql = "INSERT INTO arp_cache (mac, ip, sensorid, last_seen, manufacturer) VALUES ('$mac', '$ip', $sensorid, $ts, '$man')";
       $er = $dbh->do($sql);
     }
     $arp_cache{"$mac"} = $ip;
@@ -885,5 +895,25 @@ sub validip() {
   return 1;
 }
 
+# 4.23 get_man()
+# Function to retrieve the manufacturer of a certain network card
+# based on the given mac address.
+# Returns manufacturer name on success
+# Returns false on failure
+sub get_man() {
+  my ($mac, $prefix, @prefix_ar, $man);
+  $mac = $_[0];
+  chomp($mac);
+  @prefix_ar = split(/:/, $mac);
+  $prefix = "$prefix_ar[0]:$prefix_ar[1]:$prefix_ar[2]";
+  print "PREFIX: $prefix\n";
+  $man = `grep -i "$prefix" $c_surfidsdir/scripts/oui.txt | awk '{sub(/(..):(..):(..)/,"");sub(/^[ \t]+/, "");print}'`;
+  chomp($man);
+  if ("$man" eq "") {
+    return "false";
+  } else {
+    return $man;
+  }
+}
 
 return "true";
