@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 ########################################
 # ARP detection module                       
@@ -49,6 +49,9 @@ use DBI;
 use Time::localtime;
 use POSIX;
 use Socket;
+use Net::SMTP;
+use MIME::Lite;
+use GnuPG qw( :algo );
 
 ##################
 # Variables used
@@ -120,22 +123,37 @@ $dbconn = connectdb();
 
 # Getting the sensor ID
 if ("$dbconn" ne "false") {
-  # Update Tap info to the database for the current $sensor.
-  $sql = "SELECT id FROM sensors WHERE tap = '$tap'";
+  $sql = "SELECT id, organisation FROM sensors WHERE tap = '$tap'";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
 
-  # Get the tap ip address of tap device ($tap) from the query result.
   @row = $sth->fetchrow_array;
   $sensorid = $row[0];
+  $org = $row[1];
   if ("$sensorid" eq "") {
+    exit 1;
+  }
+  if ("$org" eq "") {
     exit 1;
   }
 } else {
   exit 1;
 }
 
-# Initialize the scripts arp cache
+# Get the info needed for the mailreport stuff
+$sql = "SELECT login.email, login.gpg FROM report_content, login ";
+$sql .= " WHERE login.id = report_content.user_id AND report_content.sensor_id = $sensorid AND report_content.template = 5 AND report_content.active = TRUE";
+$sth = $dbh->prepare($sql);
+$er = $sth->execute();
+
+while (@row = $sth->fetchrow_array) {
+  $email = $row[0];
+  $gpg = $row[1];
+  print "Loading mailreports: $email - $gpg\n";
+  $arp_mail{"$email"} = $gpg;
+}
+
+# Initialize the scripts arp cache, alert and static hashes
 %arp_cache = ();
 %arp_alert = ();
 %arp_static = ();
@@ -268,6 +286,12 @@ sub filter_packets {
 
     my $arp_obj = NetPacket::ARP->decode($eth_obj->{data});
     $arp_opcode = $arp_obj->{opcode};
+#    $eth_data = unpack('H*', $eth_obj->{data});
+#    print "ETHDATA: $eth_data\n";
+#    $data = unpack('A*', $header);
+#    Dumper($data);
+#    print "DATA: $data\n";
+
     if ($arp_opcode == 1) {
       #######################
       # (2.1.1) ARP Query
@@ -276,6 +300,8 @@ sub filter_packets {
       $arp_source_ip = hextoip($arp_obj->{spa});
       $arp_dest_mac = colonmac($arp_obj->{tha});
       $arp_dest_ip = hextoip($arp_obj->{tpa});
+
+      print "ARPQUERY: $arp_source_mac ($arp_source_ip) -> $arp_dest_mac ($arp_dest_ip)\n";
 
       $check = add_arp_cache($arp_source_mac, $arp_source_ip, $sensorid);
       $check = chk_static_arp($arp_source_mac, $arp_source_ip, $sensorid);
@@ -287,6 +313,8 @@ sub filter_packets {
       $arp_source_ip = hextoip($arp_obj->{spa});
       $arp_dest_mac = colonmac($arp_obj->{tha});
       $arp_dest_ip = hextoip($arp_obj->{tpa});
+
+      print "ARPREPLY: $arp_source_mac ($arp_source_ip) -> $arp_dest_mac ($arp_dest_ip)\n";
 
       $check = add_arp_cache($arp_dest_mac, $arp_dest_ip, $sensorid);
       $check = chk_static_arp($arp_dest_mac, $arp_dest_ip, $sensorid);

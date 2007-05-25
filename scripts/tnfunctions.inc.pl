@@ -61,6 +61,7 @@ use POSIX;
 # 4.21		bin2dec
 # 4.22		validip
 # 4.23		get_man
+# 4.24		sendmail
 ###############################################
 
 # 1.01 chkdhclient
@@ -710,7 +711,7 @@ sub colonmac {
 # Returns 0 on success
 # Returns non-zero on failure
 sub add_arp_alert() {
-  my ($targetmac, $targetip, $sourcemac, $sensorid, $chk, @row, $sql, $sth, $er, $ts, $expires, $expiry);
+  my ($targetmac, $targetip, $sourcemac, $sensorid, $chk, @row, $sql, $sth, $er, $ts, $expires, $expiry, $mailfile, $subject);
   $targetmac = $_[0];
   $sourcemac = $_[1];
   $targetip = $_[2];
@@ -743,6 +744,40 @@ sub add_arp_alert() {
     $er = $sth->execute();
     $expires = $ts + $c_arp_alert_expiry;
     $arp_alert{"$sensorid-$sourcemac-$targetip"} = $expires;
+
+    $sql_getsid = "SELECT keyname, vlanid FROM sensors WHERE id = '$sensorid'";
+    $sth_getsid = $dbh->prepare($sql_getsid);
+    $er = $sth_getsid->execute();
+    @row_sid = $sth_getsid->fetchrow_array;
+    $keyname = $row_sid[0];
+    $vlanid = $row_sid[1];
+    if ($vlanid != 0) {
+      $keyname = "$keyname-$vlanid";
+    }
+
+    # ARP MAIL STUFF
+    $mailfile = "/tmp/" .$sensorid. ".arp.mail";
+    open(MAIL, "> $mailfile");
+    print MAIL "ARP Poisoning attack detected on $keyname!\n\n";
+    print MAIL "An attacker with MAC address $sourcemac is trying to take over $targetip ($targetmac)!\n";
+    close(MAIL);
+
+    $subject = $c_subject_prefix ."ARP Poisoning attempt detected on $keyname!";
+
+    # email address, mailfile, sensorid, subject, gpg
+    for my $email (keys %arp_mail) {
+      $gpg = $arp_mail{"$email"};
+      sendmail($email, $mailfile, $sensorid, $subject, $gpg);
+    }
+
+    # Setting last_sent timestamp
+    $ts = time();
+    $sql = "UPDATE report_content SET last_sent = '$ts' WHERE template = 5 AND sensor_id = '$sensorid'";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    # Removing mailfile
+    #`rm -f $mailfile`;
   } else {
     $expiry = $arp_alert{"$sensorid-$sourcemac-$targetip"};
     $cs = time();
@@ -752,6 +787,30 @@ sub add_arp_alert() {
       $er = $sth->execute();
       $expires = $ts + $c_arp_alert_expiry;
       $arp_alert{"$sensorid-$sourcemac-$targetip"} = $expires;
+
+      # ARP MAIL STUFF
+      $mailfile = "/tmp/" .$sensorid. ".arp.mail";
+      open(MAIL, "> $mailfile");
+      print MAIL "ARP Poisoning attack detected!\n\n";
+      print MAIL "An attacker with MAC address $sourcemac is trying to take over $targetip ($targetmac)!\n";
+      close(MAIL);
+
+      $subject = $c_subject_prefix ."ARP Poisoning attempt detected!";
+
+      # email address, mailfile, sensorid, subject, gpg
+      for my $email (keys %arp_mail) {
+        $gpg = $arp_mail{"$email"};
+        sendmail($email, $mailfile, $sensorid, $subject, $gpg);
+      }
+
+      # Setting last_sent timestamp
+      $ts = time();
+      $sql = "UPDATE report_content SET last_sent = '$ts' WHERE template = 5 AND sensor_id = '$sensorid'";
+      $sth = $dbh->prepare($sql);
+      $er = $sth->execute();
+
+      # Removing mailfile
+      #`rm -f $mailfile`;
     }
   }
   return 0;
@@ -906,7 +965,6 @@ sub get_man() {
   chomp($mac);
   @prefix_ar = split(/:/, $mac);
   $prefix = "$prefix_ar[0]:$prefix_ar[1]:$prefix_ar[2]";
-  print "PREFIX: $prefix\n";
   $man = `grep -i "$prefix" $c_surfidsdir/scripts/oui.txt | awk '{sub(/(..):(..):(..)/,"");sub(/^[ \t]+/, "");print}'`;
   chomp($man);
   if ("$man" eq "") {
@@ -914,6 +972,59 @@ sub get_man() {
   } else {
     return $man;
   }
+}
+
+# 4.24 sendmail()
+# Function to send a mail
+# Returns 0 on success
+# Dies on failure
+sub sendmail() {
+  $email = $_[0];
+  $mailfile = $_[1];
+  $sensorid = $_[2];
+  $subject = $_[3];
+  $gpg_enabled = $_[4];
+  
+  $sigmailfile = "$mailfile" . ".sig";
+  $to_address = "$email";
+  $mail_host = 'localhost';
+
+  if ($gpg_enabled == 1) {
+    # Encrypt the mail with gnupg 
+    $gpg = new GnuPG();
+    $gpg->clearsign(plaintext => "$mailfile", output => "$sigmailfile", armor => 1, passphrase => $c_passphrase);
+  }
+  
+  #### Create the multipart container
+  $msg = MIME::Lite->new (
+    From => $c_from_address,
+    To => $to_address,
+    Subject => $subject,
+    Type => 'multipart/mixed'
+  ) or die "Error creating multipart container: $!\n";
+  
+  if ($gpg_enabled == 1) { $final_mailfile  = $sigmailfile; }
+  else { $final_mailfile = $mailfile; }
+
+  ### Add the (signed) file
+  $msg->attach (
+    Type => 'text/plain; charset=ISO-8859-1',
+    Path => $final_mailfile,
+    Filename => $final_mailfile,
+  ) or die "Error adding $final_mailfile: $!\n";
+  
+  ### Send the Message
+  MIME::Lite->send('sendmail');
+  $chk = $msg->send;
+  
+  # Print info to a log file
+  &printlog("Mailed to: $email");
+
+  # Delete the mail and signed mail
+  if (-e "$sigmailfile") {
+    system("rm $sigmailfile");
+  }
+  return 0;
 }
 
 return "true";
