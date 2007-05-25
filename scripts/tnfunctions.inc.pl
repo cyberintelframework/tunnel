@@ -777,7 +777,7 @@ sub add_arp_alert() {
     $er = $sth->execute();
 
     # Removing mailfile
-    #`rm -f $mailfile`;
+    `rm -f $mailfile`;
   } else {
     $expiry = $arp_alert{"$sensorid-$sourcemac-$targetip"};
     $cs = time();
@@ -788,14 +788,24 @@ sub add_arp_alert() {
       $expires = $ts + $c_arp_alert_expiry;
       $arp_alert{"$sensorid-$sourcemac-$targetip"} = $expires;
 
+      $sql_getsid = "SELECT keyname, vlanid FROM sensors WHERE id = '$sensorid'";
+      $sth_getsid = $dbh->prepare($sql_getsid);
+      $er = $sth_getsid->execute();
+      @row_sid = $sth_getsid->fetchrow_array;
+      $keyname = $row_sid[0];
+      $vlanid = $row_sid[1];
+      if ($vlanid != 0) {
+        $keyname = "$keyname-$vlanid";
+      }
+
       # ARP MAIL STUFF
       $mailfile = "/tmp/" .$sensorid. ".arp.mail";
       open(MAIL, "> $mailfile");
-      print MAIL "ARP Poisoning attack detected!\n\n";
+      print MAIL "ARP Poisoning attack detected on $keyname!\n\n";
       print MAIL "An attacker with MAC address $sourcemac is trying to take over $targetip ($targetmac)!\n";
       close(MAIL);
 
-      $subject = $c_subject_prefix ."ARP Poisoning attempt detected!";
+      $subject = $c_subject_prefix ."ARP Poisoning attempt detected on $keyname!";
 
       # email address, mailfile, sensorid, subject, gpg
       for my $email (keys %arp_mail) {
@@ -810,7 +820,7 @@ sub add_arp_alert() {
       $er = $sth->execute();
 
       # Removing mailfile
-      #`rm -f $mailfile`;
+      `rm -f $mailfile`;
     }
   }
   return 0;
