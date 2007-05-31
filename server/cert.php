@@ -3,8 +3,8 @@
 ####################################
 # Certificate Generation Handler   #
 # SURFnet IDS                      #
-# Version 1.04.04                  #
-# 20-04-2007                       #
+# Version 1.04.05                  #
+# 31-05-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
@@ -35,6 +35,7 @@
 
 ####################################
 # Changelog:
+# 1.04.05 Added extra check on orgname
 # 1.04.04 Fixed bug with sensor numbering
 # 1.04.03 Fixed typo in SURFnet SOAP stuff
 # 1.04.02 Changed identifier check order
@@ -152,7 +153,7 @@ if ($err == 0) {
 
   if ($orgid == 0) {
     # Organisation did not exist yet.
-    if ($orgname == "false") {
+    if ($orgname == "false" || $orgname == "") {
       $orgname = $remoteip;
     }
     $ranges = "";

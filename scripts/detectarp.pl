@@ -123,13 +123,14 @@ $dbconn = connectdb();
 
 # Getting the sensor ID
 if ("$dbconn" ne "false") {
-  $sql = "SELECT id, organisation FROM sensors WHERE tap = '$tap'";
+  $sql = "SELECT id, organisation, netconf FROM sensors WHERE tap = '$tap'";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
 
   @row = $sth->fetchrow_array;
   $sensorid = $row[0];
   $org = $row[1];
+  $netconf = $row[2];
   if ("$sensorid" eq "") {
     exit 1;
   }
@@ -195,6 +196,68 @@ $ifip = getifip($tap);
 $ifmask = getifmask($tap);
 $ifmin = ip2long(network($ifip, $ifmask));
 $ifmax = ip2long(bc($ifip, $ifmask));
+if ($netconf eq "dhcp" || $netconf eq "vland") {
+  $gw = `cat /var/lib/dhcp3/$tap.leases | grep routers | tail -n1 | awk '{print \$3}' | awk -F\\; '{print \$1}'`;
+  chomp($gw);
+  if ("$gw" eq "") {
+    $gw = gw($ifip, $ifmask);
+  }
+} else {
+  $gw = gw($ifip, $ifmask);
+}
+
+##################
+# Checking the gateway IP/MAC pair.
+##################
+
+$sql = "SELECT mac FROM arp_static WHERE sensorid = $sensorid AND ip = '$gw'";
+$sth = $dbh->prepare($sql);
+$er = $sth->execute();
+@row = $sth->fetchrow_array;
+$db_mac = $row[0];
+
+`arping -h 2>/dev/null`;
+if ($? == 0) {
+  %maclist = ();
+  open(ARPING, "arping -r -i $tap -c 4 $gw | ");
+  while (<ARPING>) {
+    $mac = $_;
+    chomp($mac);
+    $maclist{"$mac"} = 0;
+  }
+  close(ARPING);
+  $count = keys(%maclist);
+  if ($count == 1) {
+    if ("$db_mac" eq "") {
+      # Static ARP entry for the gateway not yet present. Add it.
+      printlog("Adding static ARP entry for the gateway!");
+
+      $sql = "INSERT INTO arp_static (mac, ip, sensorid) VALUES ('$mac', '$gw', $sensorid)";
+      $sth = $dbh->prepare($sql);
+      $er = $sth->execute();
+    } elsif ("$db_mac" ne "$mac") {
+      # Static ARP entry for the gateway present, but with a different MAC address. Update it.
+      printlog("Updating static ARP entry for the gateway!");
+
+      $sql = "UPDATE arp_static SET mac = '$mac' WHERE sensorid = $sensorid AND ip = '$gw'";
+      $sth = $dbh->prepare($sql);
+      $er = $sth->execute();
+    }
+  } else {
+    # Gateway returned multiple MAC addresses. Network is possibly poisoned!
+    if ("$db_mac" ne "") {
+      # Static ARP entry present in the database.
+      if (exists $maclist{"$db_mac"}) {
+        for my $key ( keys %maclist ) {
+          if ("$key" ne "$db_mac") {
+            $poisonmac = $key;
+            add_arp_alert($db_mac, $poisonmac, $gw, $sensorid);
+          }
+        }
+      }
+    }
+  }
+}
 
 ##################
 # TCPdump part (handles most stuff)

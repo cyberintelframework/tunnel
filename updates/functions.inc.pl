@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.27
-# 08-05-2007
+# Version 1.04.28
+# 31-05-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.28 Fixed a bug with network calculation
 # 1.04.27 Fixed client.conf updating bug
 # 1.04.26 Added extra ping within chkreach 
 # 1.04.25 Removed chkgateway (use chkreach)
@@ -1231,6 +1232,9 @@ sub network() {
   $binm = &dec2bin($mask);
   $cidr = ($binm =~ tr/1//);
   $binn = substr($bina, 0, $cidr);
+  $temp = substr($bina, length($binn), (32 - length($binn)));
+  $temp =~ s/1/0/g;
+  $binn = $binn . $temp;
   $net = &bin2dec($binn);
   return $net;
 }

@@ -62,6 +62,7 @@ use POSIX;
 # 4.22		validip
 # 4.23		get_man
 # 4.24		sendmail
+# 4.25		gw
 ###############################################
 
 # 1.01 chkdhclient
@@ -871,7 +872,7 @@ sub bc() {
 # Returns network IP address on success
 # Returns false on failure
 sub network() {
-  my ($address, $chkip, $mask, $bina, $binm, $binn, $cidr, $net);
+  my ($address, $chkip, $mask, $bina, $binm, $binn, $cidr, $net, $temp);
   $address = $_[0];
   $mask = $_[1];
   chomp($address);
@@ -888,6 +889,9 @@ sub network() {
   $binm = &dec2bin($mask);
   $cidr = ($binm =~ tr/1//);
   $binn = substr($bina, 0, $cidr);
+  $temp = substr($bina, length($binn), (32 - length($binn)));
+  $temp =~ s/1/0/g;
+  $binn = $binn . $temp;
   $net = &bin2dec($binn);
   return $net;
 }
@@ -1035,6 +1039,32 @@ sub sendmail() {
     system("rm $sigmailfile");
   }
   return 0;
+}
+
+# 4.25 gw
+# Function to calculate the gateway address given an IP address and subnetmask
+# Returns gateway IP address on success
+# Returns false on failure
+sub gw() {
+  my ($address, $chkip, $mask, $bina, $binm, $binn, $bing, $cidr, $net);
+  $address = $_[0];
+  $mask = $_[1];
+  chomp($address);
+  chomp($mask);
+  $chkip = &validip($address);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $net = &network($address, $mask);
+  @net_ar = split(/\./, $net);
+  $old = $net_ar[3];
+  $new = $old + 1;
+  $gw = $net_ar[0] . "." . $net_ar[1] . "." . $net_ar[2] . "." . $new;
+  return $gw;
 }
 
 return "true";
