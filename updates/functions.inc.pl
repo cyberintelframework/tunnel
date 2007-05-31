@@ -3,13 +3,16 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.25
-# 16-04-2007
+# Version 1.04.28
+# 31-05-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.28 Fixed a bug with network calculation
+# 1.04.27 Fixed client.conf updating bug
+# 1.04.26 Added extra ping within chkreach 
 # 1.04.25 Removed chkgateway (use chkreach)
 # 1.04.24 ifconfig -a switch added
 # 1.04.23 Added server subdir to chkwgetauth function
@@ -372,6 +375,7 @@ sub chkreach() {
   chomp($ip);
   $chkip = validip($ip);
   if ($chkip == 0) {
+    `ping -c 20 -q $ip 2>/dev/null`;
     `ping -c 1 -q $ip 2>/dev/null`;
     return $?;
   } else {
@@ -696,7 +700,7 @@ sub getcerts() {
   
   # Updating client.conf
   printmsg("Updating client.conf:", "info");
-  open(CLIENT, "> $basedir/client.conf");
+  open(CLIENT, ">> $basedir/client.conf");
   print CLIENT "ca $basedir/ca.crt\n";
   print CLIENT "key $basedir/$sensor.key\n";
   print CLIENT "cert $basedir/$sensor.crt\n";
@@ -1228,6 +1232,9 @@ sub network() {
   $binm = &dec2bin($mask);
   $cidr = ($binm =~ tr/1//);
   $binn = substr($bina, 0, $cidr);
+  $temp = substr($bina, length($binn), (32 - length($binn)));
+  $temp =~ s/1/0/g;
+  $binn = $binn . $temp;
   $net = &bin2dec($binn);
   return $net;
 }
