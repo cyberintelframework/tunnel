@@ -3,13 +3,14 @@
 #########################################
 # UP script for SURFnet IDS Sensor      #
 # SURFnet IDS                           #
-# Version 1.04.03                       #
-# 16-04-2007                            #
+# Version 1.04.04                       #
+# 06-06-2007                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ###################
 # Changelog:
+# 1.04.04 Added sleep time
 # 1.04.03 Removed logging messages
 # 1.04.02 More stable distribution of the VLAN's
 # 1.04.01 Initial release
