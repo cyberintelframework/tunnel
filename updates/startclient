@@ -3,14 +3,16 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 1.04.13
-# 16-04-2007
+# Version 1.04.15
+# 06-06-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 ################
 # Changelog:
+# 1.04.15 Fixed vlan port checks
+# 1.04.14 Changed gateway connectivity handling
 # 1.04.13 Removed chkgateway
 # 1.04.12 Increased waiting for connection timer, fixed bug with empty netconf variable
 # 1.04.11 Fixed bug with multiple static vlans and webinterface tapip warning
@@ -210,9 +212,9 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     printmsg("Activating interface:", $?);
     
     # Checking gateway
-    $chkgw = `ip route list |grep default | wc -l`;
-    if ($chkgw != 0) {
-      for ($i=0 ; $i < $chkgw ; $i++) {
+    $countgw = `ip route list |grep default | wc -l`;
+    if ($countgw != 0) {
+      for ($i=0 ; $i < $countgw ; $i++) {
         `ip route del default 2>/dev/null`;
         printmsg("Delete default route:", $?);
       }
@@ -243,23 +245,27 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     printdelay("Checking gateway connectivity:");
     $chkgw = chkreach($if_gw);
     printresult($chkgw);
+  } else {
+    $chkgw = 1;
   }
 
   # Checking DNS resolver
   $servcheck = validip($server);
-  if ($servcheck != 0 && $chkgw == 0) {
+  if ($servcheck != 0) {
     printdelay("Checking DNS resolver:");
     $chkresolv = getresolv($server);
     if ($chkresolv ne "false") {
       $chkresolv = 0;
+    } else {
+      $chkresolv = 1;
     }
     printresult($chkresolv);
   } else {
-    $chkresolv = "false";
+    $chkresolv = 0;
     printmsg("Checking DNS resolver:", "ignore");
   }
 
-  if ($chkresolv eq "false") {
+  if ($chkresolv != 0) {
     printmsg("Checking OpenVPN port:", "ignore");
     printmsg("Checking updates port:", "ignore");
   } else {
@@ -313,7 +319,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     printmsg("Retrieving certificates:", $chksensor);
   }
 
-  if ($sensor ne "false" && $chkgw == 0 && $chkresolv == 0) {
+  if ($sensor ne "false" && $chkresolv == 0) {
     # Updating the current configuration to the server
     printdelay("Updating status info:");
     `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?ip_localip=$if_ip&strip_html_escape_ifmethod=$netconf&strip_html_escape_detail=$ifdetail&int_vlanid=0&strip_html_escape_keyname=$sensor"`;
@@ -375,7 +381,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     }
   }
 
-  if ($chkgw == 0 && $chkresolv == 0) {
+  if ($chkresolv == 0) {
     # Starting OpenVPN
     printdelay("Starting OpenVPN:");
     `openvpn --config $basedir/client.conf --dev $tap --daemon`;
@@ -502,14 +508,15 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     } else {
       printmsg("$vs Retrieving gateway:", $vlan_gw);
     }
-    sleeptimer("$vs Waiting for connection:", 15);
+
+    sleeptimer("$vs Waiting for connection:", 5);
     printdelay("$vs Checking gateway connectivity:");
     $chkgw = chkreach($vlan_gw);
     printresult($chkgw);
     
     $chkip = validip($vlan_ip);
 
-    if ($chkgw != 0 || $chkip != 0) {
+    if ($chkip != 0) {
       $chk = chkidsmenu();
       if ($chk != 0) {
         system("$basedir/idsmenu");
@@ -526,7 +533,60 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # Adding default route for the vlan
     `ip route add default via $vlan_gw`;
     printmsg("$vs Adding main default route:", $?);
-    
+
+    # Checking DNS resolver
+    $servcheck = validip($server);
+    if ($servcheck != 0) {
+      printdelay("$vs Checking DNS resolver:");
+      $chkresolv = getresolv($server);
+      if ($chkresolv ne "false") {
+        $chkresolv = 0;
+      } else {
+        $chkresolv = 1;
+      }
+      printresult($chkresolv);
+    } else {
+      $chkresolv = 0;
+      printmsg("$vs Checking DNS resolver:", "ignore");
+    }
+
+    if ($chkresolv != 0) {
+      printmsg("$vs Checking OpenVPN port:", "ignore");
+      printmsg("$vs Checking updates port:", "ignore");
+    } else {
+      # Checking if the ports to the server are unfiltered
+      printdelay("$vs Checking OpenVPN port:");
+      $openvpnport = getportstatus($br, 1194);
+      printresult($openvpnport);
+      if ($openvpnport ne "open") {
+        $chk = chkidsmenu();
+        if ($chk != 0) {
+          system("$basedir/idsmenu");
+        }
+
+        # Deleting the default route to make sure routing goes correctly 
+        # for the next vlan.
+        `ip route del default via $vlan_gw`;
+
+        next;
+      }
+      printdelay("$vs Checking updates port:"); 
+      $updateport = getportstatus($br, 4443);
+      printresult($updateport);
+      if ($updateport ne "open") {
+        $chk = chkidsmenu();
+        if ($chk != 0) {
+          system("$basedir/idsmenu");
+        }
+
+        # Deleting the default route to make sure routing goes correctly 
+        # for the next vlan.
+        `ip route del default via $vlan_gw`;
+
+        next;
+      }
+    }
+
     # Checking if we need to get sensor certificates
     if ($sensor eq "false") {
       # No sensor certificate and key found yet, retrieve them.

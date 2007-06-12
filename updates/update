@@ -93,21 +93,42 @@ if ($netconf eq "vlan") {
         printmsg("Gateway:", $if_gw);
         `ip route add default via $if_gw 2>/dev/null`;
       }
+
       printdelay("Checking gateway connectivity:");
       $chkgw = chkreach($if_gw);
       printresult($chkgw);
-      $chkns = 1;
-      if ($chkgw == 0) {
+
+      # Checking DNS resolver
+      $servcheck = validip($server);
+      if ($servcheck != 0) {
         printdelay("Checking DNS resolver:");
-        $chkns = getresolv($server);
-        if ($chkns ne "false") {
-          $chkns = 0;
+        $chkresolv = getresolv($server);
+        if ($chkresolv ne "false") {
+          $chkresolv = 0;
         } else {
-          $chkns = 1;
+          $chkresolv = 1;
+        }
+        printresult($chkresolv);
+      } else {
+        $chkresolv = 0;
+        printmsg("Checking DNS resolver:", "ignore");
+      }
+
+      if ($chkresolv != 0) {
+        printmsg("Checking updates port:", "ignore");
+        $chkupdate = 1;
+      } else {
+        printdelay("Checking updates port:");
+        $updateport = getportstatus($br, 4443);
+        printresult($updateport);
+        if ("$updateport" ne "open") {
+          $chkupdate = 1;
+        } else {
+          $chkupdate = 0;
         }
       }
-      printresult($chkns);
-      if ($chkgw == 0 && $chkns == 0) {
+
+      if ($chkresolv == 0 && $chkupdate == 0) {
         update_process($if, $vlanid);
       }
       sleeptimer("Preparing for next VLAN:", 10);
@@ -143,18 +164,38 @@ if ($netconf eq "vlan") {
       printdelay("Checking gateway connectivity:");
       $chkgw = chkreach($if_gw);
       printresult($chkgw);
-      $chkns = 1;
-      if ($chkgw == 0) {
+
+      # Checking DNS resolver
+      $servcheck = validip($server);
+      if ($servcheck != 0) {
         printdelay("Checking DNS resolver:");
-        $chkns = getresolv($server);
-        if ($chkns ne "false") {
-          $chkns = 0;
+        $chkresolv = getresolv($server);
+        if ($chkresolv ne "false") {
+          $chkresolv = 0;
         } else {
-          $chkns = 1;
+          $chkresolv = 1;
+        }
+        printresult($chkresolv);
+      } else {
+        $chkresolv = 0;
+        printmsg("Checking DNS resolver:", "ignore");
+      }
+
+      if ($chkresolv != 0) {
+        printmsg("Checking updates port:", "ignore");
+        $chkupdate = 1;
+      } else {
+        printdelay("Checking updates port:");
+        $updateport = getportstatus($br, 4443);
+        printresult($updateport);
+        if ("$updateport" ne "open") {
+          $chkupdate = 1;
+        } else {
+          $chkupdate = 0;
         }
       }
-      printresult($chkns);
-      if ($chkgw == 0 && $chkns == 0) {
+
+      if ($chkresolv == 0 && $chkupdate == 0) {
         update_process($if, $vlanid);
       }
       sleeptimer("Preparing for next VLAN:", 10);
@@ -170,6 +211,41 @@ if ($netconf eq "vlan") {
     $if = getif();
   }
   printmsg("Active interface:", $if);
+
+  printdelay("Checking gateway connectivity:");
+  $chkgw = chkreach($if_gw);
+  printresult($chkgw);
+
+  # Checking DNS resolver
+  $servcheck = validip($server);
+  if ($servcheck != 0) {
+    printdelay("Checking DNS resolver:");
+    $chkresolv = getresolv($server);
+    if ($chkresolv ne "false") {
+      $chkresolv = 0;
+    } else {
+      $chkresolv = 1;
+    }
+    printresult($chkresolv);
+  } else {
+    $chkresolv = 0;
+    printmsg("Checking DNS resolver:", "ignore");
+  }
+
+  if ($chkresolv != 0) {
+    printmsg("Checking updates port:", "ignore");
+    $chkupdate = 1;
+  } else {
+    printdelay("Checking updates port:");
+    $updateport = getportstatus($br, 4443);
+    printresult($updateport);
+    if ("$updateport" ne "open") {
+      $chkupdate = 1;
+    } else {
+      $chkupdate = 0;
+    }
+  }
+
   update_process($if, $vlanid);
 }
 

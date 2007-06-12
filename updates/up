@@ -15,7 +15,7 @@
 # 1.04.02 More stable distribution of the VLAN's
 # 1.04.01 Initial release
 ###################
-use Time::localtime;
+use Time::localtime qw(localtime);
 
 $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
