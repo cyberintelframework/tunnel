@@ -3,8 +3,8 @@
 #########################################
 # Status check                          #
 # SURFnet IDS                           #
-# Version 1.04.02                       #
-# 20-04-2007                            #
+# Version 1.04.03                       #
+# 23-05-2007                            #
 # Kees Trippelvitz                      #
 #########################################
 
@@ -31,6 +31,7 @@
 
 #############################################
 # Changelog:
+# 1.04.03 Fixed typo in the last print statement
 # 1.04.02 Removed the server_version.txt stuff
 # 1.04.01 Initial release. Converted from makeversion.sh.
 #############################################
@@ -76,4 +77,4 @@ foreach $file (@file_ar) {
 #close(VERS);
 
 #print "Creation of $c_surfidsdir/updates/server_version.txt done!\n";
-Print "Signing scripts done!\n";
+print "Signing scripts done!\n";
