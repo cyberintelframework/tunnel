@@ -142,16 +142,19 @@ if ("$dbconn" ne "false") {
 }
 
 # Get the info needed for the mailreport stuff
-$sql = "SELECT login.email, login.gpg FROM report_content, login ";
-$sql .= " WHERE login.id = report_content.user_id AND report_content.sensor_id = $sensorid AND report_content.template = 5 AND report_content.active = TRUE";
+$sql = "SELECT login.email, login.gpg, report_content.sensor_id FROM report_content, login ";
+$sql .= " WHERE login.id = report_content.user_id AND report_content.template = 5 AND report_content.active = TRUE";
 $sth = $dbh->prepare($sql);
 $er = $sth->execute();
 
 while (@row = $sth->fetchrow_array) {
   $email = $row[0];
   $gpg = $row[1];
-  print "Loading mailreports: $email - $gpg\n";
-  $arp_mail{"$email"} = $gpg;
+  $db_sid = $row[2];
+  if ("$db_sid" eq "-1" || "$db_sid" eq "$sensorid") {
+    print "Loading mailreports: $email - $gpg\n";
+    $arp_mail{"$email"} = $gpg;
+  }
 }
 
 # Initialize the scripts arp cache, alert and static hashes

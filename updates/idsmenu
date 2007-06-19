@@ -3,14 +3,15 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.04.04
-# 16-04-2007
+# Version 1.04.5
+# 13-06-2007
 # Jan van Lith & Kees Trippelvitz
 # Modified by Peter Arts
 #########################################
 
 #############################################
 # Changelog:
+# 1.04.05 Hid login choice 
 # 1.04.04 Fixed typo in menu prompt
 # 1.04.03 Fixed ssh check
 # 1.04.02 Added HD install option
@@ -86,23 +87,24 @@ sub idsmenu_shutdown() {
 }
 
 $input = "";
-while (1==1) {
+while (1) {
   system("/usr/bin/clear");
   print "SURFnet IDS menu:\n";
   print "\t1. Status info\n";
   print "\t2. Start Sensor\n";
   print "\t3. Stop Sensor\n";
   print "\t4. Update\n";
-  print "\t5. Login\n";
-  print "\t6. Configure network\n";
-  print "\t7. Enable/Disable SSH\n";
-  print "\t8. Sensor HD install\n";
-  print "\t9. Reboot\n";
-  print "\t10. Shutdown\n";
-  $input = &prompt("\tPlease select one of the above (1-10): ");
+  print "\t5. Configure network\n";
+  print "\t6. Enable/Disable SSH\n";
+  print "\t7. Sensor HD install (Beta)\n";
+  print "\t8. Reboot\n";
+  print "\t9. Shutdown\n";
+  $input = &prompt("\tPlease select one of the above (1-9): ");
   chomp($input);
   system("/usr/bin/clear");
-  if ("$input" eq 1) {
+  if ($input eq 0) {
+    idsmenu_login();
+  } elsif ($input eq 1) {
     idsmenu_showstatus();
   } elsif ($input eq 2) {
     idsmenu_startsensor();
@@ -111,16 +113,14 @@ while (1==1) {
   } elsif ($input eq 4) {
     idsmenu_update();
   } elsif ($input eq 5) {
-    idsmenu_login();
-  } elsif ($input eq 6) {
     idsmenu_netconfig();
-  } elsif ($input eq 7) {
+  } elsif ($input eq 6) {
     idsmenu_ssh();
-  } elsif ($input eq 8) {
+  } elsif ($input eq 7) {
     idsmenu_copyhd();
-  } elsif ($input eq 9) {
+  } elsif ($input eq 8) {
     idsmenu_reboot();
-  } elsif ($input eq 10) {
+  } elsif ($input eq 9) {
     idsmenu_shutdown();
   } else {
     print "${r}Invalid input. Try again!${n}\n";

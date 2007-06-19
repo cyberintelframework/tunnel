@@ -55,15 +55,15 @@ if ($netconf eq "vlan") {
   $statusif = $br;
 }
 
-$chkstatus = chksensorstatus($statusif);
-if ($chkstatus == 0) {
-  print "${y}Sensor has already been started.${n}\n";
-  $chk = chkidsmenu();
-  if ($chk != 0) {
-    system("$basedir/idsmenu");
-  }
-  exit;
-}
+#$chkstatus = chksensorstatus($statusif);
+#if ($chkstatus == 0) {
+#  print "${y}Sensor has already been started.${n}\n";
+#  $chk = chkidsmenu();
+#  if ($chk != 0) {
+#    system("$basedir/idsmenu");
+#  }
+#  exit;
+#}
 
 # Checking disabled status of the sensor
 $disabled = chkdisabled();

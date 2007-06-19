@@ -493,10 +493,10 @@ if (! -e "$targetdir/.htpasswd") {
   }
 }
 
-printdelay("Restarting the $apachev server:");
-`/etc/init.d/$apachev restart 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
+#printdelay("Restarting the $apachev server:");
+#`/etc/init.d/$apachev restart 2>>$logfile`;
+#printresult($?);
+#if ($? != 0) { $err++; }
 
 print "\n";
 
@@ -629,12 +629,12 @@ if ($confirm =~ /^(y|Y)$/) {
   printdelay("Enabling SSL for $apachev:");
   `a2enmod ssl 2>>$logfile`;
   printresult($?);
-
-  printdelay("Restarting the $apachev server:");
-  `/etc/init.d/$apachev restart 2>>$logfile`;
-  printresult($?);
-  if ($? != 0) { $err++; }
 }
+
+printdelay("Restarting the $apachev server:");
+`/etc/init.d/$apachev restart 2>>$logfile`;
+printresult($?);
+if ($? != 0) { $err++; }
 
 print "\n";
 
