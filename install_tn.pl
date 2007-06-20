@@ -227,7 +227,7 @@ print "\n";
 # Setting server hostname and configuring config files.
 $check = 1;
 while ($check eq 1) {
-  $server = &prompt("Server hostname.domainname or IP (example: test.domain.nl): ");
+  $server = &prompt("Server hostname.domainname (FQDN) or IP (example: test.domain.nl): ");
   $check = 0;
   if ($server eq "") { $check = 1; }
   if ($server !~ /.*[A-Za-z].*/) {
@@ -505,6 +505,13 @@ print "\n";
 # Setting up SVN
 ####################
 
+print "-------------------------------------------------------------------------------------------------\n";
+print "We will now setup the SVN repository used by the sensors for updating their sensor scripts.\n";
+print "When asked for the SVN admin user, this should be an existing user on this system that will be\n";
+print "administering the sensor updates.\n";
+print "-------------------------------------------------------------------------------------------------\n";
+print "\n";
+
 printdelay("Creating SVN root directory:");
 `mkdir $targetdir/svnroot/ 2>>$logfile`;
 printresult($?);
@@ -543,6 +550,16 @@ $chk = `cat /etc/passwd | grep $svnuser | wc -l`;
 chomp($chk);
 if ($chk == 0) {
   printmsg("The SVN admin user doesn't exist!", "warning");
+
+  print "\n";
+  print "-------------------------------------------------------------------------------------------------\n";
+  print "The SVN admin user you entered doesn't seem to be existing. You will have to add it manually \n";
+  print "later:\n";
+  print "    adduser $svnuser\n";
+  print "After this you will have to add the SVN admin user to the subversion group:\n";
+  print "    addgroup $svnuser $subversion_group\n";
+  print "-------------------------------------------------------------------------------------------------\n";
+  print "\n";
 } else {
   printdelay("Adding $svnuser to $subversion_group group:");
   `addgroup $svnuser $subversion_group 2>>$logfile`;
@@ -580,57 +597,102 @@ printdelay("Activating apache2 dav_svn module:");
 printresult($?);
 if ($? != 0) { $err++; }
 
+print "\n";
+print "-------------------------------------------------------------------------------------------------\n";
+print "The SVN repository needs to be run under apache2 with an SSL certificate. We can create a \n";
+print "self-signed one right now, but the preferred method is ofcourse getting a valid certificate \n";
+print "signed by a trusted certificate authority.\n";
+print "Don't worry about any mistakes made within this process, you will have the option to redo it again\n";
+print "at the end.\n";
+print "-------------------------------------------------------------------------------------------------\n";
+print "\n";
+
 $confirm = "none";
 while ($confirm !~ /^(n|N|y|Y)$/) {
   $confirm = &prompt("Do you want to generate a self-signed certificate for SVN? [Y/n]: ");
 }
 if ($confirm =~ /^(y|Y)$/) {
-  if (! -d "/etc/apache2/ssl/") {
-    printdelay("Creating apache2 ssl directory:");
-    `mkdir /etc/apache2/ssl/ 2>>$logfile`;
-    printresult($?);
-  }
-  if (! -e "/etc/apache2/ssl/ca.key") {
-    printmsg("Generating root CA certificate key:", "info");
-    `openssl genrsa -des3 -out /etc/apache2/ssl/ca.key $key_size`;
-    if ($? != 0) { $err++; }
+  $confirm = "y";
+  while ($confirm =~ /^(y|Y)$/) {
+    print "\n";
+    if (! -d "/etc/apache2/ssl/") {
+      printdelay("Creating apache2 ssl directory:");
+      `mkdir /etc/apache2/ssl/ 2>>$logfile`;
+      printresult($?);
+    }
 
-    printmsg("Generating root CA certificate:", "info");
-    `openssl req -new -x509 -days 365 -key /etc/apache2/ssl/ca.key -out /etc/apache2/ssl/ca.crt`;
-    if ($? != 0) { $err++; }
-  }
+    $ssldir = "/etc/apache2/ssl";
 
-  if (! -e "/etc/apache2/ssl/key.pem") {
-    printmsg("Generating server key:", "info");
-    `openssl genrsa -des3 -out /etc/apache2/ssl/key.pem $key_size`;
-    if ($? != 0) { $err++; }
+    if (! -e "/etc/apache2/ssl/ca.key") {
+      print "##########################################\n";
+      print "########## Generating ROOT CA ############\n";
+      print "##########################################\n";
+      printmsg("Generating root CA certificate key:", "info");
+      `openssl genrsa -des3 -out $ssldir/ca.key $key_size`;
+      if ($? != 0) { $err++; }
 
-    printmsg("Generating signing request:", "info");
-    `openssl req -new -key /etc/apache2/ssl/key.pem -out /etc/apache2/ssl/request.pem`;
-    if ($? != 0) { $err++; }
+      print "\n";
+      printmsg("Generating root CA certificate:", "info");
+      print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
+      printmsg("    The Common Name should be:", "$server CA");
+      print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
+      `openssl req -new -x509 -days 365 -key $ssldir/ca.key -out $ssldir/ca.crt`;
+      if ($? != 0) { $err++; }
+    }
 
-    printdelay("Generating server certificate:");
-    `openssl x509 -req -days 365 -in request.pem -CA ca.crt -CAkey ca.key -set_serial 01 -out cert.pem`;
-    printresult($?);
-    if ($? != 0) { $err++; }
+    if (! -e "/etc/apache2/ssl/key.pem") {
+      print "\n";
+      print "##########################################\n";
+      print "######## Generating Server Certs #########\n";
+      print "##########################################\n";
+      printmsg("Generating server key:", "info");
+      `openssl genrsa -des3 -out $ssldir/key.pem $key_size`;
+      if ($? != 0) { $err++; }
 
-    $ec = 0;
-    printmsg("Finishing certificate generation:", "info");
-    `openssl rsa -in key.pem -out key.pem.insecure 2>>$logfile`;
-    if ($? != 0) { $ec++; }
-    `mv key.pem key.pem.secure 2>>$logfile`;
-    if ($? != 0) { $ec++; }
-    `mv key.pem.insecure key.pem 2>>$logfile`;
-    if ($? != 0) { $ec++; }
-    if ($ec != 0) { $err++; }
-    $ec = 0;
-  }
+      print "\n";
+      printmsg("Generating signing request:", "info");
+      print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
+      printmsg("    The Common Name should be:", "$server");
+      print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
+      `openssl req -new -key $ssldir/key.pem -out $ssldir/request.pem`;
+      if ($? != 0) { $err++; }
 
-  if (! -e "$targetdir/updates/CAcert.pem") {
-    printdelay("Creating CAcert.pem for SVN:");
-    `cp /etc/apache2/ssl/ca.crt $targetdir/updates/CAcert.pem 2>>$logfile`;
-    printresult($?);
-    if ($? != 0) { $err++; }
+      print "\n";
+      printmsg("Generating server certificate:", "info");
+      `openssl x509 -req -days 365 -in $ssldir/request.pem -CA $ssldir/ca.crt -CAkey $ssldir/ca.key -set_serial 01 -out $ssldir/cert.pem`;
+      if ($? != 0) { $err++; }
+
+      $ec = 0;
+      printmsg("Finishing certificate generation:", "info");
+      `openssl rsa -in $ssldir/key.pem -out $ssldir/key.pem.insecure 2>>$logfile`;
+      if ($? != 0) { $ec++; }
+      `mv $ssldir/key.pem $ssldir/key.pem.secure 2>>$logfile`;
+      if ($? != 0) { $ec++; }
+      `mv $ssldir/key.pem.insecure $ssldir/key.pem 2>>$logfile`;
+      if ($? != 0) { $ec++; }
+      if ($ec != 0) { $err++; }
+      $ec = 0;
+    }
+
+    if (! -e "$targetdir/updates/CAcert.pem") {
+      printdelay("Creating CAcert.pem for SVN:");
+      `cp $ssldir/ca.crt $targetdir/updates/CAcert.pem 2>>$logfile`;
+      printresult($?);
+      if ($? != 0) { $err++; }
+    }
+
+    print "\n";
+    print "-------------------------------------------------------------------------------------------------\n";
+    print "You now have the option to redo the certificate generation process if you have made any mistakes.\n";
+    print "This will remove any certificates present in the $ssldir!\n";
+    print "-------------------------------------------------------------------------------------------------\n";
+    print "\n";
+
+    $confirm = &prompt("Do you want to regenerate a self-signed certificate for SVN? [Y/n]: ");
+    if ($confirm =~ /^(y|Y)$/) {
+      `rm /etc/apache2/ssl/*`;
+    }
+    print "\n";
   }
 
   printdelay("Enabling SSL for $apachev:");
