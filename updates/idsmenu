@@ -3,14 +3,14 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.04.5
-# 13-06-2007
+# Version 1.04.6
+# 20-06-2007
 # Jan van Lith & Kees Trippelvitz
-# Modified by Peter Arts
 #########################################
 
 #############################################
 # Changelog:
+# 1.04.06 Added maintenance shell option to menu  
 # 1.04.05 Hid login choice 
 # 1.04.04 Fixed typo in menu prompt
 # 1.04.03 Fixed ssh check
@@ -99,6 +99,7 @@ while (1) {
   print "\t7. Sensor HD install (Beta)\n";
   print "\t8. Reboot\n";
   print "\t9. Shutdown\n";
+  print "\t0. Maintenance Shell (Admin only)\n";
   $input = &prompt("\tPlease select one of the above (1-9): ");
   chomp($input);
   system("/usr/bin/clear");
