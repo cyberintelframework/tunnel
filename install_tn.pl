@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.11                 #
-# 20-04-2007                      #
+# Version 1.04.12                 #
+# 20-06-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.12 Added check on existing svn admin user
 # 1.04.11 Fixed missing semi-colon
 # 1.04.10 Reverted CAcert.pem stuff, removed dav_svn.conf stuff
 # 1.04.09 Fixed CAcert.pem stuff
@@ -538,10 +539,16 @@ while ($svnuser eq "") {
   chomp($svnuser);
 }
 
-printdelay("Adding $svnuser to $subversion_group group:");
-`addgroup $svnuser $subversion_group 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
+$chk = `cat /etc/passwd | grep $svnuser | wc -l`;
+chomp($chk);
+if ($chk == 0) {
+  printmsg("The SVN admin user doesn't exist!", "warning");
+} else {
+  printdelay("Adding $svnuser to $subversion_group group:");
+  `addgroup $svnuser $subversion_group 2>>$logfile`;
+  printresult($?);
+  if ($? != 0) { $err++; }
+}
 
 open(AUTHZ, ">/etc/apache2/dav_svn.authz");
 print AUTHZ "[/]\n";
