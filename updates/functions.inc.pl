@@ -10,6 +10,7 @@
 
 ################
 # Changelog:
+# 1.04.29 Added mii-tool check for active interface
 # 1.04.28 Fixed a bug with network calculation
 # 1.04.27 Fixed client.conf updating bug
 # 1.04.26 Added extra ping within chkreach 
@@ -581,6 +582,12 @@ sub getif() {
       chomp($checkif);
       if ($checkif != 0) {
         $found_if = $if;
+      } else {
+        $checkif = `mii-tool $if | grep negotiated | wc -l`;
+        chomp($checkif);
+        if ($checkif != 0) {
+          $found_if = $if;
+        }
       }
     }
   }
