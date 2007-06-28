@@ -1,5 +1,19 @@
 #!/usr/bin/perl
 
+####################################
+# Installation script              #
+# SURFnet IDS                      #
+# Version 1.04.02                  #
+# 28-06-2007                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
+
+###############################################
+# Changelog:
+# 1.04.02 Fixed getcrtvalue bug with localities/states containing a space
+# 1.04.01 Initial release
+###############################################
+
 use POSIX;
 
 # 1.01 rmsvn
@@ -47,13 +61,16 @@ sub getcrtvalue() {
   $target = $_[0];
   chomp($target);
   if (-r "$targetdir/serverkeys/ca.crt") {
-    $issuer = `openssl x509 -in $targetdir/serverkeys/ca.crt -text | grep "Issuer"`;
-    @issuer_ar = split(/ /, $issuer);
+    $issuer = `cat bla.txt | grep "Issuer"`;
+    chomp($issuer);
+    $issuer =~ s/        Issuer: //;
+    @issuer_ar = split(/\,/, $issuer);
     foreach (@issuer_ar) {
       chomp();
       s/,$//;
       @target_ar = split(/=/, $_);
       $key = $target_ar[0];
+      $key =~ s/ //g;
       if ($key eq $target) {
         if ($key eq "CN") {
           $value = $target_ar[2];
