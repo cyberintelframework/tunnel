@@ -509,7 +509,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       printmsg("$vs Retrieving gateway:", $vlan_gw);
     }
 
-    sleeptimer("$vs Waiting for connection:", 5);
+    sleeptimer("$vs Waiting for connection:", 2);
     printdelay("$vs Checking gateway connectivity:");
     $chkgw = chkreach($vlan_gw);
     printresult($chkgw);

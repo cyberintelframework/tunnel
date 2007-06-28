@@ -376,7 +376,7 @@ sub chkreach() {
   chomp($ip);
   $chkip = validip($ip);
   if ($chkip == 0) {
-    `ping -c 10 -q $ip 2>/dev/null`;
+    `ping -c 5 -q $ip 2>/dev/null`;
     `ping -c 1 -q $ip 2>/dev/null`;
     return $?;
   } else {
