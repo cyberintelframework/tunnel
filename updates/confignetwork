@@ -3,8 +3,8 @@
 ###############################################
 # Network setup script for SURFnet IDS sensor #
 # SURFnet IDS                                 #
-# Version 1.04.05                             #
-# 04-12-2006                                  #
+# Version 1.04.06                             #
+# 28-06-2007                                  #
 # Jan van Lith & Kees Trippelvitz             #
 ###############################################
 
@@ -29,6 +29,7 @@
 
 #############################################
 # Changelog:
+# 1.04.06 Updated some VLAN handelings with user input
 # 1.04.05 Fixed type with VLAN method
 # 1.04.04 Added default values to static configs
 # 1.04.03 Fixed a bug with static IP not exiting the loop
@@ -74,8 +75,6 @@ sub set_static_ip() {
     #####################
     system("/usr/bin/clear");
     print "Please enter the IP configuration for this network.\n";
-    print "Each item should be entered as an IP address in dotted-decimal notation.\n";
-    print " (for example, 1.2.3.4).\n\n";
 
     ### Reading sensor IP address
     $valid_ip = 1;
@@ -189,7 +188,7 @@ sub set_vlan() {
   while ($done != 0) {
     #####################
     system("/usr/bin/clear");
-    print "Please enter the VLAN configuration for the VLAN networks.\n";
+    print "Please enter the VLAN configuration for your networks.\n";
     
     ### Reading primary nameserver
     $valid_ip = 1;
@@ -208,13 +207,13 @@ sub set_vlan() {
     ### Reading amount of vlans to be added
     $valid_vlancount = 1;
     while ($valid_vlancount != 0) {
-      $vlancount = &prompt("How many vlans do you want to add? ");
+      $vlancount = &prompt("How many vlans do you want to add (max 8)? ");
       $valid_vlancount = validvlancount($vlancount);
       if ($valid_vlancount == 0) {
         print NCONF "\$netconf = \"vlan\";\n";
         print NCONF "\%vlan = ( \n";
       } else {
-        print "The number of vlans needs to be between 0 and 8!\n";
+        print "The number of vlans needs to be between 1 and 8!\n";
       }
     }
     $valid_vlanid = 1;
@@ -234,9 +233,9 @@ sub set_vlan() {
         while ($setvlan != 0) {
 	  $vm = $vlan{$vlanid}{method};
 	  if ($vm ne "") {
-            $vlan_method = &prompt("VLAN[$vlanid] Method [$vm]: ", $vm);
+            $vlan_method = &prompt("VLAN[$vlanid] Choose VLAN method (static or dhcp) [$vm]: ", $vm);
 	  } else {
-            $vlan_method = &prompt("VLAN[$vlanid] Method: ");
+            $vlan_method = &prompt("VLAN[$vlanid] Choose VLAN method (static or dhcp): ");
 	  }
 	  #####################
 	  # VLAN: STATIC
@@ -286,7 +285,7 @@ sub set_vlan() {
               $valid_ip = validip($bc);
             }
 
-            system("/usr/bin/clear");
+            
             printmsg("[VLAN$vlanid] VLAN Method:", "static");
             printmsg("[VLAN$vlanid] IP_sensor:", $sensorip);
             printmsg("[VLAN$vlanid] Netmask:", $netmask);
@@ -296,7 +295,7 @@ sub set_vlan() {
 
             $check = 1;
             while ($check != 0) {
-              $input = &prompt("Is this information correct [Y/n] ?: ");
+              $input = &prompt("Is this information correct [y/n] ?: ");
               if ($input =~ /^(Y|y|N|n)$/) {
                 $check = 0;
               }
@@ -326,25 +325,48 @@ sub set_vlan() {
         $vlancount--;
         $vlan++;
       } else {
-        print "Enter a vlan that's between 0 and 4096 \n";	
+        print "Enter a vlan that's between 1 and 4096 \n";	
       }
     } 	
     $check = 1;
     while ($check != 0) {
-     $input = &prompt("Is all the information correct [Y/n] ?: ");
+     print NCONF ");\n";
+     close(NCONF);
+     do "$basedir/network_if.conf";
+     system("/usr/bin/clear");
+     print "Checking you network configuration:\n";
+     printmsg("Primary nameserver:", "$if_ns");
+     for my $vlanid ( sort keys %vlan ) {
+       $vlan_method = $vlan{$vlanid}{method};
+       $vlan_ip = $vlan{"$vlanid"}{if_ip};
+       $vlan_nm = $vlan{"$vlanid"}{if_nm};
+       $vlan_bc = $vlan{"$vlanid"}{if_bc};
+       $vlan_gw = $vlan{"$vlanid"}{if_gw};
+       printmsg("[VLAN$vlanid] VLAN Method:", "$vlan_method");
+       if ($vlan_method eq "static") {
+            printmsg("\t[VLAN$vlanid] IP_sensor:", $vlan_ip);
+            printmsg("\t[VLAN$vlanid] Netmask:", $vlan_ip);
+            printmsg("\t[VLAN$vlanid] Broadcast:", $vlan_bc);
+            printmsg("\t[VLAN$vlanid] Gateway:", $vlan_gw);
+       }
+     }
+     $input = &prompt("Is all of the above correct [y/n] ?: ");
      if ($input =~ /^(Y|y|N|n)$/) {
          $check = 0;
      }
    }
     if ($input =~ /^(Y|y)$/) {
-      print NCONF ");\n";
-      close(NCONF);
-      system("$basedir/startclient");
       # Start client
-    }
+      system("$basedir/startclient");
+    } else {
+       print "Your old configuration will be active again.";
+      `cp $basedir/network_if.conf.back $basedir/network_if.conf`;
+    }  
     $done = 0;
   }   
 }
+#Make a backup of the network_if.conf
+`cp $basedir/network_if.conf $basedir/network_if.conf.back`;
 
 # Show menu
 while (1) {
@@ -353,24 +375,7 @@ while (1) {
   print "\t\tS. Use static IP\n";
   print "\t\tD. Use DHCP\n";
   print "\t\tV. Use VLAN\n";
-  $checkstart = `ps -ef | grep startclient | grep -v grep | wc -l`;
-  if ($checkstart != 0) {
-    print "\n";
-    $choice = &prompt("Please select one of the above (S/D/V): ");
-    if ($choice =~ /^(S|s)$/) {
-      set_static_ip();
-      exit;
-    } elsif ($choice =~ /^(D|d)$/) {
-      set_dynamic_ip();
-      exit;
-    } elsif ($choice =~ /^(V|v)$/) {
-      set_vlan();
-      exit;
-    } else {
-      print "Unknown option!\n";
-    }
-  } else {
-    print "\t\tC. Cancel\n\n";
+  print "\t\tC. Cancel\n\n";
     $choice = &prompt("Please select one of the above (S/D/V/C): ");
     if ($choice =~ /^(S|s)$/) {
       set_static_ip();
@@ -386,5 +391,4 @@ while (1) {
     } else {
       print "Unknown option!\n";
     }
-  }
 }

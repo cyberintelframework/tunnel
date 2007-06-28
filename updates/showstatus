@@ -3,13 +3,14 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 1.04.10
-# 03-04-2007
+# Version 1.04.11
+# 28-06-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
+# 1.04.11 Fixed if statement with chkupscript when down
 # 1.04.10 Fixed chkssh stuff
 # 1.04.09 Improved error checking
 # 1.04.08 Added networkconf variable
@@ -216,12 +217,13 @@ if ($netconf eq "vlan") {
         printresult($chkname);
       }
     }
-
     if ($if_gw ne "false") {
+     if($if_gw ne "") {
       $chkup = chkupscript($if_gw);
       if ($chkup == 1) {
         printmsg("Tunnel is trying to reconnect:", "warning");
       }
+     }
     }
 
     if ($chkstatus == 0 && $chkname == 0 && $chkgw == 0) {
