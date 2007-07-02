@@ -2,13 +2,14 @@
 
 ####################################
 # SURFnet IDS                      #
-# Version 1.04.03                  #
-# 11-01-2007                       #
+# Version 1.04.04                  #
+# 02-07-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 1.04.04 Added check on outgoing whois traffic
 # 1.04.03 Added debug_input()
 # 1.04.02 Added chkwhois function
 # 1.04.01 Released as 1.04.01
@@ -143,26 +144,30 @@ function chkwhois($remoteip) {
   $found = 0;
   foreach ($whois_server_ar as $key => $server) {
     $server = "whois." . $server . ".net";
-    $fp = @fsockopen($server,43,&$errno,&$errstr,15);
-    fputs($fp,"$remoteip\r\n");
-    while(!feof($fp)) {
-      $line = fgets($fp,256);
-      $pattern = '/^.*netname:.*$/';
-      if (preg_match($pattern, $line)) {
-        $regel = explode(":", $line);
-        $org_ident = trim($regel[1]);
-        if ($org_ident != "ERX-NETBLOCK" && $org_ident != "IANA-BLK") {
-          $found = 1;
-          break;
-        } else {
-          $org_ident = "";
+    $fp = @fsockopen($server,43,$errno,$errstr,15);
+    if (!$fp) {
+      next;
+    } else {
+      fputs($fp,"$remoteip\r\n");
+      while(!feof($fp)) {
+        $line = fgets($fp,256);
+        $pattern = '/^.*netname:.*$/';
+        if (preg_match($pattern, $line)) {
+          $regel = explode(":", $line);
+          $org_ident = trim($regel[1]);
+          if ($org_ident != "ERX-NETBLOCK" && $org_ident != "IANA-BLK") {
+            $found = 1;
+            break;
+          } else {
+            $org_ident = "";
+          }
         }
       }
+      fclose($fp);
     }
     if ($found == 1) {
       break;
     }
-    fclose($fp);
   }
   if ($found == 0) {
     return "false";

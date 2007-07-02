@@ -359,7 +359,8 @@ sub set_vlan() {
       # Start client
       system("$basedir/startclient");
     } else {
-       print "Your old configuration will be active again.";
+       print "Your old configuration is still in use.\n";
+       print "Start the sensor to activate the old configuration or reconfigure your network.\n";
       `cp $basedir/network_if.conf.back $basedir/network_if.conf`;
     }  
     $done = 0;
@@ -371,6 +372,8 @@ sub set_vlan() {
 # Show menu
 while (1) {
   system("/usr/bin/clear");
+  print "Static IP: will give the option to set the sensors ip address manually.\nDHCP: will set the sensors ip address automatically.\nVLAN: will give the option to set mulitple VLANs.\n      Watch out: You can only configure one VLAN behind one NAT box.\n";
+  print "\n";
   print "What sort of network configuration you want\n";
   print "\t\tS. Use static IP\n";
   print "\t\tD. Use DHCP\n";

@@ -35,6 +35,7 @@
 
 ####################################
 # Changelog:
+# 1.04.06 Added oidtype when no identifier could be found
 # 1.04.05 Added extra check on orgname
 # 1.04.04 Fixed bug with sensor numbering
 # 1.04.03 Fixed typo in SURFnet SOAP stuff
@@ -155,6 +156,7 @@ if ($err == 0) {
     # Organisation did not exist yet.
     if ($orgname == "false" || $orgname == "") {
       $orgname = $remoteip;
+      $oidtype = 0;
     }
     $ranges = "";
      
