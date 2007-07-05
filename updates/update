@@ -3,13 +3,14 @@
 #########################################
 # Update script for SURFnet IDS Sensor	#
 # SURFnet IDS                           #
-# Version 1.04.06                       #
-# 10-04-2007                            #
+# Version 1.04.07                       #
+# 02-07-2007                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 1.04.07 Removed server change request
 # 1.04.06 Added server subdir to serverurl
 # 1.04.05 Added networkconf variable
 # 1.04.04 Fixed update wget request
@@ -342,20 +343,6 @@ sub update_process() {
     } 
   }
 
-  if ($checkerror == 0) {
-    $oldserver = `cat $basedir/client.conf | grep "remote " | awk '{print \$2}'`;
-    $newserver = `cat $basedir/update$vlanid.php | grep "SERVER: " | awk '{print \$2}'`;
-    chomp($oldserver);
-    chomp($newserver);
-    if ($newserver) {
-      if ("$newserver" ne "$oldserver") {
-        $touchconf = `mktemp -p $basedir`;
-        chomp($touchconf);
-        `sed "s/^remote.*\$/remote $newserver/" $basedir/client.conf > $touchconf`;
-        `mv -f $touchconf $basedir/client.conf`;
-      }
-    }
-  }
   if ($action eq "REBOOT") {
     &printmsg("Server request - Reboot", "info");
     `init 6`;

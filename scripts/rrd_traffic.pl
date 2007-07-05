@@ -44,7 +44,7 @@
 use RRDs;
 use DBI;
 use MIME::Base64;
-use Time::localtime;
+use Time::localtime qw(localtime);
 
 ##################
 # Variables used
