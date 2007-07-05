@@ -1,19 +1,20 @@
 #########################################
 # wgetrc file for IDS Sensor            #
 # SURFnet IDS                           #
-# Version 1.04.02                       #
-# 31-05-2007                            #
+# Version 1.04.03                       #
+# 05-07-2007                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ################
 # Changelog:
+# 1.04.03 Removed double quotes
 # 1.04.02 Added double quotes to user and passwd
 # 1.04.01 Added changelog
 ################
 
 passive_ftp = on
 waitretry = 3
-http_user = "idssensor"
-http_passwd = "enter_password_here"
+http_user = idssensor
+http_passwd = enter_password_here
 
