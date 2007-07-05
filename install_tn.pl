@@ -888,5 +888,7 @@ print "Still needs configuration:\n";
 print "  ${g}$configdir/surfnetids-tn.conf\n";
 print "  $targetdir/updates/wgetrc${n}\n";
 print "\n";
+print "NOTICE: You will have to add the sensor scripts manually to your SVN repository!\n";
+print "\n";
 print "For more information go to http://ids.surfnet.nl/\n";
 
