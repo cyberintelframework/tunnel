@@ -637,7 +637,7 @@ sub add_arp_cache() {
 
       if ("$dbconn" ne "false") {
         # Update Tap info to the database for the current $sensor.
-        $sql = "UPDATE arp_cache SET ip = '$ip', sensorid = $sensorid, last_seen = $ts WHERE mac = '$mac'";
+        $sql = "UPDATE arp_cache SET ip = '$ip', last_seen = $ts WHERE mac = '$mac' AND sensorid = '$sensorid'";
         $er = $dbh->do($sql);
       }
     }
@@ -1065,6 +1065,97 @@ sub gw() {
   $new = $old + 1;
   $gw = $net_ar[0] . "." . $net_ar[1] . "." . $net_ar[2] . "." . $new;
   return $gw;
+}
+
+# 4.26 add_host_type
+# Function to add a host type to an ARP cache entry
+sub add_host_type() {
+  my ($ip, $mac, $type, $sql, $sth, $er, @row, $flags, $flagstring, @flags_ar, %flags_hash);
+  $ip = $_[0];
+  $sensorid = $_[1];
+  $type = $_[2];
+  chomp($ip);
+  chomp($sensorid);
+  chomp($type);
+  print "ADDHOSTTYPE: $mac - $ip - $sensorid - $type\n";
+
+  # Get the old flags first
+  $sql = "SELECT flags FROM arp_cache WHERE ip = '$ip' AND sensorid = '$sensorid'";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+  @row = $sth->fetchrow_array;
+  $flags = $row[0];
+  if ("$flags" ne "") {
+    @flags_ar = split(/,/, $flags);
+    %flags_hash = ();
+    foreach $flag (@flags_ar) {
+      $flags_hash{"$flag"} = 0;
+    }
+    if (!exists $flags_hash{"$type"}) {
+      if ("$flags" ne "") {
+        $flagstring = $flags . ", $type";
+      } else {
+        $flagstring = "$type";
+      }
+    }
+  } else {
+    $flagstring = "$type";
+  }
+
+  print "FLAGSTRING: $flagstring\n";
+
+  $sql = "UPDATE arp_cache SET flags = '$flagstring' WHERE ip = '$ip' AND sensorid = '$sensorid'";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+  return 0;
+}
+
+# 4.26 add_proto_type
+# Function to add a protocol type to the sensor sniff logs
+sub add_proto_type() {
+  my ($head, $nr, $proto, $sql, $sth, $er);
+  $sensorid = $_[0];
+  $head = $_[1];
+  $nr = $_[2];
+  chomp($sensorid);
+  chomp($head);
+  chomp($nr);
+
+  if ($head == 1) {
+    if (exists $ethernettypes{$nr}) {
+      $proto = $ethernettypes{$nr};
+    } else {
+      $proto = "Unknown protocol";
+    }
+    $sniff_protos_eth{$nr} = 0;
+  } elsif ($head == 2) {
+    if (exists $iptypes{$nr}) {
+      $proto = $iptypes{$nr};
+    } else {
+      $proto = "Unknown protocol";
+    }
+    $sniff_protos_ip{$nr} = 0;
+  } elsif ($head == 3) {
+    if (exists $icmptypes{$nr}) {
+      $proto = $icmptypes{$nr};
+    } else {
+      $proto = "Unknown protocol";
+    }
+    $sniff_protos_icmp{$nr} = 0;
+  } elsif ($head == 4) {
+    if (exists $igmptypes{$nr}) {
+      $proto = $igmptypes{$nr};
+    } else {
+      $proto = "Unknown protocol";
+    }
+    $sniff_protos_igmp{$nr} = 0;
+  }
+  print "ADDPROTOTYPE: $sensorid - $head - $nr - $proto\n";
+
+  $sql = "INSERT INTO sniff_protos (sensorid, head, number, protocol) VALUES ('$sensorid', '$head', '$nr', '$proto')";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+  return 0;
 }
 
 return "true";

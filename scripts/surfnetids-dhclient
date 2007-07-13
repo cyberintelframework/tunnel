@@ -3,13 +3,14 @@
 ####################################
 # dhclient script for IDS server   #
 # SURFnet IDS                      #
-# Version 1.04.01                  #
-# 11-10-2006                       #
+# Version 1.04.02                  #
+# 12-07-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 1.04.02 Fixed path to checktap.pl
 # 1.04.01 Released as 1.04.01
 # 1.03.01 Released as part of the 1.03 package
 # 1.02.01 Initial release
@@ -160,7 +161,7 @@ case "$reason" in
           echo "[$ts - $?] ip rule del from $oldip table $interface" >> $logfile
           `ip rule add from $new_ip_address table $interface`
           echo "[$ts - $?] ip rule add from $new_ip_address table $interface" >> $logfile
-          checktap=`/opt/surfnetids/scripts/checktap.pl $interface`
+          checktap=`$surfnetidsdir/scripts/checktap.pl $interface`
           echo "[$ts - $?] Running: $surfnetidsdir/scripts/checktap.pl $interface" >> $logfile
         fi
 
