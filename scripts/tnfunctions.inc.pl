@@ -63,6 +63,8 @@ use POSIX;
 # 4.23		get_man
 # 4.24		sendmail
 # 4.25		gw
+# 4.26		add_host_type
+# 4.27		add_proto_type
 ###############################################
 
 # 1.01 chkdhclient
@@ -1110,7 +1112,7 @@ sub add_host_type() {
   return 0;
 }
 
-# 4.26 add_proto_type
+# 4.27 add_proto_type
 # Function to add a protocol type to the sensor sniff logs
 sub add_proto_type() {
   my ($head, $nr, $proto, $sql, $sth, $er);

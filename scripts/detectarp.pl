@@ -99,6 +99,7 @@ if ($argcount == 0) {
 do "$c_surfidsdir/scripts/types_ip.pl";
 do "$c_surfidsdir/scripts/types_eth.pl";
 do "$c_surfidsdir/scripts/types_icmp.pl";
+do "$c_surfidsdir/scripts/types_igmp.pl";
 
 ##################
 # Main script
