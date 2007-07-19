@@ -1072,7 +1072,7 @@ sub gw() {
 # 4.26 add_host_type
 # Function to add a host type to an ARP cache entry
 sub add_host_type() {
-  my ($ip, $mac, $type, $sql, $sth, $er, @row, $flags, $flagstring, @flags_ar, %flags_hash);
+  my ($ip, $mac, $type, $sql, $sth, $er, @row, $flag, $flags, $flagstring, @flags_ar, %flags_hash);
   $ip = $_[0];
   $sensorid = $_[1];
   $type = $_[2];
@@ -1099,6 +1099,8 @@ sub add_host_type() {
       } else {
         $flagstring = "$type";
       }
+    } else {
+      $flagstring = $flags;
     }
   } else {
     $flagstring = "$type";
