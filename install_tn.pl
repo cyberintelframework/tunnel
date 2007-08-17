@@ -3,13 +3,14 @@
 ###################################
 # Tunnel installation script      #
 # SURFnet IDS                     #
-# Version 1.04.12                 #
-# 20-06-2007                      #
+# Version 1.04.13                 #
+# 13-08-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 1.04.13 Moved the loggin server notice to the end
 # 1.04.12 Added check on existing svn admin user
 # 1.04.11 Fixed missing semi-colon
 # 1.04.10 Reverted CAcert.pem stuff, removed dav_svn.conf stuff
@@ -76,8 +77,6 @@ if (-e "$targetdir/server/") {
 if (-e "./install_tn.pl.log") {
   `rm -f ./install_tn.pl.log 2>/dev/null`;
 }
-
-print "${y}Also install the 1.04-package-log part of the SURFnet IDS system.\n${n}";
 
 ##########################
 # Main script
@@ -889,6 +888,7 @@ print "  ${g}$configdir/surfnetids-tn.conf\n";
 print "  $targetdir/updates/wgetrc${n}\n";
 print "\n";
 print "NOTICE: You will have to add the sensor scripts manually to your SVN repository!\n";
+print "NOTICE: Also install the logging server part of the SURFnet IDS system!\n";
 print "\n";
 print "For more information go to http://ids.surfnet.nl/\n";
 
