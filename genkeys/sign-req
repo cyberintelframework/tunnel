@@ -1,0 +1,18 @@
+#!/bin/sh
+
+#
+# Sign a certificate signing request (a .csr file)
+# with a local root certificate and key.
+#
+
+echo "$1"
+
+if test $# -ne 1; then
+        exit 1
+fi                                                                             
+
+if test $KEY_DIR; then
+	openssl ca -days 3650 -out $1.crt -in $1.csr -config $KEY_CONFIG -batch
+else
+	exit 1
+fi
