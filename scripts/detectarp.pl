@@ -40,6 +40,7 @@
 require Net::Pcap;
 use Net::PcapUtils;
 use Net::DHCP::Packet;
+use Net::DHCP::Constants;
 use NetPacket::IP;
 use NetPacket::TCP;
 use NetPacket::UDP;
@@ -96,10 +97,7 @@ if ($argcount == 0) {
 ##################
 # Data sets
 ##################
-do "$c_surfidsdir/scripts/types_ip.pl";
-do "$c_surfidsdir/scripts/types_eth.pl";
-do "$c_surfidsdir/scripts/types_icmp.pl";
-do "$c_surfidsdir/scripts/types_igmp.pl";
+require "$c_surfidsdir/scripts/types_data.pl";
 
 ##################
 # Main script
@@ -188,45 +186,11 @@ $static_refresh = $ts + $c_arp_static_refresh;
 
 printlog("Filling sensor protocol list!");
 #### SNIFF PROTOS ####
-# Filling the local scripts protocol list (ETHERNETTYPES)
-$sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND head = 1";
-$sth = $dbh->prepare($sql);
-$er = $sth->execute();
-
-while (@row = $sth->fetchrow_array) {
-  $nr = $row[0];
-  $sniff_protos_eth{"$nr"} = 0;
-}
-
-# Filling the local scripts protocol list (IPTYPES)
-$sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND head = 2";
-$sth = $dbh->prepare($sql);
-$er = $sth->execute();
-
-while (@row = $sth->fetchrow_array) {
-  $nr = $row[0];
-  $sniff_protos_ip{"$nr"} = 0;
-}
-
-# Filling the local scripts protocol list (ICMPTYPES)
-$sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND head = 3";
-$sth = $dbh->prepare($sql);
-$er = $sth->execute();
-
-while (@row = $sth->fetchrow_array) {
-  $nr = $row[0];
-  $sniff_protos_icmp{"$nr"} = 0;
-}
-
-# Filling the local scripts protocol list (IGMPTYPES)
-$sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND head = 4";
-$sth = $dbh->prepare($sql);
-$er = $sth->execute();
-
-while (@row = $sth->fetchrow_array) {
-  $nr = $row[0];
-  $sniff_protos_igmp{"$nr"} = 0;
-}
+refresh_protos(0);
+refresh_protos(1);
+refresh_protos(11);
+refresh_protos(12);
+refresh_protos(11768);
 
 $ts = time();
 $protos_refresh = $ts + $c_sniff_protos_refresh;
@@ -309,7 +273,7 @@ if ($? == 0) {
         for my $key ( keys %maclist ) {
           if ("$key" ne "$db_mac") {
             $poisonmac = $key;
-            add_arp_alert($db_mac, $poisonmac, $gw, $sensorid);
+            add_arp_alert($db_mac, $poisonmac, $gw, $gw, $sensorid);
           }
         }
       }
@@ -412,110 +376,64 @@ sub filter_packets {
   my ($userdata, $header, $pckt) = @_;
   my $eth_obj = NetPacket::Ethernet->decode($pckt);
   $eth_type = $eth_obj->{type};
+  $head = 0;
 
   $ts = time();
   if ($ts > $protos_refresh) {
     printlog("Filling sensor protocol list!");
     #### SNIFF PROTOS ####
-    # Filling the local scripts protocol list (ETHERNETTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND head = 1";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
+    refresh_protos(0);
+    refresh_protos(1);
+    refresh_protos(11);
+    refresh_protos(12);
+    refresh_protos(11768);
 
-    %sniff_protos_eth = ();
-    while (@row = $sth->fetchrow_array) {
-      $nr = $row[0];
-      $sniff_protos_eth{"$nr"} = 0;
-    }
-
-    # Filling the local scripts protocol list (IPTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND head = 2";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    %sniff_protos_ip = ();
-    while (@row = $sth->fetchrow_array) {
-      $nr = $row[0];
-      $sniff_protos_ip{"$nr"} = 0;
-    }
-
-    # Filling the local scripts protocol list (ICMPTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND head = 3";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    %sniff_protos_icmp = ();
-    while (@row = $sth->fetchrow_array) {
-      $nr = $row[0];
-      $sniff_protos_icmp{"$nr"} = 0;
-    }
-
-    # Filling the local scripts protocol list (IGMPTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND head = 4";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    %sniff_protos_igmp = ();
-    while (@row = $sth->fetchrow_array) {
-      $nr = $row[0];
-      $sniff_protos_igmp{"$nr"} = 0;
-    }
     $ts = time();
     $protos_refresh = $ts + $c_sniff_protos_refresh;
   }
 
   if (! exists $sniff_protos_eth{$eth_type}) {
-    $check = add_proto_type($sensorid, 1, $eth_type);
+    $check = add_proto_type($sensorid, $head, $eth_type);
   }
-
-#  if (exists $ethernettypes{$eth_type}) {
-#    print "ETHOBJ: $ethernettypes{$eth_type}\n";
-#  } else {
-#    print "ETHOBJ: $eth_type\n";
-#  }
 
   #########################################
   # (1) IP Protocol
   #########################################
 
   if ($eth_obj->{type} eq 2048) {
+    $head = 1;
     # IP packet
     $ip_obj = NetPacket::IP->decode($eth_obj->{data});
     $proto = $ip_obj->{proto};
 
+    $src_ip = $ip_obj->{src_ip};
+    $src_mac = $eth_obj->{src_mac};
+    $src_mac = colonmac($src_mac);
+
+    $dst_ip = $ip_obj->{dest_ip};
+    $dst_mac = $eth_obj->{dest_mac};
+    $dst_mac = colonmac($dst_mac);
+
+    # Adding protocol type to the database if it doesn't exist yet
     if (! exists $sniff_protos_ip{$proto}) {
-      $check = add_proto_type($sensorid, 2, $proto);
-    }
-
-    if ($proto != 112) {
-      $src_ip = $ip_obj->{src_ip};
-      $src_mac = $eth_obj->{src_mac};
-      $src_mac = colonmac($src_mac);
-
-      $dst_ip = $ip_obj->{dest_ip};
-      $dst_mac = $eth_obj->{dest_mac};
-      $dst_mac = colonmac($dst_mac);
-
-      if (exists $iptypes{$proto}) {
-        print "IPOBJ ($iptypes{$proto}): $src_ip ($src_mac) -> $dst_ip ($dst_mac)\n";
-      } else {
-        print "IPOBJ ($proto): $src_ip ($src_mac) -> $dst_ip ($dst_mac)\n";
-      }
+      $check = add_proto_type($sensorid, $head, $proto);
     }
 
     if ($proto == 1) {
+      $head = 11;
       # ICMP protocol detected
       my $icmp_obj = NetPacket::ICMP->decode($ip_obj->{data});
       $icmp_type = $icmp_obj->{type};
       if (! exists $sniff_protos_icmp{$icmp_type}) {
-        $check = add_proto_type($sensorid, 3, $icmp_type);
-      }  
+        $check = add_proto_type($sensorid, $head, $icmp_type);
+      }
     } elsif ($proto == 2) {
+      $head = 12;
       # IGMP protocol detected
       my $igmp_obj = NetPacket::IGMP->decode($ip_obj->{data});
       $igmp_type = $igmp_obj->{type};
       if (! exists $sniff_protos_igmp{$igmp_type}) {
-        $check = add_proto_type($sensorid, 4, $igmp_type);
+        $check = add_proto_type($sensorid, $head, $igmp_type);
       }  
     } elsif ($proto == 6) {
       # TCP protocol detected
@@ -525,15 +443,27 @@ sub filter_packets {
       # UDP protocol detected
       $udp_obj = NetPacket::UDP->decode($ip_obj->{data});
       $dst_port = $udp_obj->{dest_port};
+      
       if ($dst_port == 68) {
+        $head = 11768;
         $dhcp_obj = Net::DHCP::Packet->new($udp_obj->{data});
         $op = $dhcp_obj->{op};
         if ($op == 2) {
-          print "DHCP PACKET: $src_mac - $src_ip\n";
-#          add_arp_cache($src_mac, $src_ip, $sensorid);
-          $type = 2;
-          $check = add_host_type($src_ip, $sensorid, $type);
-#          $check = chk_static_arp($src_mac, $src_ip, $sensorid);
+          $check = add_host_type($src_ip, $sensorid, 2);
+        }
+        $dhcp_type = $dhcp_obj->getOptionValue(DHO_DHCP_MESSAGE_TYPE());
+        if (! exists $sniff_protos_dhcp{$dhcp_type}) {
+          $check = add_proto_type($sensorid, $head, $dhcp_type);
+        }
+      } elsif ($dst_port == 67) {
+        $head = 11768;
+        $dhcp_obj = Net::DHCP::Packet->new($udp_obj->{data});
+        $op = $dhcp_obj->{op};
+        $dhcp_type = $dhcp_obj->getOptionValue(DHO_DHCP_MESSAGE_TYPE());
+        if ("$dhcp_type" ne "") {
+          if (! exists $sniff_protos_dhcp{$dhcp_type}) {
+            $check = add_proto_type($sensorid, $head, $dhcp_type);
+          }
         }
       }
     } elsif ($proto == 41) {

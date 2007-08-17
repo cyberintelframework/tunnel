@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 1.04.28
-# 31-05-2007
+# Version 1.04.30
+# 20-07-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 1.04.30 Fixed a bug with getnetinfo and getif
 # 1.04.29 Added mii-tool check for active interface
 # 1.04.28 Fixed a bug with network calculation
 # 1.04.27 Fixed client.conf updating bug
@@ -518,7 +519,7 @@ sub getnetinfo() {
   } elsif ($attr eq "nm") {
     $attr = `ifconfig $if | grep "Mask:" | cut -d":" -f4`;
   } elsif ($attr eq "gw") {
-    $attr = `route -n | grep UG | awk '{print \$2}'`;
+    $attr = `route -n | grep UG | grep $if | awk '{print \$2}'`;
   }
   chomp($attr);
   if ($attr eq "") {
@@ -578,7 +579,7 @@ sub getif() {
       @if_ar = split(/ +/, $_);
       @if_ar = split(/:/, $if_ar[1]);
       $if = $if_ar[0];
-      $checkif = `ifconfig -a | grep -v UNSPEC | grep -A3 $if | grep "RUNNING" | wc -l`;
+      $checkif = `ifconfig $if | grep -v UNSPEC | grep "RUNNING" | wc -l`;
       chomp($checkif);
       if ($checkif != 0) {
         $found_if = $if;

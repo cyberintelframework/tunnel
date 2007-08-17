@@ -3,13 +3,14 @@
 ######################################
 # Function library for tunnel server #
 # SURFnet IDS                        #
-# Version 1.04.05                    #
+# Version 1.05.01                    #
 # 24-05-2007                         #
 # Jan van Lith & Kees Trippelvitz    #
 ######################################
 
 #####################
 # Changelog:
+# 1.05.01 Modified add_arp_alert
 # 1.04.05 Added get_man
 # 1.04.04 Added getifmask, hextoip, colonmac
 # 1.04.03 Added getdatetime
@@ -130,7 +131,7 @@ sub chk_static_arp() {
     } else {
       if ("$mac" ne "$staticmac") {
         # Alert!!
-        $chk = &add_arp_alert($staticmac, $mac, $ip, $sensorid);
+        $chk = &add_arp_alert($staticmac, $mac, $ip, $ip, $sensorid);
         # Modifying ARP cache
         $man = get_man($mac);
         if ("$man" eq "false") {
@@ -714,14 +715,16 @@ sub colonmac {
 # Returns 0 on success
 # Returns non-zero on failure
 sub add_arp_alert() {
-  my ($targetmac, $targetip, $sourcemac, $sensorid, $chk, @row, $sql, $sth, $er, $ts, $expires, $expiry, $mailfile, $subject);
+  my ($targetmac, $targetip, $sourcemac, $sourceip, $sensorid, $chk, @row, $sql, $sth, $er, $ts, $expires, $expiry, $mailfile, $subject);
   $targetmac = $_[0];
   $sourcemac = $_[1];
   $targetip = $_[2];
-  $sensorid = $_[3];
+  $sourceip = $_[3];
+  $sensorid = $_[4];
   chomp($targetmac);
-  chomp($targetip);
   chomp($sourcemac);
+  chomp($targetip);
+  chomp($sourceip);
   chomp($sensorid);
   $ts = time();
 
@@ -741,8 +744,12 @@ sub add_arp_alert() {
     return 4;
   }
 
+  if ("$sourceip" eq "") {
+    return 5;
+  }
+
   if (!exists $arp_alert{"$sensorid-$sourcemac-$targetip"}) {
-    $sql = "INSERT INTO arp_alert (sensorid, timestamp, targetmac, sourcemac, targetip, type) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip', 1)";
+    $sql = "INSERT INTO attacks (sensorid, timestamp, dst_mac, src_mac, dest, source, severity, atype) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip', '$sourceip', 1, 10)";
     $sth = $dbh->prepare($sql);
     $er = $sth->execute();
     $expires = $ts + $c_arp_alert_expiry;
@@ -785,7 +792,7 @@ sub add_arp_alert() {
     $expiry = $arp_alert{"$sensorid-$sourcemac-$targetip"};
     $cs = time();
     if ($cs > $expiry) {
-      $sql = "INSERT INTO arp_alert (sensorid, timestamp, targetmac, sourcemac, targetip, type) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip', 1)";
+      $sql = "INSERT INTO attacks (sensorid, timestamp, dst_mac, src_mac, dest, source, severity, atype) VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip', '$sourceip', 1, 10)";
       $sth = $dbh->prepare($sql);
       $er = $sth->execute();
       $expires = $ts + $c_arp_alert_expiry;
@@ -1079,7 +1086,7 @@ sub add_host_type() {
   chomp($ip);
   chomp($sensorid);
   chomp($type);
-  print "ADDHOSTTYPE: $mac - $ip - $sensorid - $type\n";
+  print "ADDHOSTTYPE: IP $ip - SID $sensorid - TYPE $type\n";
 
   # Get the old flags first
   $sql = "SELECT flags FROM arp_cache WHERE ip = '$ip' AND sensorid = '$sensorid'";
@@ -1106,8 +1113,6 @@ sub add_host_type() {
     $flagstring = "$type";
   }
 
-  print "FLAGSTRING: $flagstring\n";
-
   $sql = "UPDATE arp_cache SET flags = '$flagstring' WHERE ip = '$ip' AND sensorid = '$sensorid'";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
@@ -1117,7 +1122,7 @@ sub add_host_type() {
 # 4.27 add_proto_type
 # Function to add a protocol type to the sensor sniff logs
 sub add_proto_type() {
-  my ($head, $nr, $proto, $sql, $sth, $er);
+  my ($head, $nr, $proto, $sql, $sth, $er, @row, $id);
   $sensorid = $_[0];
   $head = $_[1];
   $nr = $_[2];
@@ -1125,41 +1130,107 @@ sub add_proto_type() {
   chomp($head);
   chomp($nr);
 
-  if ($head == 1) {
-    if (exists $ethernettypes{$nr}) {
-      $proto = $ethernettypes{$nr};
-    } else {
-      $proto = "Unknown protocol";
+  # Default protocol name is Unknown
+  $proto = "Unknown";
+
+  # Getting protocol name if exists
+  if ($head == 0) {
+    if (exists $ethernettypes{"$nr"}) {
+      $proto = $ethernettypes{"$nr"};
     }
     $sniff_protos_eth{$nr} = 0;
-  } elsif ($head == 2) {
-    if (exists $iptypes{$nr}) {
-      $proto = $iptypes{$nr};
-    } else {
-      $proto = "Unknown protocol";
+  } elsif ($head == 1) {
+    if (exists $iptypes{"$nr"}) {
+      $proto = $iptypes{"$nr"};
     }
     $sniff_protos_ip{$nr} = 0;
-  } elsif ($head == 3) {
-    if (exists $icmptypes{$nr}) {
-      $proto = $icmptypes{$nr};
-    } else {
-      $proto = "Unknown protocol";
+  } elsif ($head == 11) {
+    if (exists $icmptypes{"$nr"}) {
+      $proto = $icmptypes{"$nr"};
     }
     $sniff_protos_icmp{$nr} = 0;
-  } elsif ($head == 4) {
-    if (exists $igmptypes{$nr}) {
-      $proto = $igmptypes{$nr};
-    } else {
-      $proto = "Unknown protocol";
+  } elsif ($head == 12) {
+    if (exists $igmptypes{"$nr"}) {
+      $proto = $igmptypes{"$nr"};
     }
     $sniff_protos_igmp{$nr} = 0;
+  } elsif ($head == 11768) {
+    if (exists $dhcptypes{$nr}) {
+      $proto = $dhcptypes{$nr};
+    }
+    $sniff_protos_dhcp{$nr} = 0;
   }
-  print "ADDPROTOTYPE: $sensorid - $head - $nr - $proto\n";
+  print "ADDPROTOTYPE: SID $sensorid - HEAD $head - NR $nr - PROTO $proto\n";
 
-  $sql = "INSERT INTO sniff_protos (sensorid, head, number, protocol) VALUES ('$sensorid', '$head', '$nr', '$proto')";
+  $sql = "INSERT INTO sniff_protos (sensorid, parent, number, protocol) VALUES ('$sensorid', '$head', '$nr', '$proto')";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
   return 0;
+}
+
+# 4.28 refresh_protos
+# Function to refresh the known protos hash
+sub refresh_protos() {
+  my ($head, $nr, @row, $er, $sth, $sql);
+  $head = $_[0];
+  chomp($head);
+  if ($head == 0) {
+    # Filling the local scripts protocol list (ETHERNETTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 0";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_eth = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_eth{"$nr"} = 0;
+    }
+  } elsif ($head == 1) {
+    # Filling the local scripts protocol list (IPTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 1";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_ip = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_ip{"$nr"} = 0;
+    }
+  } elsif ($head == 11) {
+    # Filling the local scripts protocol list (ICMPTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 11";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_icmp = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_icmp{"$nr"} = 0;
+    }
+  } elsif ($head == 12) {
+    # Filling the local scripts protocol list (IGMPTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 12";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_igmp = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_igmp{"$nr"} = 0;
+    }
+  } elsif ($head == 11768) {
+    # Filling the local scripts protocol list (DHCPTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 11768";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_dhcp = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_dhcp{"$nr"} = 0;
+    }
+  }
+  return "true";
 }
 
 return "true";
