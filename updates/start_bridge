@@ -1,0 +1,100 @@
+#!/bin/sh
+
+#########################################
+# Bridging script for IDS sensor	#
+# SURFnet IDS		                #
+# Version 1.03.01                       #
+# 17-10-2006		                #
+# Jan van Lith & Kees Trippelvitz	#
+# Modified by Peter Arts                #
+#########################################
+
+#########################################################################################
+# Copyright (C) 2005 SURFnet                                                            #
+# Authors Jan van Lith & Kees Trippelvitz                                               #
+# Modified by Peter Arts                                                                #
+#                                                                                       #
+# This program is free software; you can redistribute it and/or                         #
+# modify it under the terms of the GNU General Public License                           #
+# as published by the Free Software Foundation; either version 2                        #
+# of the License, or (at your option) any later version.                                #
+#                                                                                       #
+# This program is distributed in the hope that it will be useful,                       #
+# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
+# GNU General Public License for more details.                                          #
+#                                                                                       #
+# You should have received a copy of the GNU General Public License                     #
+# along with this program; if not, write to the Free Software                           #
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
+#########################################################################################
+
+# This script is started by openVPN when the tunnel comes up.
+
+##################
+# Changelog:
+# 1.03.01 Released as part of the 1.03 package
+##################
+
+################
+# Variables    #
+################
+basedir="/cdrom/scripts"
+. $basedir/scripts.conf
+
+################
+# Start script #
+################
+# Check which interface is active
+NETDEVICES="$(awk -F: '/eth.:|tr.:/{print $1}' /proc/net/dev )"
+for DEVICE in $NETDEVICES
+do
+  active=`ifconfig $DEVICE | grep -i "RUNNING" | wc -l`
+  ipcheck=`ifconfig $DEVICE | grep -i "inet addr" | wc -l`
+  if [ $active = 1 ] && [ $ipcheck = 1 ]; then
+    eth=$DEVICE
+    break
+  fi
+done
+
+# Check if the bridge is up or not.
+checkbr=`ip link show up | grep $br | wc -l`
+if [ $checkbr = 1 ]; then
+  echo -e "${YELLOW}Bridging does not have to be started.${NORMAL}"
+  exit
+else
+  # Check for static of dynamic network connection
+  ifmethod=`cat $basedir/network_if.conf | grep -i "Method: " | cut -f2 -d: | cut -f2 -d " "`
+  echo -e "${YELLOW}Found $ifmethod network configuration.${NORMAL}"
+  
+  # Get the interface info.
+  if [ $ifmethod  == "dhcp" ]; then
+    echo -e "${YELLOW}Using DHCP networking, getting configuration from pump.${NORMAL}"
+    eth_ip=`pump -i $eth --status | grep -i "IP: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_netmask=`pump -i $eth --status | grep -i "Netmask: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_broadcast=`pump -i $eth --status | grep -i "Broadcast: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_gw=`pump -i $eth --status | grep -i "Gateway: " | cut -f2 -d: | cut -f2 -d " "`
+  else
+    eth_ip=`cat $basedir/network_if.conf | grep -i "IP_sensor: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_netmask=`cat $basedir/network_if.conf | grep -i "Netmask: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_broadcast=`cat $basedir/network_if.conf | grep -i "Broadcast: " | cut -f2 -d: | cut -f2 -d " "`
+    eth_gw=`cat $basedir/network_if.conf | grep -i "Gateway: " | cut -f2 -d: | cut -f2 -d " "`
+  fi
+
+  echo -e "${YELLOW}Collected network configuration for sensor on device: $eth ${NORMAL}"
+  echo -e "${YELLOW}IP-address: $eth_ip, Netmask: $eth_netmask ${NORMAL}"
+  echo -e "${YELLOW}Broadcast: $eth_broadcast, Gateway: $eth_gw ${NORMAL}"
+
+  # Setup bridge.
+  echo -e "${YELLOW}Setting $eth and $tap in bridge: $br.${NORMAL}"
+  brctl addbr $br
+  brctl addif $br $eth
+  brctl addif $br $tap
+
+  # Setup interfaces.
+  echo -e "${YELLOW}Configuring interfaces.${NORMAL}"
+  ifconfig $eth 0.0.0.0 promisc up
+  ifconfig $tap 0.0.0.0 promisc up
+  ifconfig $br $eth_ip netmask $eth_netmask broadcast $eth_broadcast
+  route add -net default gw $eth_gw
+fi

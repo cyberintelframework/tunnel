@@ -1,0 +1,18 @@
+Make sure you have the following installed:
+
+xinetd
+apache-ssl
+perl
+postgresql-dev
+libclass-dbi-pg-perl
+php4-pgsql
+php4
+rrdtool
+librrds-perl
+openvpn
+openssl
+dhcp3-client
+iproute
+
+After these packages are installed, start the installation of the logging package 
+by running install_tn.pl.
