@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 ###################################
 # Local sensor script             #
@@ -37,7 +37,6 @@ if (!$ARGV[0]) {
 } else {
   $if = $ARGV[0];
   chomp($if);
-  print "IF: $if\n";
 }
 
 $ifip = getifip($if);
@@ -58,10 +57,6 @@ if (!$id) {
 }
 
 if ("$id" eq "") {
-  $sql = "INSERT INTO organisations (organisation) VALUES ('LOCAL')";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-
   $sql = "SELECT id FROM organisations WHERE organisation = 'LOCAL'";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
@@ -69,16 +64,33 @@ if ("$id" eq "") {
   @row = $sth->fetchrow_array;
   $orgid = $row[0];
 
+  if (!$orgid) {
+    $orgid = "";
+  }
+
+  if ("$orgid" eq "") {
+    $sql = "INSERT INTO organisations (organisation) VALUES ('LOCAL')";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    $sql = "SELECT id FROM organisations WHERE organisation = 'LOCAL'";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    @row = $sth->fetchrow_array;
+    $orgid = $row[0];
+  }
+
   $sql = "INSERT INTO sensors (keyname, remoteip, localip, lastupdate, laststart, status, uptime, tap, tapip, mac, netconf, organisation) ";
   $sql .= " VALUES ('$keyname', '$ifip', '$ifip', $ts, $ts, 1, 0, '$if', '$ifip', '$ifmac', 'local', $orgid)";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
 } else {
-  $sql = "UPDATE sensors SET remoteip = '$ifip', localip = '$localip', ";
+  $sql = "UPDATE sensors SET remoteip = '$ifip', localip = '$ifip', ";
   $sql .= " tap = '$if', tapip = '$ifip', mac = '$ifmac'  ";
   $sql .= " WHERE keyname = '$keyname' ";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
 }
 
-print "Local interface added as sensor!\n";
+printlog("Local interface added as sensor!");
