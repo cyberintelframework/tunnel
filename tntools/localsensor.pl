@@ -3,13 +3,14 @@
 ###################################
 # Local sensor script             #
 # SURFnet IDS                     #
-# Version 2.10.01                 #
+# Version 2.10.02                 #
 # 29-10-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
 #####################
 # Changelog:
+# 2.10.02 Added usage info on failure
 # 2.10.01 Initial version
 #####################
 
@@ -33,6 +34,7 @@ $ts = time;
 ##################
 if (!$ARGV[0]) {
   print "No interface given!\n";
+  print "Usage: ./localsensor eth0\n";
   exit 1;
 } else {
   $if = $ARGV[0];
