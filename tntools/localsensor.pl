@@ -58,7 +58,7 @@ if (!$id) {
 }
 
 if ("$id" eq "") {
-  $sql = "INSERT INTO organisations (organisation) VALUES ("LOCAL");
+  $sql = "INSERT INTO organisations (organisation) VALUES ('LOCAL')";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
 
@@ -68,9 +68,17 @@ if ("$id" eq "") {
 
   @row = $sth->fetchrow_array;
   $orgid = $row[0];
+
+  $sql = "INSERT INTO sensors (keyname, remoteip, localip, lastupdate, laststart, status, uptime, tap, tapip, mac, netconf, organisation) ";
+  $sql .= " VALUES ('$keyname', '$ifip', '$ifip', $ts, $ts, 1, 0, '$if', '$ifip', '$ifmac', 'local', $orgid)";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+} else {
+  $sql = "UPDATE sensors SET remoteip = '$ifip', localip = '$localip', ";
+  $sql .= " tap = '$if', tapip = '$ifip', mac = '$ifmac'  ";
+  $sql .= " WHERE keyname = '$keyname' ";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
 }
 
-$sql = "INSERT INTO sensors (keyname, remoteip, localip, lastupdate, laststart, status, uptime, tap, tapip, mac, netconf, organisation) ";
-$sql .= " VALUES ("$keyname", $ifip, $ifip, $ts, $ts, 1, 0, $if, $ifip, $ifmac, "local", $orgid)";
-$sth = $dbh->prepare($sql);
-$er = $sth->execute();
+print "Local interface added as sensor!\n";
