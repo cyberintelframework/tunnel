@@ -84,7 +84,7 @@ if ("$id" eq "") {
   }
 
   $sql = "INSERT INTO sensors (keyname, remoteip, localip, lastupdate, laststart, status, uptime, tap, tapip, mac, netconf, organisation) ";
-  $sql .= " VALUES ('$keyname', '$ifip', '$ifip', $ts, $ts, 1, 0, '$if', '$ifip', '$ifmac', 'local', $orgid)";
+  $sql .= " VALUES ('$keyname', '$ifip', '$ifip', $ts, $ts, 1, 0, '$if', '$ifip', '$ifmac', 'dhcp', $orgid)";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
 } else {
