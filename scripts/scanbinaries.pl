@@ -3,8 +3,8 @@
 ######################################
 # Scanbinaries script                #
 # SURFnet IDS                        #
-# Version 2.00.02                    #
-# 29-09-2007                         #
+# Version 2.10.01                    #
+# 02-11-2007                         #
 # Jan van Lith & Kees Trippelvitz    #
 ######################################
 
@@ -31,6 +31,7 @@
 
 #########################################################################
 # Changelog:
+# 2.10.01 Added scan method support
 # 2.00.02 added qw(localtime)
 # 2.00.01 version 2.00
 # 1.04.01 Code layout
@@ -204,53 +205,72 @@ foreach $file ( @dircontents ) {
     $result_checkbin = $sth_checkbin->execute();
   }
 
-  print "Scanning $file - ID: $bin_id\n";
-  $total_files++;
-  $time = time();
-  for my $key ( keys %scanners ) {
-    $name = $scanners{$key}{name};
-    if (!$scanners{$key}{count}) {
-      $scanners{$key}{count} = 0;
-    }
-    $cmd = $scanners{$key}{command};
-    $cmd =~ s/!bindir!/$c_bindir/g;
-    $cmd =~ s/!file!/$file/g;
-    $virus = `$cmd`;
-    chomp($virus);
-    if ($virus eq "") {
-      $virus = "Suspicious";
-    }
+  # Check if the binary was already in the binaries_detail table.
+  $sql_checkbin = "SELECT id FROM binaries WHERE bin = $bin_id";
+  $sth_checkbin = $dbh->prepare($sql_checkbin);
+  $result_checkbin = $sth_checkbin->execute();
+  $numrows_checkbin = $sth_checkbin->rows;
 
-    $sql_virus = "SELECT id FROM stats_virus WHERE name = '$virus'";
-    $sth_virus = $dbh->prepare($sql_virus);
-    $result_virus = $sth_virus->execute();
-    if ($result_virus == 0) {
-      printlog("[virus] Adding new virus: $virus");
-      # The virus was not yet in the stats_virus table. Insert it.
-      $sql_insert = "INSERT INTO stats_virus (name) VALUES ('$virus')";
-      $sth_insert = $dbh->prepare($sql_insert);
-      $result_insert = $sth_insert->execute();
+  $scan = 0;
+  if ($c_scan_method == 0) {
+    $scan = 1;
+  } else {
+    if ($numrows_checkbin == 0) {
+      $scan = 1;
+    }
+  }
+
+  if ($scan == 1) {
+    print "Scanning $file - ID: $bin_id\n";
+    $total_files++;
+    $time = time();
+    for my $key ( keys %scanners ) {
+      $name = $scanners{$key}{name};
+      if (!$scanners{$key}{count}) {
+        $scanners{$key}{count} = 0;
+      }
+      $cmd = $scanners{$key}{command};
+      $cmd =~ s/!bindir!/$c_bindir/g;
+      $cmd =~ s/!file!/$file/g;
+      $virus = `$cmd`;
+      chomp($virus);
+      if ($virus eq "") {
+        $virus = "Suspicious";
+      }
 
       $sql_virus = "SELECT id FROM stats_virus WHERE name = '$virus'";
       $sth_virus = $dbh->prepare($sql_virus);
       $result_virus = $sth_virus->execute();
-    }
-    @temp = $sth_virus->fetchrow_array;
-    $virus_id = $temp[0];
-    print "\t$name:\t\t$virus ($virus_id)\n";
+      if ($result_virus == 0) {
+        printlog("[virus] Adding new virus: $virus");
+        # The virus was not yet in the stats_virus table. Insert it.
+        $sql_insert = "INSERT INTO stats_virus (name) VALUES ('$virus')";
+        $sth_insert = $dbh->prepare($sql_insert);
+        $result_insert = $sth_insert->execute();
 
-    # We check if this binary and the scan result were already in the database. The unique key here is $file, $scanner, $virus.
-    $sql_select = "SELECT * FROM binaries WHERE bin = $bin_id AND info = $virus_id AND scanner = $key";
-    $sth_select = $dbh->prepare($sql_select);
-    $result_select = $sth_select->execute();
-    $numrows_select = $sth_select->rows;
-    if ($numrows_select == 0) {
-      # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
-      $scanners{$key}{count}++;
-      $sql_insert = "INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, $bin_id, $virus_id, $key)";
-      $sth_insert = $dbh->prepare($sql_insert);
-      $result_insert = $sth_insert->execute();
+        $sql_virus = "SELECT id FROM stats_virus WHERE name = '$virus'";
+        $sth_virus = $dbh->prepare($sql_virus);
+        $result_virus = $sth_virus->execute();
+      }
+      @temp = $sth_virus->fetchrow_array;
+      $virus_id = $temp[0];
+      print "\t$name:\t\t$virus ($virus_id)\n";
+
+      # We check if this binary and the scan result were already in the database. The unique key here is $file, $scanner, $virus.
+      $sql_select = "SELECT * FROM binaries WHERE bin = $bin_id AND info = $virus_id AND scanner = $key";
+      $sth_select = $dbh->prepare($sql_select);
+      $result_select = $sth_select->execute();
+      $numrows_select = $sth_select->rows;
+      if ($numrows_select == 0) {
+        # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
+        $scanners{$key}{count}++;
+        $sql_insert = "INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, $bin_id, $virus_id, $key)";
+        $sth_insert = $dbh->prepare($sql_insert);
+        $result_insert = $sth_insert->execute();
+      }
     }
+  } else {
+    print "Skipping $file - ID: $bin_id\n";
   }
 }
 # Print a total overview of the scan results.
