@@ -142,7 +142,7 @@ case "$reason" in
         ;;
     BOUND|RENEW|REBIND|REBOOT)
 
-        set_hostname
+        #set_hostname
         
         if [ -n "$old_ip_address" -a -n "$alias_ip_address" -a \
              "$alias_ip_address" != "$old_ip_address" ]; then

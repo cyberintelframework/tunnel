@@ -3,13 +3,15 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 2.00.03
-# 09-10-2007
+# Version 2.01.02
+# 15-11-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 2.10.02 Added getrev function
+# 2.10.01 Added some mount functions
 # 2.00.03 Added chkuprun function 
 # 2.00.02 Fixed bug with getif
 # 2.00.01 version 2.00
@@ -81,6 +83,10 @@ $| = 1;
 # 2.06		getportstatus
 # 2.07		getresolv
 # 2.08		getcerts
+# 2.09		getmountopts
+# 2.10		getmountr
+# 2.11		getusbdev
+# 2.12		getrev
 # 3		MISC functions
 # 3.01		prompt
 # 3.02		printmsg
@@ -104,7 +110,8 @@ $| = 1;
 # 3.20		gw
 # 3.21		upplstatus
 # 3.22		startdhcp
-# 3.23		chkuprun	
+# 3.23		chkuprun
+# 3.24		remount
 ###############################################
 
 #########################
@@ -169,7 +176,7 @@ sub chksensorstatus() {
 # Returns 1 if the sensor is read-only.
 # Returns 0 if the sensor is read/write.
 sub chkrw() {
-  my $touchfile = `mktemp -p $basedir`;
+  my $touchfile = `mktemp -p $tmpdir`;
   if ($? != 0) {
     $rmtouch = `rm $touchfile`;
     return 1;
@@ -708,7 +715,7 @@ sub getcerts() {
   $vlanid = $_[1];
   chomp($if_ip);
   chomp($vlanid);
-  $certfile = `mktemp -p $basedir`;
+  $certfile = `mktemp -p $tmpdir`;
   chomp($certfile);
   `rm -f $certfile 2>/dev/null`;
   if (-r "$basedir/identifier.ris") {
@@ -728,7 +735,12 @@ sub getcerts() {
   # Parsing the sensor name from the downloaded certificate file
   $sensor = `tail -n1 $certfile`;
   chomp($sensor);
-  
+
+  # Making sure the config file is writeable.
+  printdelay("Remounting the USB read/write:");
+  $mountchk = remount("rw");
+  printresult($mountchk);
+
   # Updating client.conf
   printmsg("Updating client.conf:", "info");
   open(CLIENT, ">> $basedir/client.conf");
@@ -763,6 +775,11 @@ sub getcerts() {
   close(KEY);
   close(CERT);
 
+  # Remounting the USB read-only again to reduce corruption chances
+  printdelay("Remounting the USB read-only:");
+  $mountchk = remount("ro");
+  printresult($mountchk);
+
   # Finished parsing the certificate file
   $chkclientconf = chkclientconf();
   printmsg("Checking client.conf:", $chkclientconf);
@@ -773,6 +790,60 @@ sub getcerts() {
   `rm -f $certfile 2>/dev/null`;
   $sensor = getsensor();
   return $sensor;
+}
+
+# 2.09 getmountopts
+# Function to get mount options of the /cdrom dir
+sub getmountopts() {
+  my ($opts);
+  $opts = `mount | grep "/cdrom" | awk '{print \$NF}'`;
+  chomp($opts);
+  $opts =~ s/\(//;
+  $opts =~ s/\)//;
+  return $opts;
+}
+
+# 2.10 getmountr
+# Function to check if the /cdrom dir is mounted ro or rw
+sub getmountr() {
+  my ($opts, @opts_ar, $state);
+  $opts = &getmountopts();
+  @opts_ar = split(/\,/,$opts);
+  $state = $opts_ar[0];
+  chomp($state);
+  return $state;
+}
+
+# 2.11 getusbdev
+# Function to get the device of the USB
+sub getusbdev() {
+  my ($usbdev);
+  $usbdev = `mount | grep "/cdrom" | awk '{print \$1}'`;
+  chomp($usbdev);
+  return $usbdev;
+}
+
+# 2.12 getrev
+# Function to get the revision number of the sensor scripts
+sub getrev() {
+  my ($rev, $loc);
+  $loc = $_[0];
+  chomp($loc);
+  if ("$loc" eq "local") {
+    $rev = `svn info | grep -i revision | awk '{print \$2}'`;
+    chomp($rev);
+  } elsif ("$loc" eq "server") {
+    $rev = `svn ls -v --username $svnuser --password $svnpass $svnurl | awk '{print \$1}' | sort -nr | head -n1 2>/dev/null`;
+    chomp($rev);
+  } else {
+    return "false";
+  }
+
+  if ($? == 0) {
+    return $rev;
+  } else {
+    return "false";
+  }
 }
 
 #########################
@@ -936,12 +1007,12 @@ sub updatefile() {
   my ($touchnew, $touchsig, $serverfile, $wait);
   $serverfile = $_[0];
   $wait = $_[1];
-  $touchsig = `mktemp -p $basedir`;
+  $touchsig = `mktemp -p $tmpdir`;
   chomp($touchsig);
   if ($? != 0) {
     return 1;
   }
-  $touchnew = `mktemp -p $basedir`;
+  $touchnew = `mktemp -p $tmpdir`;
   chomp($touchnew);
   if ($? != 0) {
     return 1;
@@ -1378,6 +1449,34 @@ sub chkuprun() {
     return 1;
   }
   return 1;
+}
+
+# 3.24 remount
+# Function to remount the /cdrom dir
+# Returns 0 if success
+# Returns non-zero on failure
+sub remount() {
+  my ($opts, $usbdev, $state, $newstate);
+  $newstate = $_[0];
+  chomp($newstate);
+
+  $opts = &getmountopts();
+  $opts =~ s/rw,//;
+  $opts =~ s/ro,//;
+
+  $usbdev = &getusbdev();
+  if ("$newstate" eq "") {
+    return 2;
+  }
+  if ("$usbdev" eq "") {
+    return 3;
+  }
+  if ("$opts" ne "") {
+    `mount -o remount,$newstate,$opts $usbdev /cdrom 2>/dev/null`;
+  } else {
+    `mount -o remount,$newstate $usbdev /cdrom 2>/dev/null`;
+  }
+  return $?;
 }
 
 return "true";

@@ -3,8 +3,8 @@
 ###############################################
 # Network setup script for SURFnet IDS sensor #
 # SURFnet IDS                                 #
-# Version 2.00.01                             #
-# 14-09-2007                                  #
+# Version 2.10.01                             #
+# 15-11-2007                                  #
 # Jan van Lith & Kees Trippelvitz             #
 ###############################################
 
@@ -29,6 +29,7 @@
 
 #############################################
 # Changelog:
+# 2.10.01 Added mount stuff
 # 2.00.01 version 2.00
 # 1.04.06 Updated some VLAN handelings with user input
 # 1.04.05 Fixed type with VLAN method
@@ -130,6 +131,11 @@ sub set_static_ip() {
       $valid_ip = validip($ns);
     }
 
+    # Making sure the config file is writeable.
+    printdelay("Remounting the USB read/write:");
+    $mountchk = remount("rw");
+    printresult($mountchk);
+
     # Set configuration in network_if.conf:
     open(NCONF, "> $networkconf");
     print NCONF "\$netconf = \"static\";\n";
@@ -141,6 +147,11 @@ sub set_static_ip() {
     close(NCONF);
 
     system("/usr/bin/clear");
+    # Remounting the USB read-only again to reduce corruption chances
+    printdelay("Remounting the USB read-only:");
+    $mountchk = remount("ro");
+    printresult($mountchk);
+
     printmsg("Method:", "static");
     printmsg("IP_sensor:", $sensorip);
     printmsg("Netmask:", $netmask);
@@ -169,16 +180,28 @@ sub set_dynamic_ip() {
   printmsg("Stopping client:", "info");
   system("$basedir/stopclient");
 
+  system("/usr/bin/clear");
+
+  # Making sure the config file is writeable.
+  printdelay("Remounting the USB read/write:");
+  $mountchk = remount("rw");
+  printresult($mountchk);
+
+  printmsg("Writing the config file:", "info");
   # Set DHCP networking in network_if.conf:
-    open(NCONF, "> $networkconf");
-    print NCONF "\$netconf = \"dhcp\";\n";
-    close(NCONF);
+  open(NCONF, "> $networkconf");
+  print NCONF "\$netconf = \"dhcp\";\n";
+  close(NCONF);
+
+  # Remounting the USB read-only again to reduce corruption chances
+  printdelay("Remounting the USB read-only:");
+  $mountchk = remount("ro");
+  printresult($mountchk);
     
-    system("/usr/bin/clear");
-    &prompt("Press enter to start sensor....");
+  &prompt("Press enter to start sensor....");
     
-    # Start client
-    system("$basedir/startclient");
+  # Start client
+  system("$basedir/startclient");
 }
 
 # Set VLAN
@@ -302,6 +325,11 @@ sub set_vlan() {
               }
             }
             if ($input =~ /^(Y|y)$/) {
+              # Making sure the config file is writeable.
+              printdelay("Remounting the USB read/write:");
+              $mountchk = remount("rw");
+              printresult($mountchk);
+
               print NCONF "\t$vlanid => {\n";
               print NCONF "\t\tmethod => \"static\",\n";
               print NCONF "\t\tif_ip => \"$sensorip\",\n";
@@ -310,15 +338,30 @@ sub set_vlan() {
               print NCONF "\t\tif_bc => \"$bc\",\n";
               print NCONF "\t},\n";
               $setvlan = 0;
+
+              # Remounting the USB read-only again to reduce corruption chances
+              printdelay("Remounting the USB read-only:");
+              $mountchk = remount("ro");
+              printresult($mountchk);
             }
 	  #####################
 	  # VLAN: DHCP
 	  #####################
           } elsif ($vlan_method eq "dhcp"){
+            # Making sure the config file is writeable.
+            printdelay("Remounting the USB read/write:");
+            $mountchk = remount("rw");
+            printresult($mountchk);
+
             print NCONF "\t$vlanid => {\n";
             print NCONF "\t\tmethod => \"dhcp\",\n";
             print NCONF "\t},\n";
             $setvlan = 0;
+
+            # Remounting the USB read-only again to reduce corruption chances
+            printdelay("Remounting the USB read-only:");
+            $mountchk = remount("ro");
+            printresult($mountchk);
           } else {
             print "Wrong input: Enter static or dhcp.\n";
           }
@@ -360,16 +403,39 @@ sub set_vlan() {
       # Start client
       system("$basedir/startclient");
     } else {
-       print "Your old configuration is still in use.\n";
-       print "Start the sensor to activate the old configuration or reconfigure your network.\n";
+      print "Your old configuration is still in use.\n";
+      print "Start the sensor to activate the old configuration or reconfigure your network.\n";
+
+      printdelay("Remounting the USB read/write:");
+      $mountchk = remount("rw");
+      printresult($mountchk);
+
+      printdelay("Restoring config backup:");
       `cp $basedir/network_if.conf.back $basedir/network_if.conf`;
+      printresult($?);
+
+      # Remounting the USB read-only again to reduce corruption chances
+      printdelay("Remounting the USB read-only:");
+      $mountchk = remount("ro");
+      printresult($mountchk);
     }  
     $done = 0;
   }   
 }
 
+printdelay("Remounting the USB read/write:");
+$mountchk = remount("rw");
+printresult($mountchk);
+
 # Make a backup of the network_if.conf
+printdelay("Creating config backup:");
 `cp $basedir/network_if.conf $basedir/network_if.conf.back`;
+printresult($?);
+
+# Remounting the USB read-only again to reduce corruption chances
+printdelay("Remounting the USB read-only:");
+$mountchk = remount("ro");
+printresult($mountchk);
 
 # Show menu
 while (1) {

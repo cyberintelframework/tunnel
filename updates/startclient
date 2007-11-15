@@ -3,8 +3,8 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 2.00.04
-# 23-10-2007
+# Version 2.10.01
+# 15-11-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 # Contributors:
@@ -13,6 +13,7 @@
 
 ################
 # Changelog:
+# 2.10.01 Saving downloaded php files in /tmp now
 # 2.00.04 Changed 2 remove default route commands
 # 2.00.03 Added dropping of multicast traffic   
 # 2.00.02 Added extra removing default route   
@@ -336,25 +337,25 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   if ($sensor ne "false" && $chkresolv == 0) {
     # Updating the current configuration to the server
     printdelay("Updating status info:");
-    `wget -q $wgetarg -O $basedir/startclient.php "$serverurl/startclient.php?ip_localip=$if_ip&strip_html_escape_ifmethod=$netconf&strip_html_escape_detail=$ifdetail&int_vlanid=0&strip_html_escape_keyname=$sensor"`;
+    `wget -q $wgetarg -O $tmpdir/startclient.php "$serverurl/startclient.php?ip_localip=$if_ip&strip_html_escape_ifmethod=$netconf&strip_html_escape_detail=$ifdetail&int_vlanid=0&strip_html_escape_keyname=$sensor"`;
     printresult($?);
   }
 
-  if (-r "$basedir/startclient.php") {
+  if (-r "$tmpdir/startclient.php") {
     # Check for errors
     $err = 0;
-    $errcheck = `grep "ERROR" $basedir/startclient.php | wc -l`;
+    $errcheck = `grep "ERROR" $tmpdir/startclient.php | wc -l`;
     if ($errcheck != 0) {
-      $errors = `grep "ERROR" $basedir/startclient.php`;
+      $errors = `grep "ERROR" $tmpdir/startclient.php`;
       chomp($errors);
-      $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
+      $errno = `grep "ERRNO" $tmpdir/startclient.php | awk '{print \$2}'`;
     }
 
     # Check for errors
     if ($errcheck != 0) {
-      $errors = `grep "ERROR" $basedir/startclient.php`;
+      $errors = `grep "ERROR" $tmpdir/startclient.php`;
       chomp($errors);
-      $errno = `grep "ERRNO" $basedir/startclient.php | awk '{print \$2}'`;
+      $errno = `grep "ERRNO" $tmpdir/startclient.php | awk '{print \$2}'`;
       if ($errno == 99) {
         print "${y}A tap IP address needs to be configured in the webinterface.\n";
         print "Start the sensor again when this is done.${n}\n";
@@ -626,25 +627,25 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     if ($sensor ne "false") {
       # Updating the current configuration to the server
       printdelay("$vs Updating status info:");
-      `wget -q $wgetarg -O $basedir/startclient$vlanid.php "$serverurl/startclient.php?ip_localip=$vlan_ip&strip_html_escape_ifmethod=$ifmethodstring&strip_html_escape_detail=$netconfdetail&int_vlanid=$vlanid&strip_html_escape_keyname=$sensor"`;
+      `wget -q $wgetarg -O $tmpdir/startclient$vlanid.php "$serverurl/startclient.php?ip_localip=$vlan_ip&strip_html_escape_ifmethod=$ifmethodstring&strip_html_escape_detail=$netconfdetail&int_vlanid=$vlanid&strip_html_escape_keyname=$sensor"`;
       printresult($?);
     }
 
-    if (-r "$basedir/startclient$vlanid.php") {
+    if (-r "$tmpdir/startclient$vlanid.php") {
       # Check for errors
       $err = 0;
-      $errcheck = `grep "ERROR" $basedir/startclient$vlanid.php | wc -l`;
+      $errcheck = `grep "ERROR" $tmpdir/startclient$vlanid.php | wc -l`;
       if ($errcheck != 0) {
-        $errors = `grep "ERROR" $basedir/startclient$vlanid.php`;
+        $errors = `grep "ERROR" $tmpdir/startclient$vlanid.php`;
         chomp($errors);
-        $errno = `grep "ERRNO" $basedir/startclient$vlanid.php | awk '{print \$2}'`;
+        $errno = `grep "ERRNO" $tmpdir/startclient$vlanid.php | awk '{print \$2}'`;
       }
 
       # Check for errors
       if ($errcheck != 0) {
-        $errors = `grep "ERROR" $basedir/startclient$vlanid.php`;
+        $errors = `grep "ERROR" $tmpdir/startclient$vlanid.php`;
         chomp($errors);
-        $errno = `grep "ERRNO" $basedir/startclient$vlanid.php | awk '{print \$2}'`;
+        $errno = `grep "ERRNO" $tmpdir/startclient$vlanid.php | awk '{print \$2}'`;
         chomp($errno);
         if ($errno == 99) {
           # Deleting the default route to make sure routing goes correctly 
@@ -676,8 +677,8 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     }
  
     if ($chkresolv == 0) {
-      if (! -e "$basedir/tunnel.status") {
-        `touch $basedir/tunnel.status`;
+      if (! -e "$tmpdir/tunnel.status") {
+        `touch $tmpdir/tunnel.status`;
       }
       printdelay("$vs Starting OpenVPN:");
       `openvpn --config $basedir/client.conf --up "$basedir/up $i $vlan_gw $br" --dev $tap --daemon`;

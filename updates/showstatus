@@ -3,13 +3,14 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 2.00.02
-# 09-10-2007
+# Version 2.10.01
+# 15-11-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
+# 2.10.01 Added readstate check
 # 2.00.02 Added exit when up is running 
 # 2.00.01 Added syslog check
 # 1.04.12 Added IP address  
@@ -53,7 +54,24 @@ if ($netconf eq "vlan") {
 ### Sensor name ###
 $sensor = getsensor();
 printmsg("Sensor name:", $sensor);
-  
+
+### Checking read/write state
+$readstate = getmountr();
+if ("$readstate" eq "ro") {
+  $readstate = "Read-only";
+} elsif ("$readstate" eq "rw") {
+  $readstate = "Read/write";
+}
+printmsg("Read/write state of the sensor:", $readstate);
+
+### Checking scripts revision
+$rev = getrev();
+if ("$rev" ne "false") {
+  printmsg("SURFids scripts revision:", " $rev ");
+} else {
+  printmsg("SURFids scripts revision:", $rev);
+}
+
 ### Sensor status ###
 $chkstatus = chksensorstatus($statusif);
 if ($chkstatus == 0) {

@@ -3,8 +3,8 @@
 #########################################
 # Stop script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 2.00.03
-# 09-10-2007
+# Version 2.10.01
+# 15-11-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 # Contributors:                     
@@ -13,6 +13,7 @@
 
 ################
 # Changelog:
+# 2.10.01 Saving downloaded php files in /tmp now
 # 2.00.03 Fixed typo
 # 2.00.02 Changed/added route commands
 # 2.00.01 Removed exit on failed gateway ping
@@ -214,18 +215,18 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   }
   if ($chkresolv == 0) {
     printdelay("Updating status information:");
-    `wget -q $wgetarg -O $basedir/stopclient.php "$serverurl/stopclient.php?ip_localip=$if_ip&int_vlanid=0&strip_html_escape_keyname=$sensor"`;
+    `wget -q $wgetarg -O $tmpdir/stopclient.php "$serverurl/stopclient.php?ip_localip=$if_ip&int_vlanid=0&strip_html_escape_keyname=$sensor"`;
     printresult($?);
   } else {
     printmsg("Updating status information:", "ignore");
   }
 
-  if (-r "$basedir/stopclient.php") {
+  if (-r "$tmpdir/stopclient.php") {
     # Check for errors with the localip and tapip update.
-    $checkerr = `cat $basedir/stopclient.php | grep "ERROR" | wc -l`;
+    $checkerr = `cat $tmpdir/stopclient.php | grep "ERROR" | wc -l`;
     if ($checkerr > 0) {
       # Errors occured while updating localip and tapip.
-      $errors = `cat $basedir/stopclient.php | grep "ERROR"`;
+      $errors = `cat $tmpdir/stopclient.php | grep "ERROR"`;
       print "${y}Error occured while updating status information.\n${n}";
       print "${r}$errors\n${n}";
     }
@@ -357,16 +358,16 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # Get the localip.
     if ($chkresolv == 0 && $if ne "false" && $chkvlanif == 0) {
       printdelay("$vs Updating status information:");
-      `wget -q $wgetarg -O $basedir/stopclient$vlanid.php "$serverurl/stopclient.php?ip_localip=$vlan_ip&int_vlanid=$vlanid&strip_html_escape_keyname=$sensor"`;
+      `wget -q $wgetarg -O $tmpdir/stopclient$vlanid.php "$serverurl/stopclient.php?ip_localip=$vlan_ip&int_vlanid=$vlanid&strip_html_escape_keyname=$sensor"`;
       printresult($?);
     }
 
     if (-r "$basedir/stopclient$vlanid.php") {
       # Check for errors with the localip and tapip update.
-      $checkerr = `cat $basedir/stopclient$vlanid.php | grep "ERROR" | wc -l`;
+      $checkerr = `cat $tmpdir/stopclient$vlanid.php | grep "ERROR" | wc -l`;
       if ($checkerr > 0) {
         # Errors occured while updating localip and tapip.
-        $errors = `cat $basedir/stopclient$vlanid.php | grep "ERROR"`;
+        $errors = `cat $tmpdir/stopclient$vlanid.php | grep "ERROR"`;
         print "${y}Error occured while updating status information.\n${n}";
         print "${r}$errors\n${n}";
       }

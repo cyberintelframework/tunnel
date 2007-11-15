@@ -3,8 +3,8 @@
 ######################################
 # Scanbinaries script                #
 # SURFnet IDS                        #
-# Version 2.10.01                    #
-# 02-11-2007                         #
+# Version 2.10.02                    #
+# 05-11-2007                         #
 # Jan van Lith & Kees Trippelvitz    #
 ######################################
 
@@ -31,6 +31,7 @@
 
 #########################################################################
 # Changelog:
+# 2.10.02 Added more scan methods
 # 2.10.01 Added scan method support
 # 2.00.02 added qw(localtime)
 # 2.00.01 version 2.00
@@ -182,10 +183,15 @@ foreach $file ( @dircontents ) {
   # BINARIES_DETAIL
   ##############
   # Check if the binary was already in the binaries_detail table.
-  $sql_checkbin = "SELECT bin FROM binaries_detail WHERE bin = $bin_id";
+  $sql_checkbin = "SELECT bin, last_scanned FROM binaries_detail WHERE bin = $bin_id";
   $sth_checkbin = $dbh->prepare($sql_checkbin);
   $result_checkbin = $sth_checkbin->execute();
   $numrows_checkbin = $sth_checkbin->rows;
+  @row_details = $sth_checkbin->fetchrow_array;
+  $last_scanned = $row_detail[1];
+  if ("$last_scanned" eq "") {
+    $last_scanned = time();
+  }
 
   if ($numrows_checkbin == 0) {
     printlog("[detail] Adding new binary_detail info for binary ID: $bin_id");
@@ -205,25 +211,60 @@ foreach $file ( @dircontents ) {
     $result_checkbin = $sth_checkbin->execute();
   }
 
-  # Check if the binary was already in the binaries_detail table.
-  $sql_checkbin = "SELECT id FROM binaries WHERE bin = $bin_id";
-  $sth_checkbin = $dbh->prepare($sql_checkbin);
-  $result_checkbin = $sth_checkbin->execute();
-  $numrows_checkbin = $sth_checkbin->rows;
-
   $scan = 0;
+  $time = time();
   if ($c_scan_method == 0) {
     $scan = 1;
-  } else {
+  } elsif ($c_scan_method == 1) {
+    # Checking if the binary is a new binary
+    $sql_checkbin = "SELECT id FROM binaries WHERE bin = $bin_id";
+    $sth_checkbin = $dbh->prepare($sql_checkbin);
+    $result_checkbin = $sth_checkbin->execute();
+    $numrows_checkbin = $sth_checkbin->rows;
+
     if ($numrows_checkbin == 0) {
+      $scan = 1;
+    }
+
+    # Checking if the binary needs to be scanned again versus last_scanned
+    $checkts = $last_scanned + $c_scan_period;
+    if ($time > $checkts) {
+      $scan = 1;
+    }
+  } elsif ($c_scan_method == 2) {
+    # Checking if the binary is a new binary
+    $sql_checkbin = "SELECT id FROM binaries WHERE bin = $bin_id";
+    $sth_checkbin = $dbh->prepare($sql_checkbin);
+    $result_checkbin = $sth_checkbin->execute();
+    $numrows = $sth_checkbin->rows;
+    if ($numrows == 0) {
+      $scan = 1;
+    }
+
+    # Checking if the binary is not detected by certain scanners
+    $sql_checkbin = "SELECT binaries.id FROM binaries, stats_virus WHERE binaries.info = stats_virus.id AND ";
+    $sql_checkbin .= " stats_virus.name = 'Suspicious' AND binaries.bin = $bin_id";
+    $sth_checkbin = $dbh->prepare($sql_checkbin);
+    $result_checkbin = $sth_checkbin->execute();
+    $numrows = $sth_checkbin->rows;
+    if ($numrows != 0) {
+      $scan = 1;
+    }
+
+    # Checking if the binary needs to be scanned again versus last_scanned
+    $checkts = $last_scanned + $c_scan_period;
+    if ($time > $checkts) {
       $scan = 1;
     }
   }
 
   if ($scan == 1) {
+    $sql_time = "UPDATE binaries_detail SET last_scanned = '$time' WHERE bin = '$bin_id'";
+    $sth_time = $dbh->prepare($sql_time);
+    $result_time = $sth_time->execute();
+
     print "Scanning $file - ID: $bin_id\n";
     $total_files++;
-    $time = time();
     for my $key ( keys %scanners ) {
       $name = $scanners{$key}{name};
       if (!$scanners{$key}{count}) {

@@ -296,21 +296,21 @@ sub update_process() {
   system("$basedir/svnupdate");
 
   # Updating sensor information to the server
-  `wget -q $wgetarg -O $basedir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh"`;
+  `wget -q $wgetarg -O $tmpdir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh"`;
   &printmsg("Updating status information:", $?);
 
   # Check for errors with the localip and tapip update.
-  $checkerror = `cat $basedir/update$vlanid.php | grep "ERROR" | wc -l`;
+  $checkerror = `cat $tmpdir/update$vlanid.php | grep "ERROR" | wc -l`;
   if ($checkerror > 0) {
     # Errors occured while updating localip and tapip.
-    $errors = `cat $basedir/update$vlanid.php | grep "ERROR"`;
+    $errors = `cat $tmpdir/update$vlanid.php | grep "ERROR"`;
     chomp($errors);
     print "${y}An error occurred while updating status information.${n}\n";
     print "${r}$errors${n}\n";
   }
 
   # Check if any action was requested.
-  $action = `cat $basedir/update$vlanid.php | grep "ACTION:" | awk '{print \$2}'`;
+  $action = `cat $tmpdir/update$vlanid.php | grep "ACTION:" | awk '{print \$2}'`;
   chomp($action);
 
   ################
