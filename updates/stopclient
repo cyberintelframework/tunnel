@@ -59,10 +59,6 @@ if ($netconf eq "vlan") {
 # Generate the server URL
 $serverurl = "$http://$server:$port/server";
 
-# Check the disk for read/write status.
-$chkrw = chkrw();
-printmsg("Checking read/write status:", $chkrw);
-
 # Check for static of dynamic network connection
 printmsg("Network configuration method:", $netconf);
 

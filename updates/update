@@ -337,6 +337,10 @@ sub update_process() {
         $j = 0;
         &printmsg("Stopping Sensor:", $?);
      	`$basedir/stopclient`;
+
+        # Making sure we can write on the USB
+        remount("rw");
+
       	if ($? != 0) { $j++ };
       	`cp $basedir/$sensor.crt $basedir/$sensor.bcrt`;
       	if ($? != 0) { $j++ };
@@ -350,12 +354,20 @@ sub update_process() {
       	if ($? != 0) { $j++ };
       	`chmod 600 $basedir/$sensor.bcrt`;
       	if ($? != 0) { $j++ };
+
+        # Remounting read-only
+        remount("ro");
+
       	&printmsg("Server request - disable client:", $i);
       } else {
       	&printmsg("Client already disabled:", "info");
       } 
     } elsif ($action eq "UNBLOCK") {    
       if (-e "$basedir/$sensor.bcrt") { 
+
+        # Making sure we can write on the USB
+        remount("rw");
+
         $j = 0;
       	`mv $basedir/$sensor.bcrt $basedir/$sensor.crt`;
       	if ($? != 0) { $j++ };
@@ -365,6 +377,10 @@ sub update_process() {
       	if ($? != 0) { $j++ };
       	`chmod 644 $basedir/$sensor.crt`;
       	if ($? != 0) { $j++ };
+
+        # Remounting read-only
+        remount("ro");
+
       	&printmsg("Server request - enable client:", $i);
       } else {
       	&printmsg("Client already enabled:", "info");

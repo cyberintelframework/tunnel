@@ -64,12 +64,15 @@ if ("$readstate" eq "ro") {
 }
 printmsg("Read/write state of the sensor:", $readstate);
 
-### Checking scripts revision
-$rev = getrev();
-if ("$rev" ne "false") {
-  printmsg("SURFids scripts revision:", " $rev ");
-} else {
-  printmsg("SURFids scripts revision:", $rev);
+$chksvn = chksvn();
+if ($chksvn == 0) {
+  ### Checking scripts revision
+  $rev = getrev("local");
+  if ("$rev" ne "false") {
+    printmsg("SURFids scripts revision (local):", " $rev ");
+  } else {
+    printmsg("SURFids scripts revision (local):", $rev);
+  }
 }
 
 ### Sensor status ###
@@ -123,10 +126,6 @@ if ($chkstatus != 2) {
   printmsg("Checking sensor key:", $chkkey);
 }
 
-### Read/write check ###
-$chkrw = chkrw();
-printmsg("Checking read/write status:", $chkrw);
-  
 ### Checking client.conf ###
 $chkclient = chkclientconf();
 printmsg("Checking client.conf:", $chkclient);

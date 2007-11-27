@@ -69,6 +69,7 @@ sub idsmenu_copyhd() {
 sub idsmenu_ssh() {
   my ($chkssh);
   $chkssh = chkssh();
+  remount("rw");
   if ($chkssh == 1) {
     `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/sshd.pid`;
     printmsg("Stopping SSH daemon:", $?);
@@ -76,6 +77,7 @@ sub idsmenu_ssh() {
     `/etc/init.d/ssh start`;
     printmsg("Starting SSH daemon:", $?);
   }
+  remount("ro");
   &prompt("Press enter to continue...");
 }
 

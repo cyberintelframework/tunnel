@@ -3,13 +3,14 @@
 #########################################
 # SVN Update script                     #
 # SURFnet IDS                           #
-# Version 2.00.01                       #
-# 02-10-2007                            #
+# Version 2.10.01                       #
+# 15-11-2007                            #
 # Jan van Lith & Kees Trippelvitz	#
 #########################################
 
 ##################
 # Changelog:
+# 2.10.01 Changed update process to work with a RO disk
 # 2.00.01 added non-interactive command to update
 # 1.04.07 Removed svndir and configdir stuff. Removed useless while loop.
 # 1.04.06 Removed config-dir switch (use CAcert.pem instead)
@@ -27,70 +28,88 @@ $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
 do "$basedir/functions.inc.pl";
 do "$networkconf";
+$process = 0;
 
 ################
 # Start script #
 ################
-printmsg("Starting svnupdates:", "info");
-$update = 0;
-$menureboot = 0;
-$err = 0;
-$action = "";
-
-# Check if the disk is read/write.
-$chkrw = chkrw();
-printmsg("Checking read/write status:", $chkrw);
-if ($chkrw != 0) {
-  exit;
-}
+printmsg("Starting update script:", "info");
 
 ############
 # Updating #
 ############
 
-printdelay("SVN Update command:");
-`svn update $basedir --non-interactive --username $svnuser --password $svnpass`;
-printresult($?);
+$chksvn = chksvn();
+if ($chksvn == 0) {
+  printmsg("Checking local SVN repo:", $chksvn);
+} else {
+  printmsg("Checking local SVN repo:", "warning");
+}
 
-if ($? != 0) {
-  @file_ar = `svn ls --username $svnuser --password $svnpass $svnurl`;
-  foreach $file (@file_ar) {
-    chomp($file);
-    if (-e "$basedir/$file") {
-      printdelay("Removing old $file:");
-      `rm -f $basedir/$file`;
-      printresult($?);
-    }
-  }
-  printdelay("Starting SVN checkout:");
-  `svn checkout --username $svnuser --password $svnpass $svnurl $basedir`;
+if ($chksvn != 0) {
+  $mount = remount("rw");
+
+  printdelay("Cleaning up sig files:");
+  `rm -f $basedir/*.sig`;
   printresult($?);
-  if ($? != 0) { 
-    `svn cleanup $basedir`;
-    `svn checkout --username $svnuser --password $svnpass $svnurl $basedir`;
+  printdelay("Starting SVN checkout:");
+  `svn checkout --username $svnuser --password $svnpass $svnurl $basedir >/dev/null`;
+  printresult($?);
+
+  $mount = remount("ro");
+} else {
+  $server_rev = getrev("server");
+  $local_rev = getrev("local");
+  if ("$server_rev" eq "false") {
+    printmsg("SURFids scripts revision (server):", "false");
+  } elsif ("$local_rev" eq "false") {
+    printmsg("SURFids scripts revision (local):", "false");
+  } else {
+    printmsg("SURFids scripts revision (server):", " $server_rev ");
+    printmsg("SURFids scripts revision (local):", " $local_rev ");
+    if ($server_rev != $local_rev) {
+      $mount = remount("rw");
+      printmsg("Remounting the USB read/write:", $mount);
+
+      printdelay("Starting SVN update:");
+      `svn update --username $svnuser --password $svnpass 2>/dev/null`;
+      printresult($?);
+
+      if ($? == 0) {
+        $process = 1;
+      } else {
+        $mount = remount("ro");
+        printmsg("Remounting the USB read-only:", $mount);
+      }
+    }
   }
 }
 
-@sigfile_ar = `ls -1 $basedir`;
-foreach $file (@sigfile_ar) {
-  chomp($file);
-  if ($file =~ /^.*\.sig\.mime$/ || $file =~ /^.*\.sig\.r[0-9]*$/) {
-    $sigfile = $file;
-    $sigfile =~ s/\.sig\..*//;
-    printdelay("Removing file: $file");
-    `rm -f $basedir/$file`;
-    printresult($?);
-    printdelay("SVN update for $sigfile");
-    `svn update $basedir/$sigfile.sig --username $svnuser --password $svnpass`;
-    printresult($?);
-    `openssl smime -verify -text -inform SMIME -in $basedir/$sigfile.sig -out $basedir/$sigfile.new -CAfile $basedir/scripts.crt 2>/dev/null`;
-    `dos2unix $basedir/$sigfile.new`;
-    `mv $basedir/$sigfile.new $basedir/$sigfile`;
-  }
-  if ($file =~ /^.*\.sig$/) {
-    $file =~ s/\.sig//;
-    `openssl smime -verify -text -inform SMIME -in $basedir/$file.sig -out $basedir/$file.new -CAfile $basedir/scripts.crt 2>/dev/null`;
-    `dos2unix $basedir/$file.new`;
-    `mv $basedir/$file.new $basedir/$file`;
-  }
+if ($process == 1) {
+  printmsg("Processing files:", "info");
+#  @sigfile_ar = `ls -1 $basedir`;
+#  foreach $file (@sigfile_ar) {
+#    chomp($file);
+#    if ($file =~ /^.*\.sig\.mime$/ || $file =~ /^.*\.sig\.r[0-9]*$/) {
+#      $sigfile = $file;
+#      $sigfile =~ s/\.sig\..*//;
+#      printdelay("Removing file: $file");
+#      `rm -f $basedir/$file`;
+#      printresult($?);
+#      printdelay("SVN update for $sigfile");
+#      `svn update $basedir/$sigfile.sig --username $svnuser --password $svnpass`;
+#      printresult($?);
+#      `openssl smime -verify -text -inform SMIME -in $basedir/$sigfile.sig -out $basedir/$sigfile.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+#      `dos2unix $basedir/$sigfile.new`;
+#      `mv $basedir/$sigfile.new $basedir/$sigfile`;
+#    }
+#    if ($file =~ /^.*\.sig$/) {
+#      $file =~ s/\.sig//;
+#      `openssl smime -verify -text -inform SMIME -in $basedir/$file.sig -out $basedir/$file.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+#      `dos2unix $basedir/$file.new`;
+#      `mv $basedir/$file.new $basedir/$file`;
+#    }
+#  }
+  $mount = remount("ro");
+  printmsg("Remounting the USB read-only:", $mount);
 }

@@ -3,8 +3,8 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 2.10.01
-# 15-11-2007
+# Version 2.10.03
+# 27-11-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 # Contributors:
@@ -13,6 +13,8 @@
 
 ################
 # Changelog:
+# 2.10.03 Added caretaker 
+# 2.10.02 Making sure USB is mounted read-only
 # 2.10.01 Saving downloaded php files in /tmp now
 # 2.00.04 Changed 2 remove default route commands
 # 2.00.03 Added dropping of multicast traffic   
@@ -62,15 +64,13 @@ if ($netconf eq "vlan") {
   $statusif = $br;
 }
 
-#$chkstatus = chksensorstatus($statusif);
-#if ($chkstatus == 0) {
-#  print "${y}Sensor has already been started.${n}\n";
-#  $chk = chkidsmenu();
-#  if ($chk != 0) {
-#    system("$basedir/idsmenu");
-#  }
-#  exit;
-#}
+# Making sure the USB is mounted read-only
+$mountr = getmountr();
+if ("$mountr" eq "rw") {
+  remount("ro");
+} elsif ("$mountr" ne "ro") {
+  remount("ro");
+}
 
 # Checking disabled status of the sensor
 $disabled = chkdisabled();
@@ -87,17 +87,6 @@ if ($disabled != 0) {
 $chkca = chkca();
 if ($chkca != 0) {
   printmsg("Checking ca.crt:", $chkca);
-  $chk = chkidsmenu();
-  if ($chk != 0) {
-    system("$basedir/idsmenu");
-  }
-  exit;
-}
-
-# Checking read/write status of the sensor
-$chkrw = chkrw();
-if ($chkrw != 0) {
-  printmsg("Checking read/write status:", $chkrw);
   $chk = chkidsmenu();
   if ($chk != 0) {
     system("$basedir/idsmenu");
@@ -139,7 +128,6 @@ if ($chkdhclient == 0) {
 
 # Displaying the result of the checks done before the ifcounter
 printmsg("Checking ca.crt:", $chkca);
-printmsg("Checking read/write status:", $chkrw);
 
 # Getting the network configuration method
 printmsg("Network configuration method:", $netconf);
@@ -152,7 +140,6 @@ printmsg("Retrieving sensor name:", $sensor);
 printdelay("Dropping all multicast traffic:", $sensor);
 `iptables -A INPUT -s 224.0.0.0/4 -j DROP`; 
 printresult($?);
-
 
 # Setting the serverurl
 $serverurl = "$http://$server:$port/server";
@@ -681,8 +668,17 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
         `touch $tmpdir/tunnel.status`;
       }
       printdelay("$vs Starting OpenVPN:");
-      `openvpn --config $basedir/client.conf --up "$basedir/up $i $vlan_gw $br" --dev $tap --daemon`;
+      $port = 1000 + $i;
+      `openvpn --management 127.0.0.1 $port --setenv gw $vlan_gw --config $basedir/client.conf --dev $tap --daemon`;
       printresult($?);
+
+      my $sock = IO::Socket::INET->new(
+			Proto => 'tcp',
+			PeerAddr => 'localhost',
+			PeerPort => $port
+      );
+      print $sock "hold on\n";
+      close $sock;
 
       # Waiting for OpenVPN to finish
       sleeptimer("$vs Waiting for OpenVPN:", 10);
@@ -698,6 +694,8 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     # for the next vlan.
     `ip route del default 2>/dev/null`;
   }
+  system("$basedir/caretaker &");
+  printmsg("Starting caretaker:", $?);
 } elsif ($netconf eq "config") {
   printmsg("Starting networking configuration:", "info");
   system("$basedir/confignetwork");
@@ -719,11 +717,16 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 
 $sensor = getsensor();
 printmsg("Retrieving sensor name again:", $sensor);
+
+remount("rw");
+
 # Setting up the permissions of the .key and .crt file
 `chmod 600 $basedir/$sensor.key`;
 printmsg("Changing permissions sensor key:", $?);
 `chmod 644 $basedir/$sensor.crt`;
 printmsg("Changing permissions sensor cert:", $?);
+
+remount("ro");
 
 # Sync the time with a timeserver
 #$chktime = chktime();

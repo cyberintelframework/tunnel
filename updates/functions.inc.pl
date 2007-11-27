@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 2.01.02
-# 15-11-2007
+# Version 2.01.03
+# 16-11-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 2.10.03 Added chksvn function
 # 2.10.02 Added getrev function
 # 2.10.01 Added some mount functions
 # 2.00.03 Added chkuprun function 
@@ -74,6 +75,7 @@ $| = 1;
 # 1.17		chknetworkconf
 # 1.19		chkupscript
 # 1.20		chksys
+# 1.21		chksvn
 # 2		All GET functions
 # 2.01		getnetinfo
 # 2.02		getnetconf
@@ -511,6 +513,21 @@ sub chksys() {
   }
 }
 
+# 1.21 chksvn
+# Function to check if a local repository is present
+# Returns 0 if a local repo is found
+# Returns 1 if no local repo is found
+sub chksvn() {
+  my ($chk);
+  $chk = `ls -la $basedir | grep "^d.*\.svn\$" | wc -l`;
+  chomp($chk);
+  if ("$chk" eq "0") {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 #########################
 # 2 All GET functions
 #########################
@@ -830,7 +847,7 @@ sub getrev() {
   $loc = $_[0];
   chomp($loc);
   if ("$loc" eq "local") {
-    $rev = `svn info | grep -i revision | awk '{print \$2}'`;
+    $rev = `svn info | grep -i revision | awk '{print \$2}' 2>/dev/null`;
     chomp($rev);
   } elsif ("$loc" eq "server") {
     $rev = `svn ls -v --username $svnuser --password $svnpass $svnurl | awk '{print \$1}' | sort -nr | head -n1 2>/dev/null`;
@@ -964,6 +981,9 @@ sub validip() {
 sub fixclientconf() {
   my ($sensor, $chkclient, $temp, $count);
   $sensor = getsensor();
+
+  &remount("rw");
+
   if ($sensor eq "false") {
     return 1;
   }
@@ -989,6 +1009,9 @@ sub fixclientconf() {
   print CONF "cert $basedir/$sensor.crt\n";
   print CONF "key $basedir/$sensor.key\n";
   close(CONF);
+
+  &remount("ro");
+
   $chkclient = chkclientconf();
   if ($chkclient == 0) {
     return 0;
