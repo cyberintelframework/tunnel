@@ -19,7 +19,7 @@
 # Variables used
 ####################
 # Loading configuration
-do '/etc/surfnetids/surfnetids-tn.conf';
+do '/etc/surfnetids/2.10-tn.conf';
 
 # Retrieving file
 $file = $ARGV[0];

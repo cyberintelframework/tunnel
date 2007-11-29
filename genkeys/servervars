@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Load the generic certificate variables.
-. /home/surfnetids/tunnel/trunk/genkeys/vars.conf
+. /home/surfnetids/2.10/tunnel/trunk/genkeys/vars.conf
 
 # Export the server specific variables.
 export KEY_COMMONNAME="server"
