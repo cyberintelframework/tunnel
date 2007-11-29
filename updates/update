@@ -1,0 +1,380 @@
+#!/usr/bin/perl
+
+#########################################
+# Update script for SURFnet IDS Sensor	#
+# SURFnet IDS                           #
+# Version 2.00.04                      #
+# 09-10-2007                            #
+# Jan van Lith & Kees Trippelvitz	#
+#########################################
+
+##################
+# Changelog:
+# 2.00.04 Fixed bug with checking updatesport in VLAN 
+# 2.00.03 Added exit when up is running 
+# 2.00.02 Added extra remove default route 
+# 2.00.01 Changed gateway check
+# 1.04.07 Removed server change request
+# 1.04.06 Added server subdir to serverurl
+# 1.04.05 Added networkconf variable
+# 1.04.04 Fixed update wget request
+# 1.04.03 Redone the update system, added svnupdate stuff
+# 1.04.02 Added printmsg when no active VLANs are found
+# 1.04.01 Rereleased as 1.04.01
+# 1.02.18 Rereleased as perl script
+# 1.02.17 Fixed a small bug in test of $action 
+# 1.02.16 Fixed a bug in the check_ssh grep
+# 1.02.15 Changed the way SSH is handled
+# 1.02.14 Initial release
+##################
+
+################
+# Variables    #
+################
+$basedir = "/cdrom/scripts";
+do "$basedir/sensor.conf";
+do "$basedir/functions.inc.pl";
+do "$networkconf";
+
+################
+# Start script #
+################
+printmsg("Starting updates:", "info");
+$update = 0;
+$menureboot = 0;
+$err = 0;
+$action = "";
+
+$chkuprun = chkuprun();
+if ($chkuprun == 0) {
+  print "${y}The UP script is running. No updates are possible${n}\n";
+  exit;
+}
+
+
+# Check if the disk is read/write.
+$chkrw = chkrw();
+printmsg("Checking read/write status:", $chkrw);
+if ($chkrw != 0) {
+  exit;
+}
+
+# Check if wget needs to authenticate the server certificate.
+if ($checkcert == 0) {
+  $wgetarg = "--no-check-certificate";
+} else {
+  $wgetarg = "";
+}
+
+# Check if wget authentication is correct.
+#$chkwgetauth = chkwgetauth($wgetarg);
+#printmsg("Checking wget authentication:", $chkwgetauth);
+#if ($chkwgetauth != 0) {
+#  exit;
+#}
+
+$chksys = chksys();
+if ($chksys == 1) {
+  printdelay("Stopping syslog daemon:");
+  `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/syslogd.pid`;
+  printresult($?);
+}
+
+############
+# Updating #
+############
+
+# Get the keyname and localip.
+$sensor = getsensor();
+printmsg("Checking sensor name:", $sensor);
+if ($sensor eq "false") {
+  exit;
+}
+
+if ($netconf eq "vlan") {
+  $i = 0;
+  for my $key ( sort keys %vlan ) {
+    $i++;
+    $vlanid = $key;
+    $br = "br$i";
+    $vlan_method = $vlan{$vlanid}{method};
+    $chksensor = chksensorstatus($br);
+    if ($chksensor == 0) {
+      printmsg("Active interface:", $br);
+      $if = "br$i";
+      if ($vlan_method eq "dhcp") {
+        $if_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' | cut -d";" -f1 | tail -n1`;
+      } else {
+        $if_gw = $vlan{$vlanid}{if_gw};
+      }
+      $chkdef = chkdefault($if);
+      if ($chkdef != 0) {
+        printmsg("Gateway:", $if_gw);
+        `ip route del default 2>/dev/null`;
+        `ip route add default via $if_gw 2>/dev/null`;
+      }
+
+      printdelay("Checking gateway connectivity:");
+      $e = chkreach($if_gw);
+      if ($e != 0) {
+        $e = "warning";
+      }
+      printresult($e);
+
+      # Checking DNS resolver
+      $servcheck = validip($server);
+      if ($servcheck != 0) {
+        printdelay("Checking DNS resolver:");
+        $chkresolv = getresolv($server);
+        if ($chkresolv ne "false") {
+          $chkresolv = 0;
+        } else {
+          $chkresolv = 1;
+        }
+        printresult($chkresolv);
+      } else {
+        $chkresolv = 0;
+        printmsg("Checking DNS resolver:", "ignore");
+      }
+
+      if ($chkresolv != 0) {
+        printmsg("Checking updates port:", "ignore");
+        $chkupdate = 1;
+      } else {
+        printdelay("Checking updates port:");
+        $updateport = getportstatus($br, 4443);
+        printresult($updateport);
+        if ("$updateport" ne "open") {
+          $chkupdate = 1;
+        } else {
+          $chkupdate = 0;
+        }
+      }
+
+      if ($chkresolv == 0 && $chkupdate == 0) {
+        update_process($if, $vlanid);
+      }
+      sleeptimer("Preparing for next VLAN:", 10);
+      `ip route del default 2>/dev/null`;
+    } else {
+      $if = getif();
+      printmsg("Active interface:", $if);
+      `modprobe 8021q`;
+      $chkif = `cat /proc/net/dev | grep $if.$vlanid | wc -l 2>/dev/null`;
+      if ($chkif == 0) {
+      	`vconfig add $if $vlanid`;
+      }
+      $if = "$if.$vlanid";
+      if ($vlan_method eq "dhcp") {			 
+        $chkdhclient = chkdhclient($if);
+        if ($chkdhclient == 1) {
+          `dhclient3 -lf /var/lib/dhcp3/dhcp$vlanid.lease -sf $basedir/dhclient-script-vlan -pf /var/run/dhcp3/dhcp$vlanid.pid $if 2>/dev/null`;
+          sleeptimer("Waiting for DHCP Client:", 10);
+	}
+	$if_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' | cut -d";" -f1 | tail -n1`;
+      } else {
+        $if_ip = $vlan{$vlanid}{if_ip};
+        $if_nm = $vlan{$vlanid}{if_nm};
+        $if_bc = $vlan{$vlanid}{if_bc};
+        $if_gw = $vlan{$vlanid}{if_gw};
+        `ifconfig $if $if_ip netmask $if_nm broadcast $if_bc 2>/dev/null`;
+      }
+      $chkdef = chkdefault($if);
+      if ($chkdef != 0) {
+        printmsg("Gateway:", $if_gw);
+        `ip route del default 2>/dev/null`;
+        `ip route add default via $if_gw 2>/dev/null`;
+      }
+      printdelay("Checking gateway connectivity:");
+      $e = chkreach($if_gw);
+      if ($e != 0) {
+        $e = "warning";
+      }
+      printresult($e);
+
+      # Checking DNS resolver
+      $servcheck = validip($server);
+      if ($servcheck != 0) {
+        printdelay("Checking DNS resolver:");
+        $chkresolv = getresolv($server);
+        if ($chkresolv ne "false") {
+          $chkresolv = 0;
+        } else {
+          $chkresolv = 1;
+        }
+        printresult($chkresolv);
+      } else {
+        $chkresolv = 0;
+        printmsg("Checking DNS resolver:", "ignore");
+      }
+
+      if ($chkresolv != 0) {
+        printmsg("Checking updates port:", "ignore");
+        $chkupdate = 1;
+      } else {
+        printdelay("Checking updates port:");
+        $updateport = getportstatus($br, 4443);
+        printresult($updateport);
+        if ("$updateport" ne "open") {
+          $chkupdate = 1;
+        } else {
+          $chkupdate = 0;
+        }
+      }
+
+      if ($chkresolv == 0 && $chkupdate == 0) {
+        update_process($if, $vlanid);
+      }
+      sleeptimer("Preparing for next VLAN:", 10);
+      `ip route del default 2>/dev/null`;
+    }
+  }
+} else {
+  $vlanid = 0;
+  $chksensor = chksensorstatus($br);
+  if ($chksensor == 0) {
+    $if = $br;
+  } else {
+    $if = getif();
+  }
+  printmsg("Active interface:", $if);
+
+  printdelay("Checking gateway connectivity:");
+  $e = chkreach($if_gw);
+  if ($e != 0) {
+    $e = "warning";
+  }
+  printresult($e);
+
+  # Checking DNS resolver
+  $servcheck = validip($server);
+  if ($servcheck != 0) {
+    printdelay("Checking DNS resolver:");
+    $chkresolv = getresolv($server);
+    if ($chkresolv ne "false") {
+      $chkresolv = 0;
+    } else {
+      $chkresolv = 1;
+    }
+    printresult($chkresolv);
+  } else {
+    $chkresolv = 0;
+    printmsg("Checking DNS resolver:", "ignore");
+  }
+
+  if ($chkresolv != 0) {
+    printmsg("Checking updates port:", "ignore");
+    $chkupdate = 1;
+  } else {
+    printdelay("Checking updates port:");
+    $updateport = getportstatus($if, 4443);
+    printresult($updateport);
+    if ("$updateport" ne "open") {
+      $chkupdate = 1;
+    } else {
+      $chkupdate = 0;
+    }
+  }
+
+  update_process($if, $vlanid);
+}
+
+sub update_process() {
+  $if=$_[0];
+  $vlanid=$_[1];
+
+  $if_ip = getifip($if);
+  &printmsg("Checking ip address:", $if_ip);
+
+  # Check if SSH is running.
+  $chkssh = chkssh();
+
+  # Creating the serverurl
+  $serverurl = "$http://$server:$port/server";
+   
+  # Update the scripts
+  system("$basedir/svnupdate");
+
+  # Updating sensor information to the server
+  `wget -q $wgetarg -O $basedir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh"`;
+  &printmsg("Updating status information:", $?);
+
+  # Check for errors with the localip and tapip update.
+  $checkerror = `cat $basedir/update$vlanid.php | grep "ERROR" | wc -l`;
+  if ($checkerror > 0) {
+    # Errors occured while updating localip and tapip.
+    $errors = `cat $basedir/update$vlanid.php | grep "ERROR"`;
+    chomp($errors);
+    print "${y}An error occurred while updating status information.${n}\n";
+    print "${r}$errors${n}\n";
+  }
+
+  # Check if any action was requested.
+  $action = `cat $basedir/update$vlanid.php | grep "ACTION:" | awk '{print \$2}'`;
+  chomp($action);
+
+  ################
+  # Action check #
+  ################
+
+  if ($checkerror == 0) {
+    if ($action eq "SSHON") {
+      &printmsg("Server request - start SSH:", $?);
+      `/etc/init.d/ssh start`;
+    } elsif ($action eq "SSHOFF") {
+      &printmsg("Server request - stop SSH:", $?);
+      `killall sshd`;
+    } elsif ($action eq "START") {
+      &printmsg("Server request - start sensor:", $?);
+      &printmsg("Starting Sensor:", "info");
+      `$basedir/startclient 0`;
+    } elsif ($action eq "STOP") {
+      &printmsg("Server request - stop sensor:", $?);
+      &printmsg("Stopping Sensor:", "info");
+      `$basedir/stopclient`;
+    } elsif ($action eq "BLOCK") {
+      if (! -e "$basedir/$sensor.bcrt") { 
+        $j = 0;
+        &printmsg("Stopping Sensor:", $?);
+     	`$basedir/stopclient`;
+      	if ($? != 0) { $j++ };
+      	`cp $basedir/$sensor.crt $basedir/$sensor.bcrt`;
+      	if ($? != 0) { $j++ };
+      	`cp $basedir/$sensor.key $basedir/$sensor.bkey`;
+      	if ($? != 0) { $j++ };
+      	`echo "DISABLED" > $basedir/$sensor.crt`;
+      	if ($? != 0) { $j++ };
+      	`echo "DISABLED" > $basedir/$sensor.key`;
+      	if ($? != 0) { $j++ };
+     	`chmod 600 $basedir/$sensor.bkey`;
+      	if ($? != 0) { $j++ };
+      	`chmod 600 $basedir/$sensor.bcrt`;
+      	if ($? != 0) { $j++ };
+      	&printmsg("Server request - disable client:", $i);
+      } else {
+      	&printmsg("Client already disabled:", "info");
+      } 
+    } elsif ($action eq "UNBLOCK") {    
+      if (-e "$basedir/$sensor.bcrt") { 
+        $j = 0;
+      	`mv $basedir/$sensor.bcrt $basedir/$sensor.crt`;
+      	if ($? != 0) { $j++ };
+      	`mv $basedir/$sensor.bkey $basedir/$sensor.key`;
+      	if ($? != 0) { $j++ };
+      	`chmod 600 $basedir/$sensor.key`;
+      	if ($? != 0) { $j++ };
+      	`chmod 644 $basedir/$sensor.crt`;
+      	if ($? != 0) { $j++ };
+      	&printmsg("Server request - enable client:", $i);
+      } else {
+      	&printmsg("Client already enabled:", "info");
+      }
+    } 
+  }
+
+  if ($action eq "REBOOT") {
+    &printmsg("Server request - Reboot", "info");
+    `init 6`;
+  }
+}
+
