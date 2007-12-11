@@ -45,6 +45,7 @@
 ################
 
 use File::Basename;
+use IO::Socket;
 
 $basedir = "/cdrom/scripts/";
 do "$basedir/sensor.conf";
@@ -664,9 +665,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     }
  
     if ($chkresolv == 0) {
-      if (! -e "$tmpdir/tunnel.status") {
-        `touch $tmpdir/tunnel.status`;
-      }
       printdelay("$vs Starting OpenVPN:");
       $port = 1000 + $i;
       `openvpn --management 127.0.0.1 $port --setenv gw $vlan_gw --config $basedir/client.conf --dev $tap --daemon`;

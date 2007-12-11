@@ -86,30 +86,30 @@ if ($chksvn != 0) {
 }
 
 if ($process == 1) {
-  printmsg("Processing files:", "info");
-#  @sigfile_ar = `ls -1 $basedir`;
-#  foreach $file (@sigfile_ar) {
-#    chomp($file);
-#    if ($file =~ /^.*\.sig\.mime$/ || $file =~ /^.*\.sig\.r[0-9]*$/) {
-#      $sigfile = $file;
-#      $sigfile =~ s/\.sig\..*//;
-#      printdelay("Removing file: $file");
-#      `rm -f $basedir/$file`;
-#      printresult($?);
-#      printdelay("SVN update for $sigfile");
-#      `svn update $basedir/$sigfile.sig --username $svnuser --password $svnpass`;
-#      printresult($?);
-#      `openssl smime -verify -text -inform SMIME -in $basedir/$sigfile.sig -out $basedir/$sigfile.new -CAfile $basedir/scripts.crt 2>/dev/null`;
-#      `dos2unix $basedir/$sigfile.new`;
-#      `mv $basedir/$sigfile.new $basedir/$sigfile`;
-#    }
-#    if ($file =~ /^.*\.sig$/) {
-#      $file =~ s/\.sig//;
-#      `openssl smime -verify -text -inform SMIME -in $basedir/$file.sig -out $basedir/$file.new -CAfile $basedir/scripts.crt 2>/dev/null`;
-#      `dos2unix $basedir/$file.new`;
-#      `mv $basedir/$file.new $basedir/$file`;
-#    }
-#  }
+  #printmsg("Processing files:", "info");
+  #@sigfile_ar = `ls -1 $basedir`;
+  #foreach $file (@sigfile_ar) {
+  #  chomp($file);
+  #  if ($file =~ /^.*\.sig\.mime$/ || $file =~ /^.*\.sig\.r[0-9]*$/) {
+  #    $sigfile = $file;
+  #    $sigfile =~ s/\.sig\..*//;
+  #    printdelay("Removing file: $file");
+  #    `rm -f $basedir/$file`;
+  #    printresult($?);
+  #    printdelay("SVN update for $sigfile");
+  #    `svn update $basedir/$sigfile.sig --username $svnuser --password $svnpass`;
+  #    printresult($?);
+  #    `openssl smime -verify -text -inform SMIME -in $basedir/$sigfile.sig -out $basedir/$sigfile.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+  #    `dos2unix $basedir/$sigfile.new`;
+  #    `mv $basedir/$sigfile.new $basedir/$sigfile`;
+  #  }
+  #  if ($file =~ /^.*\.sig$/) {
+  #    $file =~ s/\.sig//;
+  #    `openssl smime -verify -text -inform SMIME -in $basedir/$file.sig -out $basedir/$file.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+  #    `dos2unix $basedir/$file.new`;
+  #    `mv $basedir/$file.new $basedir/$file`;
+  #  }
+  #}
   $mount = remount("ro");
   printmsg("Remounting the USB read-only:", $mount);
 }

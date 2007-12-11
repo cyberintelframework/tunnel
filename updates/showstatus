@@ -3,13 +3,14 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 2.10.01
-# 15-11-2007
+# Version 2.10.02
+# 06-12-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
+# 2.10.02 Removed up statecheck 
 # 2.10.01 Added readstate check
 # 2.00.02 Added exit when up is running 
 # 2.00.01 Added syslog check
@@ -33,12 +34,6 @@ $basedir = "/cdrom/scripts/";
 do "$basedir/sensor.conf";
 require "$basedir/functions.inc.pl";
 require "$networkconf";
-
-$chkuprun = chkuprun();
-if ($chkuprun == 0) {
-  print "${y}The UP script is running. Status information isn't possible${n}\n";
-  exit;
-}
 
 $ip_error = 0;
 $netconfstring = "[Network config]";
@@ -257,12 +252,6 @@ if ($netconf eq "vlan") {
       }
     }
     if ($if_gw ne "false") {
-     if($if_gw ne "") {
-      $chkup = chkupscript($if_gw);
-      if ($chkup == 1) {
-        printmsg("Tunnel is trying to reconnect:", "warning");
-      }
-     }
     }
 
     if ($chkstatus == 0 && $chkname == 0 && $chkgw == 0) {

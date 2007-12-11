@@ -3,7 +3,7 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 2.01.03
+# Version 2.10.03
 # 16-11-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################

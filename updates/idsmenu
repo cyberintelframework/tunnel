@@ -3,13 +3,14 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS
-# Version 2.00.03
+# Version 2.10.00
 # 21-09-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
+# 2.10.00 Initial release 
 # 2.00.03 Changed path to knoppix-installer 
 # 2.00.02 Fixed typo
 # 2.00.01 version 2.00

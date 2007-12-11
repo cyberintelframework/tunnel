@@ -3,13 +3,14 @@
 #########################################
 # Caretaker script for the VLAN tunnels #
 # SURFnet IDS                           #
-# Version 2.10.01                       #
+# Version 2.10.02                       #
 # 19-11-2007                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ###################
 # Changelog:
+# 2.10.02 Fixed bug with gw 
 # 2.10.01 Initial release
 ###################
 use Time::localtime qw(localtime);
@@ -70,7 +71,7 @@ while (0 == 0) {
         # OpenVPN is trying to reconnect
         # Now we need to add default gateway, etc
 #        print "$manport RECONNECTING\n";
-    	$gw = `ps -ef | grep -v grep | grep openvpn | grep $manport| awk -F"gw" '{print \$2}' | awk '{print \$1}'`;
+    	$gw = `ps -ef | grep -v grep | grep openvpn | grep "127.0.0.1 $manport"| awk -F"gw" '{print \$2}' | awk '{print \$1}'`;
     	chomp($gw);
     	`ip route del default 2>/dev/null`;
     	`ip route add default via $gw 2>/dev/null`;

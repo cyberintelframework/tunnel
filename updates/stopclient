@@ -3,7 +3,7 @@
 #########################################
 # Stop script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 2.10.01
+# Version 2.10.02
 # 15-11-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
@@ -13,6 +13,7 @@
 
 ################
 # Changelog:
+# 2.10.02 Removed up check 
 # 2.10.01 Saving downloaded php files in /tmp now
 # 2.00.03 Fixed typo
 # 2.00.02 Changed/added route commands
@@ -260,13 +261,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     $vlan_method = $vlan{$vlanid}{method};
     printmsg("$vs Retrieving VLAN Method:", $vlan_method);
     
-    # Killing up scripts 
-    if (-e "/var/run/up$i.pid") {
-    $pid = `cat /var/run/up$i.pid`;
-    `kill -9 $pid`;
-    printmsg("$vs Killing up$i script:", $?);
-    `rm -f /var/run/up$i.pid`;
-   } 
     if ($vlan_method eq "static") {
       $vlan_ip = $vlan{$vlanid}{if_ip};
       $vlan_gw = $vlan{$vlanid}{if_gw};
