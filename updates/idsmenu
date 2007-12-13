@@ -1,0 +1,157 @@
+#!/usr/bin/perl
+
+#########################################
+# IDSmenu script for IDS Sensor
+# SURFnet IDS
+# Version 2.00.03
+# 21-09-2007
+# Jan van Lith & Kees Trippelvitz
+#########################################
+
+#############################################
+# Changelog:
+# 2.00.03 Changed path to knoppix-installer 
+# 2.00.02 Fixed typo
+# 2.00.01 version 2.00
+# 1.04.06 Added maintenance shell option to menu  
+# 1.04.05 Hid login choice 
+# 1.04.04 Fixed typo in menu prompt
+# 1.04.03 Fixed ssh check
+# 1.04.02 Added HD install option
+# 1.04.01 Rerelease as perl script
+# 1.02.04 Key and certificate check bugfix
+# 1.02.03 Initial release
+#############################################
+
+use File::Basename;
+
+$basedir = "/cdrom/scripts/";
+do "$basedir/sensor.conf";
+require "$basedir/functions.inc.pl";
+
+$ip_error = 0;
+
+sub idsmenu_showstatus() {
+  system("$basedir/showstatus");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_startsensor() {
+  system("$basedir/startclient");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_stopsensor() {
+  system("$basedir/stopclient");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_update() {
+  system("$basedir/update");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_login() {
+  system("/usr/bin/clear");
+  system("/sbin/getty 38400 tty1");
+}
+
+sub idsmenu_netconfig() {
+  system("$basedir/confignetwork");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_copyhd() {
+  system("$basedir/knoppix-installer");
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_ssh() {
+  my ($chkssh);
+  $chkssh = chkssh();
+  if ($chkssh == 1) {
+    `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/sshd.pid`;
+    printmsg("Stopping SSH daemon:", $?);
+  } else {
+    `/etc/init.d/ssh start`;
+    printmsg("Starting SSH daemon:", $?);
+  }
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_syslog() {
+  my ($chksys);
+  $chksys = chksys();
+  if ($chksys == 1) {
+    `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/syslogd.pid`;
+    printmsg("Stopping syslog daemon:", $?);
+  } else {
+    `/etc/init.d/sysklogd start`;
+    printmsg("Starting syslog daemon:", $?);
+  }
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_showlog() {
+  $temp = `tail -n50 /var/log/syslog`;
+  print "$temp\n";
+  &prompt("Press enter to continue...");
+}
+
+sub idsmenu_reboot() {
+  system("/usr/bin/clear");
+  system("/sbin/init 6");
+}
+
+sub idsmenu_shutdown() {
+  system("/usr/bin/clear");
+  system("/sbin/init 0");
+}
+
+$input = "";
+while (1) {
+  system("/usr/bin/clear");
+  print "SURFnet IDS menu:\n";
+  print "\t1. Status info\n";
+  print "\t2. Start Sensor\n";
+  print "\t3. Stop Sensor\n";
+  print "\t4. Update\n";
+  print "\t5. Configure network\n";
+  print "\t6. Enable/Disable SSH\n";
+  print "\t7. Sensor HD install (Beta)\n";
+  print "\t8. Reboot\n";
+  print "\t9. Shutdown\n";
+  print "\t10. Enable/Disable syslog\n";
+  print "\t11. Show syslog\n";
+  print "\t0. Maintenance Shell (Admin only)\n";
+  $input = &prompt("\tPlease select one of the above (1-11): ");
+  chomp($input);
+  system("/usr/bin/clear");
+  if ($input eq 0) {
+    idsmenu_login();
+  } elsif ($input eq 1) {
+    idsmenu_showstatus();
+  } elsif ($input eq 2) {
+    idsmenu_startsensor();
+  } elsif ($input eq 3) {
+    idsmenu_stopsensor();
+  } elsif ($input eq 4) {
+    idsmenu_update();
+  } elsif ($input eq 5) {
+    idsmenu_netconfig();
+  } elsif ($input eq 6) {
+    idsmenu_ssh();
+  } elsif ($input eq 7) {
+    idsmenu_copyhd();
+  } elsif ($input eq 8) {
+    idsmenu_reboot();
+  } elsif ($input eq 9) {
+    idsmenu_shutdown();
+  } elsif ($input eq 10) {
+    idsmenu_syslog();
+  } elsif ($input eq 11) {
+    idsmenu_showlog();
+  } else {
+    print "${r}Invalid input. Try again!${n}\n";
+  }
+}
