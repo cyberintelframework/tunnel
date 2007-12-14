@@ -3,8 +3,8 @@
 ###################################
 # ARGOS redirect script           #
 # SURFnet IDS                     #
-# Version 2.00.01                 #
-# 14-09-2007                      #
+# Version 2.00.02                 #
+# 13-12-2007                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 
@@ -31,6 +31,7 @@
 
 #####################
 # Changelog:
+# 2.00.02 Fixed bug #60
 # 2.00.01 version 2.00
 # 1.04.03 Refined sql statements 
 # 1.04.02 Added template structure + changed sql statements  
@@ -119,8 +120,8 @@ while (@row = $sensor_query->fetchrow_array) {
     # BEGIN QUERY
     $sqltop100 = "SELECT attacks.source, COUNT(attacks.source) as top FROM attacks ";
     $sqltop100 .= "WHERE attacks.sensorid = $sensorid AND attacks.severity = 0 ";
-    $sqltop100 .= "AND NOT attacks.source IN (SELECT source FROM attacks WHERE severity = 1) ";
-    $sqltop100 .= "AND NOT attacks.source IN (SELECT source FROM attacks WHERE severity = 2) ";
+    $sqltop100 .= "AND NOT attacks.source IN (SELECT DISTINCT source FROM attacks WHERE severity = 1) ";
+    $sqltop100 .= "AND NOT attacks.source IN (SELECT DISTINCT source FROM attacks WHERE atype = 1) ";
     if ($timespan ne 'N') {
       $sqltop100 .= "AND attacks.timestamp >= $time_start AND attacks.timestamp <= $time_end ";
     }
@@ -141,8 +142,8 @@ while (@row = $sensor_query->fetchrow_array) {
     $sqltop100 = "SELECT attacks.source, COUNT(attacks.source) as top FROM attacks ";
     $sqltop100 .= "WHERE severity = 0 ";
     $sqltop100 .= "AND sensorid IN (SELECT id FROM sensors WHERE organisation = (SELECT sensors.organisation FROM sensors WHERE id = $sensorid)) ";
-    $sqltop100 .= "AND NOT attacks.source IN (SELECT source FROM attacks WHERE severity = 1) ";
-    $sqltop100 .= "AND NOT attacks.source IN (SELECT source FROM attacks WHERE severity = 2) ";
+    $sqltop100 .= "AND NOT attacks.source IN (SELECT DISTINCT source FROM attacks WHERE severity = 1) ";
+    $sqltop100 .= "AND NOT attacks.source IN (SELECT DISTINCT source FROM attacks WHERE atype = 1) ";
     if ($timespan ne 'N') {
       $sqltop100 .= "AND attacks.timestamp >= $time_start AND attacks.timestamp <= $time_end ";
     }
@@ -162,8 +163,8 @@ while (@row = $sensor_query->fetchrow_array) {
     # BEGIN QUERY
     $sqltop100 = "SELECT attacks.source, COUNT(attacks.source) as top FROM attacks ";
     $sqltop100 .= "WHERE attacks.severity = 0 ";
-    $sqltop100 .= "AND NOT attacks.source IN (SELECT source FROM attacks WHERE severity = 1) ";
-    $sqltop100 .= "AND NOT attacks.source IN (SELECT source FROM attacks WHERE severity = 2) ";
+    $sqltop100 .= "AND NOT attacks.source IN (SELECT DISTINCT source FROM attacks WHERE severity = 1) ";
+    $sqltop100 .= "AND NOT attacks.source IN (SELECT DISTINCT source FROM attacks WHERE atype = 1) ";
     if ($timespan ne 'N') {
       $sqltop100 .= "AND attacks.timestamp >= $time_start AND attacks.timestamp <= $time_end ";
     }

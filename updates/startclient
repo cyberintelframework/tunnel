@@ -3,8 +3,8 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS
-# Version 2.10.03
-# 27-11-2007
+# Version 2.10.04
+# 12-12-2007
 # Jan van Lith & Kees Trippelvitz
 #########################################
 # Contributors:
@@ -13,6 +13,7 @@
 
 ################
 # Changelog:
+# 2.10.04 Moved the updating of the bridge IP
 # 2.10.03 Added caretaker 
 # 2.10.02 Making sure USB is mounted read-only
 # 2.10.01 Saving downloaded php files in /tmp now
@@ -322,6 +323,35 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     printmsg("Retrieving certificates:", $chksensor);
   }
 
+  $chkconf = chkclientconf();
+  printmsg("Checking client.conf:", $chkconf);
+  if ($chkconf != 0) {
+    $fix = fixclientconf();
+    printmsg("Fixing client.conf:", $fix);
+  }
+
+  # Creating tap device
+  `openvpn --mktun --dev $tap`;
+  printmsg("Creating tap device:", $?);
+
+  $chkbridge = setbridge($br, $tap, $if, $netconf);
+  printmsg("Setting up the bridge interface:", $chkbridge);
+
+  if ($netconf eq "dhcp") {
+    $chkdhclient = chkdhclient($br);
+    if ($chkdhclient != 0) {
+      `killall -9 dhclient3 2>/dev/null`;
+      sleeptimer("Waiting for bridging to finish:", 10);
+      printdelay("Starting DHCP client for the bridge:");
+      $ec = startdhcp($br);
+      printresult($ec);
+    }
+  }
+
+  printdelay("Retrieving bridge IP:");
+  $if_ip = getifip($br);
+  printresult($if_ip);
+
   if ($sensor ne "false" && $chkresolv == 0) {
     # Updating the current configuration to the server
     printdelay("Updating status info:");
@@ -357,31 +387,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
         print "${r}An error occurred while updating status information.\n";
         print "$errors${n}\n";
       }
-    }
-  }
-
-  $chkconf = chkclientconf();
-  printmsg("Checking client.conf:", $chkconf);
-  if ($chkconf != 0) {
-    $fix = fixclientconf();
-    printmsg("Fixing client.conf:", $fix);
-  }
-
-  # Creating tap device
-  `openvpn --mktun --dev $tap`;
-  printmsg("Creating tap device:", $?);
-
-  $chkbridge = setbridge($br, $tap, $if, $netconf);
-  printmsg("Setting up the bridge interface:", $chkbridge);
-
-  if ($netconf eq "dhcp") {
-    $chkdhclient = chkdhclient($br);
-    if ($chkdhclient != 0) {
-      `killall -9 dhclient3 2>/dev/null`;
-      sleeptimer("Waiting for bridging to finish:", 10);
-      printdelay("Starting DHCP client for the bridge:");
-      $ec = startdhcp($br);
-      printresult($ec);
     }
   }
 
@@ -612,6 +617,13 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
       printmsg("$vs Retrieving certificates:", $chksensor);
     }
 
+    $chkclientconf = chkclientconf();
+    printmsg("$vs Checking client.conf:", $chkclientconf);
+    if ($chkclientconf != 0) {
+      $fix = fixclientconf();
+      printmsg("$vs Fixing client.conf:", $fix);
+    }
+
     if ($sensor ne "false") {
       # Updating the current configuration to the server
       printdelay("$vs Updating status info:");
@@ -655,13 +667,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
           print "$errors${n}\n";
         }
       }
-    }
-    
-    $chkclientconf = chkclientconf();
-    printmsg("$vs Checking client.conf:", $chkclientconf);
-    if ($chkclientconf != 0) {
-      $fix = fixclientconf();
-      printmsg("$vs Fixing client.conf:", $fix);
     }
  
     if ($chkresolv == 0) {
