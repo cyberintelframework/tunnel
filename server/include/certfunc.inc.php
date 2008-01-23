@@ -2,13 +2,14 @@
 
 ####################################
 # SURFnet IDS                      #
-# Version 2.00.01                  #
-# 14-09-2007                       #
+# Version 2.10.01                  #
+# 09-01-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 2.10.01 Excluded RIPE-CIDR-BLOCK from whois
 # 2.00.01 version 2.00
 # 1.04.05 Added logdb function
 # 1.04.04 Added check on outgoing whois traffic
@@ -166,7 +167,7 @@ function chkwhois($remoteip) {
         if (preg_match($pattern, $line)) {
           $regel = explode(":", $line);
           $org_ident = trim($regel[1]);
-          if ($org_ident != "ERX-NETBLOCK" && $org_ident != "IANA-BLK") {
+          if ($org_ident != "ERX-NETBLOCK" && $org_ident != "IANA-BLK" && $org_ident != "RIPE-CIDR-BLOCK") {
             $found = 1;
             break;
           } else {

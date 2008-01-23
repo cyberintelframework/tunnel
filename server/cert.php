@@ -3,7 +3,7 @@
 ####################################
 # Certificate Generation Handler   #
 # SURFnet IDS                      #
-# Version 2.00.01                  #
+# Version 2.00.02                  #
 # 14-09-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
@@ -35,6 +35,7 @@
 
 ####################################
 # Changelog:
+# 2.00.02 SOAP bug fixed 
 # 2.00.01 version 2.00
 # 1.04.06 Added oidtype when no identifier could be found
 # 1.04.05 Added extra check on orgname
@@ -111,23 +112,8 @@ if ($err == 0) {
   $orgname = "false";
   $orgid = 0;
 
-  # Random Identifier String check
-  if ($orgid == 0 && isset($clean['ris'])) {
-    $ident = $clean['ris'];
-    $orgid = checkident($ident, 1);
-  }
 
-  if ($c_certsoapconn == 1) {
-    # SURFnet SOAP identifier check
-    $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappass);
-    if ($ident != "false") {
-      $orgid = checkident($ident, 4);
-      $orgname = $ident;
-      $oidtype = 4;
-    } else {
-      $orgid = 0;
-    }
-  }
+
 
   # Domain identifier check
   if ($remoteip != $remotehost && $orgid == 0) {
@@ -151,6 +137,24 @@ if ($err == 0) {
     } else {
       $orgid = 0;
     }
+  }
+  
+  if ($c_certsoapconn == 1) {
+    # SURFnet SOAP identifier check
+    $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappass);
+    if ($ident != "false") {
+      $orgid = checkident($ident, 4);
+      $orgname = $ident;
+      $oidtype = 4;
+    } else {
+      $orgid = 0;
+    }
+  }
+
+  # Random Identifier String check
+  if ($orgid == 0 && isset($clean['ris'])) {
+    $ident = $clean['ris'];
+    $orgid = checkident($ident, 1);
   }
 
   if ($orgid == 0) {
