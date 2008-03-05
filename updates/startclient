@@ -2,9 +2,9 @@
 
 #########################################
 # Startup script for SURFnet IDS Sensor
-# SURFnet IDS
-# Version 2.10.04
-# 12-12-2007
+# SURFnet IDS 2.10.00
+# Changeset 006
+# 03-03-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 # Contributors:
@@ -13,36 +13,12 @@
 
 ################
 # Changelog:
-# 2.10.04 Moved the updating of the bridge IP
-# 2.10.03 Added caretaker 
-# 2.10.02 Making sure USB is mounted read-only
-# 2.10.01 Saving downloaded php files in /tmp now
-# 2.00.04 Changed 2 remove default route commands
-# 2.00.03 Added dropping of multicast traffic   
-# 2.00.02 Added extra removing default route   
-# 2.00.01 Added some dhclient3 safeguards
-# 1.04.15 Fixed vlan port checks
-# 1.04.14 Changed gateway connectivity handling
-# 1.04.13 Removed chkgateway
-# 1.04.12 Increased waiting for connection timer, fixed bug with empty netconf variable
-# 1.04.11 Fixed bug with multiple static vlans and webinterface tapip warning
-# 1.04.10 Added subdir to serverurl
-# 1.04.09 Added networkconf variable
-# 1.04.08 Fixed wget request
-# 1.04.07 lease file per interface for dhclient3
-# 1.04.06 Added network config check
-# 1.04.05 Added more error handling
-# 1.04.04 Changed some printmsg into printdelay
-# 1.04.03 Added some more error handling
-# 1.04.02 VLAN support
-# 1.04.01 Rereleased as perl script
-# 1.03.01 Released as part of the 1.03 package
-# 1.02.12 Extended error message when using static IP configuration
-# 1.02.11 Fixed a small bug in test of $networkconf and $checktapip
-# 1.02.10 Fixed a bug with the generation of the sensor key
-# 1.02.09 Added a check for the starthook.sh script
-# 1.02.08 Added hook to the starthook.sh script
-# 1.02.07 Initial release
+# 006 Modified chkreach 
+# 005 Removed remove of tunnel.status 
+# 004 Moved the updating of the bridge IP
+# 003 Added caretaker 
+# 002 Making sure USB is mounted read-only
+# 001 Saving downloaded php files in /tmp now
 ################
 
 use File::Basename;
@@ -246,7 +222,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 
   if ($if_gw ne "false") {
     printdelay("Checking gateway connectivity:");
-    $e = chkreach($if_gw);
+    $e = chkreach($if_gw, $if);
     if ($e != 0) {
       $e = "warning";
     }
@@ -427,9 +403,6 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
   print RESOLV "nameserver $if_ns\n";
   close(RESOLV);
   
-  #resetting tunnel.status
-  `rm -f $basedir/tunnel.status`;
-
   # Activating the 802.1q vlan kernel module
   `modprobe 8021q`;
   printmsg("Activating 802.1q kernel module:", $?);
@@ -524,7 +497,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 
     sleeptimer("$vs Waiting for connection:", 2);
     printdelay("$vs Checking gateway connectivity:");
-    $e = chkreach($vlan_gw);
+    $e = chkreach($vlan_gw, $br);
     if ($e != 0) {
       $e = "warning";
     }
@@ -672,6 +645,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
     if ($chkresolv == 0) {
       printdelay("$vs Starting OpenVPN:");
       $port = 1000 + $i;
+      `ifconfig lo 127.0.0.1 upi 2>/dev/null`;
       `openvpn --management 127.0.0.1 $port --setenv gw $vlan_gw --config $basedir/client.conf --dev $tap --daemon`;
       printresult($?);
 
@@ -735,12 +709,12 @@ remount("ro");
 #$chktime = chktime();
 #printmsg("Syncing time with ntpserver:", $chktime);
 
-$chksys = chksys();
-if ($chksys == 1) {
-  printdelay("Stopping syslog daemon:");
-  `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/syslogd.pid`;
-  printresult($?);
-}
+#$chksys = chksys();
+#if ($chksys == 1) {
+#  printdelay("Stopping syslog daemon:");
+#  `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/syslogd.pid`;
+#  printresult($?);
+#}
 
 $chk = chkidsmenu();
 if ($chk != 0) {

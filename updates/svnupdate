@@ -2,23 +2,17 @@
 
 #########################################
 # SVN Update script                     #
-# SURFnet IDS                           #
-# Version 2.10.01                       #
-# 15-11-2007                            #
-# Jan van Lith & Kees Trippelvitz	#
+# SURFnet IDS 2.10.00                   #
+# Changeset 003                         #
+# 03-03-2008                            #
+# Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ##################
 # Changelog:
-# 2.10.01 Changed update process to work with a RO disk
-# 2.00.01 added non-interactive command to update
-# 1.04.07 Removed svndir and configdir stuff. Removed useless while loop.
-# 1.04.06 Removed config-dir switch (use CAcert.pem instead)
-# 1.04.05 Added networkconf variable
-# 1.04.04 Added config-dir switch
-# 1.04.03 Removed ls 
-# 1.04.02 Put variables in sensor.conf 
-# 1.04.01 Initial release
+# 003 Fixed paths for svn commands
+# 002 Added non-interactive
+# 001 Changed update process to work with a RO disk
 ##################
 
 ################
@@ -53,7 +47,7 @@ if ($chksvn != 0) {
   `rm -f $basedir/*.sig`;
   printresult($?);
   printdelay("Starting SVN checkout:");
-  `svn checkout --username $svnuser --password $svnpass $svnurl $basedir >/dev/null`;
+  `svn checkout --non-interactive --username $svnuser --password $svnpass $svnurl $basedir >/dev/null`;
   printresult($?);
 
   $mount = remount("ro");
@@ -72,7 +66,7 @@ if ($chksvn != 0) {
       printmsg("Remounting the USB read/write:", $mount);
 
       printdelay("Starting SVN update:");
-      `svn update --username $svnuser --password $svnpass 2>/dev/null`;
+      `svn update --non-interactive --username $svnuser --password $svnpass $basedir 2>/dev/null`;
       printresult($?);
 
       if ($? == 0) {
@@ -86,30 +80,30 @@ if ($chksvn != 0) {
 }
 
 if ($process == 1) {
-  #printmsg("Processing files:", "info");
-  #@sigfile_ar = `ls -1 $basedir`;
-  #foreach $file (@sigfile_ar) {
-  #  chomp($file);
-  #  if ($file =~ /^.*\.sig\.mime$/ || $file =~ /^.*\.sig\.r[0-9]*$/) {
-  #    $sigfile = $file;
-  #    $sigfile =~ s/\.sig\..*//;
-  #    printdelay("Removing file: $file");
-  #    `rm -f $basedir/$file`;
-  #    printresult($?);
-  #    printdelay("SVN update for $sigfile");
-  #    `svn update $basedir/$sigfile.sig --username $svnuser --password $svnpass`;
-  #    printresult($?);
-  #    `openssl smime -verify -text -inform SMIME -in $basedir/$sigfile.sig -out $basedir/$sigfile.new -CAfile $basedir/scripts.crt 2>/dev/null`;
-  #    `dos2unix $basedir/$sigfile.new`;
-  #    `mv $basedir/$sigfile.new $basedir/$sigfile`;
-  #  }
-  #  if ($file =~ /^.*\.sig$/) {
-  #    $file =~ s/\.sig//;
-  #    `openssl smime -verify -text -inform SMIME -in $basedir/$file.sig -out $basedir/$file.new -CAfile $basedir/scripts.crt 2>/dev/null`;
-  #    `dos2unix $basedir/$file.new`;
-  #    `mv $basedir/$file.new $basedir/$file`;
-  #  }
-  #}
+  printmsg("Processing files:", "info");
+  @sigfile_ar = `ls -1 $basedir`;
+  foreach $file (@sigfile_ar) {
+    chomp($file);
+    if ($file =~ /^.*\.sig\.mime$/ || $file =~ /^.*\.sig\.r[0-9]*$/) {
+      $sigfile = $file;
+      $sigfile =~ s/\.sig\..*//;
+      printdelay("Removing file: $file");
+      `rm -f $basedir/$file`;
+      printresult($?);
+      printdelay("SVN update for $sigfile");
+      `svn update --non-interactive $basedir/$sigfile.sig --username $svnuser --password $svnpass $basedir`;
+      printresult($?);
+      `openssl smime -verify -text -inform SMIME -in $basedir/$sigfile.sig -out $basedir/$sigfile.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+      `dos2unix $basedir/$sigfile.new`;
+      `mv $basedir/$sigfile.new $basedir/$sigfile`;
+    }
+    if ($file =~ /^.*\.sig$/) {
+      $file =~ s/\.sig//;
+      `openssl smime -verify -text -inform SMIME -in $basedir/$file.sig -out $basedir/$file.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+      `dos2unix $basedir/$file.new`;
+      `mv $basedir/$file.new $basedir/$file`;
+    }
+  }
   $mount = remount("ro");
   printmsg("Remounting the USB read-only:", $mount);
 }

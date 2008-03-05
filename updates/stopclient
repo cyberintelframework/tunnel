@@ -2,9 +2,9 @@
 
 #########################################
 # Stop script for SURFnet IDS Sensor
-# SURFnet IDS
-# Version 2.10.02
-# 15-11-2007
+# SURFnet IDS 2.10.00
+# Changeset 002
+# 03-03-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 # Contributors:                     
@@ -13,28 +13,8 @@
 
 ################
 # Changelog:
-# 2.10.02 Removed up check 
-# 2.10.01 Saving downloaded php files in /tmp now
-# 2.00.03 Fixed typo
-# 2.00.02 Changed/added route commands
-# 2.00.01 Removed exit on failed gateway ping
-# 1.04.13 Fixed serverurl bug
-# 1.04.12 Added server subdir to serverurl
-# 1.04.11 Added networkconf variable
-# 1.04.10 Fixed wget request
-# 1.04.09 Added fix to remove remaining vlan interfaces
-# 1.04.08 Added check for missing dhclient3 pid files
-# 1.04.07 Removed user script, added check for dhcp lease file
-# 1.04.06 Added 2>/dev/null to default gw stuff
-# 1.04.05 Added more error handling
-# 1.04.04 Removed $server before the chkresolv checks
-# 1.04.03 Removed chksensorstatus check and added some more error handling
-# 1.04.02 Added active interface checks
-# 1.04.01 Rereleased as 1.04.01
-# 1.02.06 Rereleased as perl script
-# 1.02.05 Restructured the code
-# 1.02.04 Added hook to the stophook.sh script
-# 1.02.03 Initial release
+# 002 Removed up check 
+# 001 Saving downloaded php files in /tmp now
 ################
 
 # This script is run at reboot or shutdown.

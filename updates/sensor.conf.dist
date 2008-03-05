@@ -2,19 +2,15 @@
 
 #####################################################
 # Client scripts config file for IDS Sensor
-# SURFnet IDS
-# Version 2.10.01
-# 15-11-2007
+# SURFnet IDS 2.10.00
+# Changeset 001
+# 03-03-2008
 # Jan van Lith & Kees Trippelvitz
 #####################################################
 
 #############################################
 # Changelog:
-# 2.10.01 Added tmpdir
-# 1.04.02 Added up script config values
-# 1.04.01 Rereleased as 1.04.01
-# 1.02.04 Rerelease as perl script
-# 1.02.03 Initial release
+# 001 Added tmpdir
 #############################################
 
 # Color codes

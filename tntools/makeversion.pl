@@ -56,10 +56,10 @@ do '/etc/surfnetids/surfnetids-tn.conf';
 %ignore = ("client.conf.dist", 0, "client.conf.temp.dist", 0, "wgetrc.dist", 0, "sensor.conf.dist", 0);
 
 # Looping through the updates directory
-@file_ar = `grep -I Version $c_surfidsdir/updates/* | grep -v ".sig" | awk '{print \$1}' | cut -d":" -f1`;
+@file_ar = `grep -I Changeset $c_surfidsdir/updates/* | grep -v ".sig" | awk '{print \$1}' | cut -d":" -f1`;
 foreach $file (@file_ar) {
   chomp($file);
-  $version = `grep -I Version $c_surfidsdir/updates/* | grep "^${file}:" | awk '{print \$3}'`;
+  $version = `grep -I Changeset $c_surfidsdir/updates/* | grep "^${file}:" | awk '{print \$3}'`;
   chomp($version);
   $file = `echo $file | awk -F / '{print \$NF}'`;
   chomp($file);

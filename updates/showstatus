@@ -2,30 +2,16 @@
 
 #########################################
 # IDSmenu script for IDS Sensor
-# SURFnet IDS
-# Version 2.10.02
-# 06-12-2007
+# SURFnet IDS 2.10.00
+# Changeset 002
+# 03-03-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
-# 2.10.02 Removed up statecheck 
-# 2.10.01 Added readstate check
-# 2.00.02 Added exit when up is running 
-# 2.00.01 Added syslog check
-# 1.04.12 Added IP address  
-# 1.04.11 Fixed if statement with chkupscript when down
-# 1.04.10 Fixed chkssh stuff
-# 1.04.09 Improved error checking
-# 1.04.08 Added networkconf variable
-# 1.04.07 Fixed layout stuff
-# 1.04.06 Added check on broadcast and gateway addresses
-# 1.04.05 Added check on network config
-# 1.04.04 Added printdelay and printresult for pings
-# 1.04.03 Added network config check
-# 1.04.02 Added SSH status
-# 1.04.01 Initial release
+# 002 Removed up statecheck 
+# 001 Added readstate check
 #############################################
 
 use File::Basename;
@@ -173,7 +159,7 @@ if ($netconf eq "vlan") {
             }
           }
           printdelay("$netconfstring Pinging gateway:");
-          $chkgw = chkreach($if_gw);
+          $chkgw = chkreach($if_gw, $br);
           printresult($chkgw);
         } else {
           printmsg("$netconfstring Gateway:", "false");
@@ -193,7 +179,7 @@ if ($netconf eq "vlan") {
         printmsg("$netconfstring Nameserver:", $if_ns);
         if ($if_ns !~ /^(1|2|3)$/) {
           printdelay("$netconfstring Pinging nameserver:");
-          $chkname = chkreach($if_ns);
+          $chkname = chkreach($if_ns, $br);
           printresult($chkname);
         }
       }
@@ -229,7 +215,7 @@ if ($netconf eq "vlan") {
       if ($chkstatus == 0) {
         if ($chkgw == 0) {
           printdelay("$netconfstring Pinging gateway:");
-          $chkgw = chkreach($if_gw);
+          $chkgw = chkreach($if_gw, $br);
           printresult($chkgw);
         } else {
           printmsg("Adding default gateway:", $chkgw);
@@ -247,11 +233,9 @@ if ($netconf eq "vlan") {
       printmsg("$netconfstring Nameserver:", $if_ns);
       if ($chkgw == 0 && $chkstatus == 0) {
         printdelay("$netconfstring Pinging nameserver:");
-        $chkname = chkreach($if_ns);
+        $chkname = chkreach($if_ns, $br);
         printresult($chkname);
       }
-    }
-    if ($if_gw ne "false") {
     }
 
     if ($chkstatus == 0 && $chkname == 0 && $chkgw == 0) {
@@ -372,8 +356,8 @@ if ($netconf eq "vlan") {
       printmsg("$netconfstring Gateway:", $if_gw);
       if ($if_gw !~ /^(1|2|3)$/) {
         printdelay("$netconfstring Pinging gateway:");
-        $chkgw = chkreach($if_gw);
-	printresult($chkgw);
+        $chkgw = chkreach($if_gw, $if);
+        printresult($chkgw);
       }
       printmsg("$netconfstring Netmask:", $if_nm);
       printmsg("$netconfstring Broadcast:", $if_bc);
@@ -383,7 +367,7 @@ if ($netconf eq "vlan") {
     printmsg("$netconfstring Nameserver:", $if_ns);
     if ($if_ns !~ /^(1|2|3)$/) {
       printdelay("$netconfstring Pinging nameserver:");
-      $chkname = chkreach($if_ns);
+      $chkname = chkreach($if_ns, $if);
       printresult($chkname);
     }
   } elsif ($netconf eq "dhcp") {
@@ -394,8 +378,8 @@ if ($netconf eq "vlan") {
       printmsg("$netconfstring Gateway:", $if_gw);
       if ($if_gw !~ /^(1|2|3)$/) {
         printdelay("$netconfstring Pinging gateway:");
-        $chkgw = chkreach($if_gw);
-	printresult($chkgw);
+        $chkgw = chkreach($if_gw, $if);
+        printresult($chkgw);
       }
       $if_nm = getnetinfo("nm", $if);
       printmsg("$netconfstring Netmask:", $if_nm);
@@ -407,7 +391,7 @@ if ($netconf eq "vlan") {
     printmsg("$netconfstring Nameserver:", $if_ns);
     if ($if_ns !~ /^(1|2|3)$/) {
       printdelay("$netconfstring Pinging nameserver:");
-      $chkname = chkreach($if_ns);
+      $chkname = chkreach($if_ns, $if);
       printresult($chkname);
     }
   }

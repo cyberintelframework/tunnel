@@ -3,8 +3,8 @@
 ###################################
 # SQL script for IDS server       #
 # SURFnet IDS                     #
-# Version 2.00.01                 #
-# 14-09-2007                      #
+# Version 2.10.02                 #
+# 25-02-2008                      #
 # Jan van Lith & Kees Trippelvitz #
 ###################################
 # Contributors:                   #
@@ -35,6 +35,8 @@
 
 #####################
 # Changelog:
+# 2.10.02 Destroying statement handle before disconnecting
+# 2.10.01 Don't update the tapip if statically configured
 # 2.00.01 version 2.00
 # 1.04.07 Added detectarp.pl stuff
 # 1.04.06 Removed pcap.pl script
@@ -119,6 +121,7 @@ $arp = $row[3];
 $sensorid = $row[4];
 
 # Closing database connection.
+$sth = "";
 $dbh->disconnect;
 
 # Sleep till tunnel is fully ready 
@@ -236,7 +239,12 @@ if ($err == 0) {
 
   if ("$dbconn" ne "false") {
     # Update Tap info to the database for the current $sensor.
-    $sql = "UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
+
+    if ("$netconf" eq "vlans" || "$netconf" eq "static") {
+      $sql = "UPDATE sensors SET tap = '$tap', status = 1 WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
+    } else {
+      $sql = "UPDATE sensors SET tap = '$tap', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
+    }
     $er = $dbh->do($sql);
     printlog("Prepared query: $sql");
     printlog("Executed query: $er");

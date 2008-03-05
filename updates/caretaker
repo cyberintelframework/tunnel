@@ -2,17 +2,20 @@
 
 #########################################
 # Caretaker script for the VLAN tunnels #
-# SURFnet IDS                           #
-# Version 2.10.02                       #
-# 19-11-2007                            #
+# SURFnet IDS 2.10.00                   #
+# Changeset 004                         #
+# 03-03-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ###################
 # Changelog:
-# 2.10.02 Fixed bug with gw 
-# 2.10.01 Initial release
+# 004 Modified info header and changelog
+# 003 Fixed layout & code indentation
+# 002 Fixed bug with gw 
+# 001 Initial release
 ###################
+
 use Time::localtime qw(localtime);
 use IO::Socket::INET;
 
@@ -50,71 +53,75 @@ if ($chkcare != 0) {
 
 @vlan_ar = `netstat -natep | grep "127.0.0.1" | grep openvpn | awk '{print \$4}' | awk -F":" '{print \$2}'`;
 
+open(LOG, ">> /var/log/caretaker.log");
+$ts = getdatetime();
+
 while (0 == 0) {
   foreach $manport (@vlan_ar) {
     $try = 0;
     chomp($manport);
-#    print "PORT: $manport\n";
     my $sock = new IO::Socket::INET (
-			PeerAddr => '127.0.0.1',
-			PeerPort => $manport,
-			Proto => 'tcp',
-    );
-    #print $sock "state\n";
+        PeerAddr => '127.0.0.1',
+        PeerPort => $manport,
+        Proto => 'tcp',
+        );
     $conn = 0;
     $line = "";
     while ($conn == 0) {
+      if (!<$sock>) {
+        $conn = 1;
+      }
       $nmapcheck = 0;
       $line = <$sock>;
       print $sock "state\n";
       if ($line =~ /.*RECONNECTING.*/) {
         # OpenVPN is trying to reconnect
         # Now we need to add default gateway, etc
-#        print "$manport RECONNECTING\n";
-    	$gw = `ps -ef | grep -v grep | grep openvpn | grep "127.0.0.1 $manport"| awk -F"gw" '{print \$2}' | awk '{print \$1}'`;
-    	chomp($gw);
-    	`ip route del default 2>/dev/null`;
-    	`ip route add default via $gw 2>/dev/null`;
-	$if = $manport - 1000;
-  	$nmapchk = `nmap -e br$if -p 1194 $server -P0 2>/dev/null | grep 1194 | grep open | wc -l`;
+        $ts = getdatetime();
+        print LOG "[$ts] $manport RECONNECTING\n";
+        $gw = `ps -ef | grep -v grep | grep openvpn | grep "127.0.0.1 $manport"| awk -F"gw" '{print \$2}' | awk '{print \$1}'`;
+        chomp($gw);
+        `ip route del default 2>/dev/null`;
+        `ip route add default via $gw 2>/dev/null`;
+        $if = $manport - 1000;
+        $nmapchk = `nmap -e br$if -p 1194 $server -P0 2>/dev/null | grep 1194 | grep open | wc -l`;
         chomp($nmapchk);
- #       print "$manport NMAPCHK: $nmapchk\n";
-	if ($nmapchk == 1) {
- #       	print "$manport RELEASED\n";
-		print $sock "hold release\n";
-		$rel = 0;
-		$tryrel = 0;
-		sleep 5;
-      		while ($rel == 0) {
-      			$line = <$sock>;
-      			print $sock "state\n";
-			if ($line =~ /.*CONNECTED.*/) {
-#        			print "$manport CONNECTED AFTER RELEASED\n";
-   				`ip route del default 2>/dev/null`;
-				$rel = 1;
-			}
-			if ($tryrel == 25) {
- #       			print "$manport COULD NOT CONNECT AFTER RELEASE\n";
-    				`ip route del default 2>/dev/null`;
-				$rel = 1;
-			}
-			sleep 2;
-			$tryrel++;
-			
-		}
-		$conn = 1;
+        if ($nmapchk == 1) {
+          $ts = getdatetime();
+          print LOG "[$ts] $manport RELEASED\n";
+          print $sock "hold release\n";
+          $rel = 0;
+          $tryrel = 0;
+          sleep 5;
+          while ($rel == 0) {
+            $line = <$sock>;
+            print $sock "state\n";
+            if ($line =~ /.*CONNECTED.*/) {
+              $ts = getdatetime();
+              print LOG "[$ts] $manport CONNECTED AFTER RELEASE\n";
+              `ip route del default 2>/dev/null`;
+              $rel = 1;
+            }
+            if ($tryrel == 25) {
+              $ts = getdatetime();
+              print LOG "[$ts] $manport FAILED TO CONNECT AFTER RELEASE\n";
+              `ip route del default 2>/dev/null`;
+              $rel = 1;
+            }
+            sleep 2;
+            $tryrel++;
+          }
+          $conn = 1;
         }
-	$try++;
+        $try++;
         if ($try == 2) {
-          # Try 2 times per VLAN, then continue
           $conn = 1;
         } else {
           sleep 2;
         }
       } elsif ($line =~ /.*CONNECTED.*/) {
-  #      print "$manport CONNECTED\n";
         sleep 1;
-	$conn = 1;
+        $conn = 1;
       }
     }
   }

@@ -2,26 +2,15 @@
 
 #########################################
 # IDSmenu script for IDS Sensor
-# SURFnet IDS
-# Version 2.10.00
-# 21-09-2007
+# SURFnet IDS 2.10.00
+# Changeset 001
+# 03-03-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
-# 2.10.00 Initial release 
-# 2.00.03 Changed path to knoppix-installer 
-# 2.00.02 Fixed typo
-# 2.00.01 version 2.00
-# 1.04.06 Added maintenance shell option to menu  
-# 1.04.05 Hid login choice 
-# 1.04.04 Fixed typo in menu prompt
-# 1.04.03 Fixed ssh check
-# 1.04.02 Added HD install option
-# 1.04.01 Rerelease as perl script
-# 1.02.04 Key and certificate check bugfix
-# 1.02.03 Initial release
+# 001 Initial release 
 #############################################
 
 use File::Basename;

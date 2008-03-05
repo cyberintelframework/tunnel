@@ -348,4 +348,6 @@
 	"134" => "RSVP-E2E-IGNORE",
 	"136" => "UDPLite",
 	"137" => "MPLS-in-IP",
+	"138" => "MANET",
+        "139" => "HIP",
 );

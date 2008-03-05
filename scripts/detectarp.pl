@@ -3,8 +3,8 @@
 ########################################
 # ARP detection module                       
 # SURFnet IDS                          
-# Version 2.00.02                      
-# 13-09-2007                           
+# Version 2.10.01                      
+# 15-02-2007                           
 # Kees Trippelvitz & Jan van Lith
 ########################################
 
@@ -31,6 +31,7 @@
 
 #####################
 # Changelog:
+# 2.10.01 Ignore checking the gateway if it is not in the local network range
 # 2.00.02 Added dhcp alerts
 # 2.00.01 Initial release
 #####################
@@ -270,7 +271,12 @@ $er = $sth->execute();
 $db_mac = $row[0];
 
 `arping -h 2>/dev/null`;
-if ($? == 0) {
+$arpec = $?;
+$gwlong = ip2long($gw);
+if ($gwlong < $ifmin && $gwlong > $ifmax) {
+  $arpec == 1;
+}
+if ($arpec == 0) {
   %maclist = ();
   open(ARPING, "arping -r -i $tap -c 4 $gw | ");
   while (<ARPING>) {

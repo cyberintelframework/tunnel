@@ -1,9 +1,10 @@
 #!/bin/bash
 
 #########################################
-# Modified for SURFnet IDS              #
-# Version 1.04.01                       #
-# 05-03-2007                            #
+# Modified for SURFids                  #
+# SURFids 2.10.00                       #
+# Changeset 001                         #
+# 03-03-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 

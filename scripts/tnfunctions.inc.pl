@@ -25,11 +25,11 @@ use POSIX;
 ###############################################
 # INDEX
 ###############################################
-# 1             All CHK functions
-# 1.01          chkdhclient
+# 1     All CHK functions
+# 1.01      chkdhclient
 # 1.02		chk_static_arp
 # 1.03		chk_dhcp_server
-# 2		All GET functions
+# 2	    All GET functions
 # 2.01		getts
 # 2.02		getec
 # 2.03		getlocalgw
@@ -37,6 +37,7 @@ use POSIX;
 # 2.05		getifip
 # 2.06		getdatetime
 # 2.07		getifmask
+# 2.08		getnetinfo
 # 3		ALL DB functions
 # 3.01		dbremoteip
 # 3.02		dbnetconf
@@ -296,6 +297,47 @@ sub getifmask() {
     return "false";
   }
   return "false";
+}
+
+# 2.08 getnetinfo
+# Function to retrieve network info for a given interface
+# Attr: inet, nm, gw, bc, ns
+# Returns attribute on success
+# Returns 1 when given attribute is unknown
+# Returns 2 if the given interface was not found
+sub getnetinfo() {
+  my ($method, $attr, $if, $domain, $name, $i);
+  $attr = $_[0];
+  $if = $_[1];
+
+  # Check if the correct attribute was asked
+  if ($attr !~ /^(inet|nm|gw|bc|ns)$/) {
+    return 1;
+  }
+  if ($attr ne "ns") {
+    `ifconfig $if 2>/dev/null`;
+    if ($? != 0) {
+      return 2;
+    }
+  }
+  # Check which method
+  if ($attr eq "ns") {
+    $attr = `cat /etc/resolv.conf | grep nameserver | grep -v "#" | head -n1 | awk '{print \$2}'`;
+  } elsif ($attr eq "inet") {
+    $attr = `ifconfig $if | grep "inet addr:" | cut -d":" -f2 | cut -d" " -f1`;
+  } elsif ($attr eq "bc") {
+    $attr = `ifconfig $if | grep "Bcast:" | cut -d":" -f3 | cut -d" " -f1`;
+  } elsif ($attr eq "nm") {
+    $attr = `ifconfig $if | grep "Mask:" | cut -d":" -f4`;
+  } elsif ($attr eq "gw") {
+    $attr = `route -n | grep UG | grep $if | awk '{print \$2}'`;
+  }
+  chomp($attr);
+  if ($attr eq "") {
+    return 3;
+  } else {
+    return $attr;
+  }
 }
 
 # 3.01 dbremoteip
@@ -1342,6 +1384,23 @@ sub printdblog() {
     return "false";
   }
   return "true";
+}
+
+# 3.19 cidr
+# # Function to convert a dotted decimal netmask to CIDR notation
+# # Returns CIDR notation on success
+# # Returns false on failure
+sub cidr() {
+  my ($mask, $chkip, $cidr, $bina, $binm);
+  $mask = $_[0];
+  chomp($mask);
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $binm = &dec2bin($mask);
+  $cidr = ($binm =~ tr/1//);
+  return $cidr;
 }
 
 return "true";

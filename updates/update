@@ -2,36 +2,25 @@
 
 #########################################
 # Update script for SURFnet IDS Sensor	#
-# SURFnet IDS                           #
-# Version 2.10.00                      #
-# 06-12-2007                            #
-# Jan van Lith & Kees Trippelvitz	#
+# SURFnet IDS 2.10.00                   #
+# Changeset 005                         #
+# 04-03-2008                            #
+# Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ##################
 # Changelog:
-# 2.10.00 Initial release 
-# 2.00.04 Fixed bug with checking updatesport in VLAN 
-# 2.00.03 Added exit when up is running 
-# 2.00.02 Added extra remove default route 
-# 2.00.01 Changed gateway check
-# 1.04.07 Removed server change request
-# 1.04.06 Added server subdir to serverurl
-# 1.04.05 Added networkconf variable
-# 1.04.04 Fixed update wget request
-# 1.04.03 Redone the update system, added svnupdate stuff
-# 1.04.02 Added printmsg when no active VLANs are found
-# 1.04.01 Rereleased as 1.04.01
-# 1.02.18 Rereleased as perl script
-# 1.02.17 Fixed a small bug in test of $action 
-# 1.02.16 Fixed a bug in the check_ssh grep
-# 1.02.15 Changed the way SSH is handled
-# 1.02.14 Initial release
+# 005 hourly run-parts update doesn't work correctly, adding it directly
+# 004 Crontab chk
+# 003 Better action handling 
+# 002 Fixed bug with checking updatesport in VLAN when not active 
+# 001 Initial release 
 ##################
 
 ################
 # Variables    #
 ################
+$debug_dhcp = 0;
 $basedir = "/cdrom/scripts";
 do "$basedir/sensor.conf";
 do "$basedir/functions.inc.pl";
@@ -46,12 +35,12 @@ $menureboot = 0;
 $err = 0;
 $action = "";
 
-# Check if the disk is read/write.
-$chkrw = chkrw();
-printmsg("Checking read/write status:", $chkrw);
-if ($chkrw != 0) {
-  exit;
-}
+## Check if the disk is read/write.
+#$chkrw = chkrw();
+#printmsg("Checking read/write status:", $chkrw);
+#if ($chkrw != 0) {
+#  exit;
+#}
 
 # Check if wget needs to authenticate the server certificate.
 if ($checkcert == 0) {
@@ -67,12 +56,35 @@ if ($checkcert == 0) {
 #  exit;
 #}
 
-$chksys = chksys();
-if ($chksys == 1) {
-  printdelay("Stopping syslog daemon:");
-  `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/syslogd.pid`;
-  printresult($?);
+#$chksys = chksys();
+#if ($chksys == 1) {
+#  printdelay("Stopping syslog daemon:");
+#  `start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/syslogd.pid`;
+#  printresult($?);
+#}
+
+$chkcron = `cat /etc/crontab | grep checksys | wc -l`;
+chomp($chkcron);
+if ($chkcron == 0) {
+  `echo "*/5 * * * * root /cdrom/scripts/checksys.pl 2>/dev/null" >> /etc/crontab`;
+  `/etc/init.d/cron restart 2>/dev/null`;
 }
+
+$chkcron = `cat /etc/crontab | grep hourly | wc -l`;
+chomp($chkcron);
+if ($chkcron == 1) {
+  `grep -v hourly /etc/crontab > /tmp/cron.temp`;
+  `cp /tmp/cron.temp /etc/crontab`;
+  `/etc/init.d/cron restart 2>/dev/null`;
+}
+
+$chkcron = `cat /etc/crontab | grep update | wc -l`;
+chomp($chkcron);
+if ($chkcron == 0) {
+  `echo "17 * * * * root /cdrom/scripts/update 1>/dev/null 2>/dev/null" >> /etc/crontab`;
+  `/etc/init.d/cron restart 2>/dev/null`;
+}
+
 
 ############
 # Updating #
@@ -85,6 +97,8 @@ if ($sensor eq "false") {
   exit;
 }
 
+`killall tcpdump 2>/dev/null`;
+
 if ($netconf eq "vlan") {
   $i = 0;
   for my $key ( sort keys %vlan ) {
@@ -93,6 +107,21 @@ if ($netconf eq "vlan") {
     $br = "br$i";
     $vlan_method = $vlan{$vlanid}{method};
     $chksensor = chksensorstatus($br);
+
+    # DHCP Debug stuff
+    if ($debug_dhcp == 1) {
+      remount("rw");
+      if (-e "/var/log/$br.dump") {
+        `cp /var/log/$br.dump /cdrom/scripts/$br.dump`;
+        if ($? != 0) {
+          `dd if=/var/log/$br.dump of=/cdrom/scripts/$br.dump conv=noerror,sync`;
+        }
+        `rm /var/log/$br.dump`;
+      }
+      system("tcpdump -i $br -n -w /var/log/$br.dump port 67 or port 68 & 2>/dev/null");
+      remount("ro");
+    }
+
     if ($chksensor == 0) {
       printmsg("Active interface:", $br);
       $if = "br$i";
@@ -207,7 +236,7 @@ if ($netconf eq "vlan") {
         $chkupdate = 1;
       } else {
         printdelay("Checking updates port:");
-        $updateport = getportstatus($br, 4443);
+        $updateport = getportstatus($if, 4443);
         printresult($updateport);
         if ("$updateport" ne "open") {
           $chkupdate = 1;
@@ -220,7 +249,7 @@ if ($netconf eq "vlan") {
         update_process($if, $vlanid);
       }
       sleeptimer("Preparing for next VLAN:", 10);
-      `ip route del default 2>/dev/null`;
+      #`ip route del default 2>/dev/null`;
     }
   }
 } else {
@@ -290,7 +319,8 @@ sub update_process() {
   system("$basedir/svnupdate");
 
   # Updating sensor information to the server
-  `wget -q $wgetarg -O $tmpdir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh"`;
+  `wget -q $wgetarg --bind-address=$if_ip -O $tmpdir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh"`;
+
   &printmsg("Updating status information:", $?);
 
   # Check for errors with the localip and tapip update.
@@ -303,30 +333,32 @@ sub update_process() {
     print "${r}$errors${n}\n";
   }
 
-  # Check if any action was requested.
-  $action = `cat $tmpdir/update$vlanid.php | grep "ACTION:" | awk '{print \$2}'`;
-  chomp($action);
+  # Check if any action was requested and if it is already set.
+  if ($action eq "") {
+    $action = `cat $tmpdir/update$vlanid.php | grep "ACTION:" | awk '{print \$2}'`;
+    chomp($action);
+  }
 
-  ################
-  # Action check #
-  ################
+}
+################
+# Action check #
+################
 
-  if ($checkerror == 0) {
-    if ($action eq "SSHON") {
+if ($action eq "SSHON") {
       &printmsg("Server request - start SSH:", $?);
       `/etc/init.d/ssh start`;
-    } elsif ($action eq "SSHOFF") {
-      &printmsg("Server request - stop SSH:", $?);
+} elsif ($action eq "SSHOFF") {
+     &printmsg("Server request - stop SSH:", $?);
       `killall sshd`;
-    } elsif ($action eq "START") {
+} elsif ($action eq "START") {
       &printmsg("Server request - start sensor:", $?);
       &printmsg("Starting Sensor:", "info");
-      `$basedir/startclient 0`;
-    } elsif ($action eq "STOP") {
+      exec "$basedir/startclient 0";
+} elsif ($action eq "STOP") {
       &printmsg("Server request - stop sensor:", $?);
       &printmsg("Stopping Sensor:", "info");
-      `$basedir/stopclient`;
-    } elsif ($action eq "BLOCK") {
+      exec "$basedir/stopclient";
+} elsif ($action eq "BLOCK") {
       if (! -e "$basedir/$sensor.bcrt") { 
         $j = 0;
         &printmsg("Stopping Sensor:", $?);
@@ -356,7 +388,7 @@ sub update_process() {
       } else {
       	&printmsg("Client already disabled:", "info");
       } 
-    } elsif ($action eq "UNBLOCK") {    
+} elsif ($action eq "UNBLOCK") {    
       if (-e "$basedir/$sensor.bcrt") { 
 
         # Making sure we can write on the USB
@@ -379,12 +411,10 @@ sub update_process() {
       } else {
       	&printmsg("Client already enabled:", "info");
       }
-    } 
-  }
+} 
 
-  if ($action eq "REBOOT") {
+if ($action eq "REBOOT") {
     &printmsg("Server request - Reboot", "info");
     `init 6`;
-  }
 }
 

@@ -2,50 +2,19 @@
 
 #########################################
 # Function library for the sensor scripts
-# SURFnet IDS
-# Version 2.10.03
-# 16-11-2007
+# SURFnet IDS 2.10.00
+# Changeset 005
+# 03-03-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
-# 2.10.03 Added chksvn function
-# 2.10.02 Added getrev function
-# 2.10.01 Added some mount functions
-# 2.00.03 Added chkuprun function 
-# 2.00.02 Fixed bug with getif
-# 2.00.01 version 2.00
-# 1.04.30 Fixed a bug with getnetinfo and getif
-# 1.04.29 Added mii-tool check for active interface
-# 1.04.28 Fixed a bug with network calculation
-# 1.04.27 Fixed client.conf updating bug
-# 1.04.26 Added extra ping within chkreach 
-# 1.04.25 Removed chkgateway (use chkreach)
-# 1.04.24 ifconfig -a switch added
-# 1.04.23 Added server subdir to chkwgetauth function
-# 1.04.22 Fixed a bug with firewire interfaces and getif()
-# 1.04.21 Fixed getsensor bug with .key files
-# 1.04.20 Added chkupscript
-# 1.04.19 Added networkconf variable
-# 1.04.18 Fixed upplstatus
-# 1.04.17 Fixed typo
-# 1.04.16 Fixed a bug with chkssh
-# 1.04.15 Fixed a bug with dhclient3 pid files
-# 1.04.14 Added ris support
-# 1.04.13 Added startdhcp function
-# 1.04.12 Changed path to status.php in chkwgetauth
-# 1.04.11 Changed chkwgetauth to check for status.php instead of server_version.txt
-# 1.04.10 Removed chkpump and added chkdhclient 
-# 1.04.09 Fixed a bug in getnetinfo with nameserver check
-# 1.04.08 Added dec2bin, bin2dec, bc, network, cidr
-# 1.04.07 Added chkgateway
-# 1.04.06 Fixed a bug in fixclientconf
-# 1.04.05 Changed chkreach
-# 1.04.04 Added chknetworkconf
-# 1.04.03 Added chkidsmenu, chkpump, printdelay, printresult
-# 1.04.02 Added regexp for validip
-# 1.04.01 Initial release
+# 005 Added -I option for ping in chkreach
+# 004 Added non-interactive switch for svn commands
+# 003 Added chksvn function
+# 002 Added getrev function
+# 001 Added some mount functions
 ################
 
 use POSIX;
@@ -385,14 +354,24 @@ sub chkclientconf() {
 # Returns 0 if the IP address was reachable
 # Returns 1 if the IP address was not reachable
 # Returns 2 if the IP address was invalid
+# Returns 3 if the given interface was false
+# Returns 4 if the given interface was empty
 sub chkreach() {
-  my ($ip, $pingresult, $chkip);
+  my ($ip, $pingresult, $chkip, $if);
   $ip = $_[0];
   chomp($ip);
+  $if = $_[1];
+  chomp($if);
   $chkip = validip($ip);
+  if ("$if" eq "false") {
+    return 3;
+  }
+  if ("$if" eq "") {
+    return 4;
+  }
   if ($chkip == 0) {
-    `ping -c 5 -q $ip 2>/dev/null`;
-    `ping -c 1 -q $ip 2>/dev/null`;
+    `ping -I $if -c 3 -q $ip 2>/dev/null`;
+    `ping -I $if -c 3 -q $ip 2>/dev/null`;
     return $?;
   } else {
     return 2;
@@ -847,10 +826,10 @@ sub getrev() {
   $loc = $_[0];
   chomp($loc);
   if ("$loc" eq "local") {
-    $rev = `svn info | grep -i revision | awk '{print \$2}' 2>/dev/null`;
+    $rev = `svn info $basedir | grep -i revision | awk '{print \$2}' 2>/dev/null`;
     chomp($rev);
   } elsif ("$loc" eq "server") {
-    $rev = `svn ls -v --username $svnuser --password $svnpass $svnurl | awk '{print \$1}' | sort -nr | head -n1 2>/dev/null`;
+    $rev = `svn log --non-interactive -r HEAD --username $svnuser --password $svnpass $svnurl | head -n2 | tail -n1 |awk '{print \$1}' | awk -F"r" '{print \$2}' 2>/dev/null`;
     chomp($rev);
   } else {
     return "false";
