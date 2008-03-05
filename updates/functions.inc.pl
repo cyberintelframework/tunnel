@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS
-# Version 2.00.03
-# 09-10-2007
+# Version 2.00.04
+# 05-03-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 2.00.04 Fixed bug #75
 # 2.00.03 Added chkuprun function 
 # 2.00.02 Fixed bug with getif
 # 2.00.01 version 2.00
@@ -606,7 +607,7 @@ sub getif() {
         if ($checkif != 0) {
           $found_if = $if;
         } else {
-          $checkif = `mii-tool $if | grep negotiated | wc -l`;
+          $checkif = `mii-tool $if | grep "link ok" | wc -l`;
           chomp($checkif);
           if ($checkif != 0) {
             $found_if = $if;
