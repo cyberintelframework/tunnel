@@ -3,13 +3,14 @@
 ###############################################
 # Network setup script for SURFnet IDS sensor #
 # SURFnet IDS 2.10.00                         #
-# Changeset 003                               #
-# 03-03-2008                                  #
+# Changeset 004                               #
+# 08-04-2008                                  #
 # Jan van Lith & Kees Trippelvitz             #
 ###############################################
 
 #############################################
 # Changelog:
+# 004 Removed remounting messages
 # 003 Fixed remounting stuff with VLAN config
 # 002 Fixed VLAN config + remounting
 # 001 Added mount stuff
@@ -106,9 +107,7 @@ sub set_static_ip() {
 	}
 
 	# Making sure the config file is writeable.
-	printdelay("Remounting the USB read/write:");
 	$mountchk = remount("rw");
-	printresult($mountchk);
 
 	# Set configuration in network_if.conf:
 	open(NCONF, "> $networkconf");
@@ -122,9 +121,7 @@ sub set_static_ip() {
 
 	system("/usr/bin/clear");
 	# Remounting the USB read-only again to reduce corruption chances
-	printdelay("Remounting the USB read-only:");
 	$mountchk = remount("ro");
-	printresult($mountchk);
 
 	printmsg("Method:", "static");
 	printmsg("IP_sensor:", $sensorip);
@@ -157,9 +154,7 @@ sub set_dynamic_ip() {
   system("/usr/bin/clear");
 
   # Making sure the config file is writeable.
-  printdelay("Remounting the USB read/write:");
   $mountchk = remount("rw");
-  printresult($mountchk);
 
   printmsg("Writing the config file:", "info");
   # Set DHCP networking in network_if.conf:
@@ -168,9 +163,7 @@ sub set_dynamic_ip() {
   close(NCONF);
 
   # Remounting the USB read-only again to reduce corruption chances
-  printdelay("Remounting the USB read-only:");
   $mountchk = remount("ro");
-  printresult($mountchk);
 
   &prompt("Press enter to start sensor....");
 
@@ -184,9 +177,7 @@ sub set_vlan() {
   system("$basedir/stopclient");
 
   # Making sure the config file is writeable.
-  printdelay("Remounting the USB read/write:");
   $mountchk = remount("rw");
-  printresult($mountchk);
 
   $done = 1;
   while ($done != 0) {
@@ -376,14 +367,10 @@ sub set_vlan() {
 	$done = 0;
   }   
   # Remounting the USB read-only again to reduce corruption chances
-  printdelay("Remounting the USB read-only:");
   $mountchk = remount("ro");
-  printresult($mountchk);
 }
 
-printdelay("Remounting the USB read/write:");
 $mountchk = remount("rw");
-printresult($mountchk);
 
 # Make a backup of the network_if.conf
 printdelay("Creating config backup:");
@@ -391,9 +378,7 @@ printdelay("Creating config backup:");
 printresult($?);
 
 # Remounting the USB read-only again to reduce corruption chances
-printdelay("Remounting the USB read-only:");
 $mountchk = remount("ro");
-printresult($mountchk);
 
 # Show menu
 while (1) {

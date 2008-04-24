@@ -1,16 +1,16 @@
 #!/usr/bin/perl
 
-######################################
-# Types library for detectarp.pl     #
-# SURFnet IDS                        #
-# Version 2.00.01                    #
-# 14-09-2007                         #
-# Jan van Lith & Kees Trippelvitz    #
-######################################
+#########################################
+# Types library for detectarp.pl        #
+# SURFnet IDS 2.10.00                   #
+# Changeset 001                         #
+# 18-03-2008                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
 
 #####################
 # Changelog:
-# 2.00.01 Initial release
+# 001 version 2.10.00 release
 #####################
 
 %dhcptypes = (

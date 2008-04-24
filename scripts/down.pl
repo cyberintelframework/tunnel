@@ -1,47 +1,16 @@
 #!/usr/bin/perl
 
-###################################
-# Stop script for IDS server	  #
-# SURFnet IDS                     #
-# Version 2.00.01                 #
-# 14-09-2007                      #
-# Jan van Lith & Kees Trippelvitz #
-###################################
-
-#########################################################################################
-# Copyright (C) 2005 SURFnet                                                            #
-# Authors Jan van Lith & Kees Trippelvitz                                               #
-#                                                                                       #
-# This program is free software; you can redistribute it and/or                         #
-# modify it under the terms of the GNU General Public License                           #
-# as published by the Free Software Foundation; either version 2                        #
-# of the License, or (at your option) any later version.                                #
-#                                                                                       #
-# This program is distributed in the hope that it will be useful,                       #
-# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
-# GNU General Public License for more details.                                          #
-#                                                                                       #
-# You should have received a copy of the GNU General Public License                     #
-# along with this program; if not, write to the Free Software                           #
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
-#                                                                                       #
-# Contact ids@surfnet.nl                                                                #
-#########################################################################################
+#########################################
+# Stop script for IDS server	        #
+# SURFnet IDS 2.10.00                   #
+# Changeset 001                         #
+# 18-03-2008                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
 
 #####################
 # Changelog:
-# 2.00.01 version 2.00 (added logmessages support)
-# 1.04.03 Included tnfunctions.inc.pl and modified code structure
-# 1.04.02 Added vlan support
-# 1.04.01 Code layout
-# 1.03.02 Fixed status update
-# 1.03.01 Changed version to 1.03.01
-# 1.02.05 Killing dhclient3 correctly if multiple instances are running
-# 1.02.04 Fixed a bug with removing the route to the sensor
-# 1.02.03 Changed the way dhclient3 gets killed
-# 1.02.02 Added SQL query for resetting status
-# 1.02.01 Initial release
+# 001 version 2.10.00 release
 #####################
 
 ####################

@@ -2,9 +2,9 @@
 
 ####################################
 # Certificate Generation Handler   #
-# SURFnet IDS                      #
-# Version 2.00.02                  #
-# 14-09-2007                       #
+# SURFnet IDS 2.10.00              #
+# Changeset 001                    #
+# 01-04-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
@@ -12,41 +12,9 @@
 # When startclient on the sensor is run and the sensor does not have sensor certificates yet, this script will be called.
 # The certificates will be generated and send back to the sensor in the form of this php page.
 
-#########################################################################################
-# Copyright (C) 2005 SURFnet                                                            #
-# Authors Jan van Lith & Kees Trippelvitz                                               #
-#                                                                                       #
-# This program is free software; you can redistribute it and/or                         #
-# modify it under the terms of the GNU General Public License                           #
-# as published by the Free Software Foundation; either version 2                        #
-# of the License, or (at your option) any later version.                                #
-#                                                                                       #
-# This program is distributed in the hope that it will be useful,                       #
-# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
-# GNU General Public License for more details.                                          #
-#                                                                                       #
-# You should have received a copy of the GNU General Public License                     #
-# along with this program; if not, write to the Free Software                           #
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
-#                                                                                       #
-# Contact ids@surfnet.nl                                                                #
-#########################################################################################
-
 ####################################
 # Changelog:
-# 2.00.02 SOAP bug fixed 
-# 2.00.01 version 2.00
-# 1.04.06 Added oidtype when no identifier could be found
-# 1.04.05 Added extra check on orgname
-# 1.04.04 Fixed bug with sensor numbering
-# 1.04.03 Fixed typo in SURFnet SOAP stuff
-# 1.04.02 Changed identifier check order
-# 1.04.01 Organisation identifiers, removed access header
-# 1.03.01 Released as part of the 1.03 package
-# 1.02.03 Added some more input checks
-# 1.02.02 pg_escape_string added to the input variables
-# 1.02.01 Initial release
+# 001 Changed the order of organisation checks
 ####################################
 
 # Include configuration, connection information and soapcall.
@@ -112,8 +80,11 @@ if ($err == 0) {
   $orgname = "false";
   $orgid = 0;
 
-
-
+  # Random Identifier String check
+  if ($orgid == 0 && isset($clean['ris'])) {
+    $ident = $clean['ris'];
+    $orgid = checkident($ident, 1);
+  }
 
   # Domain identifier check
   if ($remoteip != $remotehost && $orgid == 0) {
@@ -138,23 +109,19 @@ if ($err == 0) {
       $orgid = 0;
     }
   }
-  
-  if ($c_certsoapconn == 1) {
-    # SURFnet SOAP identifier check
-    $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappass);
-    if ($ident != "false") {
-      $orgid = checkident($ident, 4);
-      $orgname = $ident;
-      $oidtype = 4;
-    } else {
-      $orgid = 0;
-    }
-  }
 
-  # Random Identifier String check
-  if ($orgid == 0 && isset($clean['ris'])) {
-    $ident = $clean['ris'];
-    $orgid = checkident($ident, 1);
+  if ($orgid == 0) {
+    if ($c_certsoapconn == 1) {
+      # SURFnet SOAP identifier check
+      $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappass);
+      if ($ident != "false") {
+        $orgid = checkident($ident, 4);
+        $orgname = $ident;
+        $oidtype = 4;
+      } else {
+        $orgid = 0;
+      }
+    }
   }
 
   if ($orgid == 0) {

@@ -1,23 +1,16 @@
 #!/usr/bin/perl 
 
-######################################
-# Function library for tunnel server #
-# SURFnet IDS                        #
-# Version 2.00.01                    #
-# 13-09-2007                         #
-# Jan van Lith & Kees Trippelvitz    #
-######################################
+#########################################
+# Function library for tunnel server    #
+# SURFnet IDS 2.10.00                   #
+# Changeset 001                         #
+# 18-03-2008                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
 
 #####################
 # Changelog:
-# 2.00.01 Added dhcp detection stuff
-# 1.05.02 Added refresh_ functions
-# 1.05.01 Modified add_arp_alert
-# 1.04.05 Added get_man
-# 1.04.04 Added getifmask, hextoip, colonmac
-# 1.04.03 Added getdatetime
-# 1.04.02 Modified info header
-# 1.04.01 Initial release
+# 001 version 2.10.00 release
 #####################
 
 use POSIX;

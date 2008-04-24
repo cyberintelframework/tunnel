@@ -3,13 +3,15 @@
 #########################################
 # IDSmenu script for IDS Sensor
 # SURFnet IDS 2.10.00
-# Changeset 002
-# 03-03-2008
+# Changeset 004
+# 08-04-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 #############################################
 # Changelog:
+# 004 Added sensortype check
+# 003 Added getmac, readstate fix
 # 002 Removed up statecheck 
 # 001 Added readstate check
 #############################################
@@ -36,14 +38,28 @@ if ($netconf eq "vlan") {
 $sensor = getsensor();
 printmsg("Sensor name:", $sensor);
 
-### Checking read/write state
-$readstate = getmountr();
-if ("$readstate" eq "ro") {
-  $readstate = "Read-only";
-} elsif ("$readstate" eq "rw") {
-  $readstate = "Read/write";
+printdelay("Sensor type:");
+$sensortype = chksensortype();
+if ($sensortype == 1) {
+  printresult("USB");
+} elsif ($sensortype == 2) {
+  printresult("HD");
+} else {
+  printresult("false");
 }
-printmsg("Read/write state of the sensor:", $readstate);
+
+if ($sensortype == 1) {
+  ### Checking read/write state
+  $readstate = getmountr();
+  if ("$readstate" eq "ro") {
+    $readstate = "Read-only";
+  } elsif ("$readstate" eq "rw") {
+    $readstate = "Read/write";
+  } else {
+    $readstate = "Unknown";
+  }
+  printmsg("Read/write state of the sensor:", $readstate);
+}
 
 $chksvn = chksvn();
 if ($chksvn == 0) {
@@ -134,6 +150,10 @@ if ($netconf eq "vlan") {
     printmsg("Network configuration method:", $vlan_method);   
     $br = "br$i";
     $vif = "$if.$vlanid";     
+
+    printdelay("Active interface MAC:");
+    $mac = getmac($br);
+    printresult($mac);
 
     if ($vlan_method eq "dhcp") {
       #####################
@@ -285,7 +305,11 @@ if ($netconf eq "vlan") {
   if ($if eq "false") {
     $ip_error = 1;
   }
-  
+ 
+  printdelay("Active interface MAC:");
+  $mac = getmac($if);
+  printresult($mac);
+
   ### IP address active interface ###
   if ($ip_error == 1) {
     # Don't try to get the interface IP if there's no active interface.

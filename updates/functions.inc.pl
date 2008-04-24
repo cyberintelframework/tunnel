@@ -3,13 +3,16 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS 2.10.00
-# Changeset 005
-# 03-03-2008
+# Changeset 008
+# 08-04-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 008 Added chksensortype
+# 007 Added getpid
+# 006 Added getmac and getver
 # 005 Added -I option for ping in chkreach
 # 004 Added non-interactive switch for svn commands
 # 003 Added chksvn function
@@ -45,6 +48,7 @@ $| = 1;
 # 1.19		chkupscript
 # 1.20		chksys
 # 1.21		chksvn
+# 1.22      chksensortype
 # 2		All GET functions
 # 2.01		getnetinfo
 # 2.02		getnetconf
@@ -58,6 +62,9 @@ $| = 1;
 # 2.10		getmountr
 # 2.11		getusbdev
 # 2.12		getrev
+# 2.13      getmac
+# 2.14      getver
+# 2.15      getpid
 # 3		MISC functions
 # 3.01		prompt
 # 3.02		printmsg
@@ -507,6 +514,26 @@ sub chksvn() {
   }
 }
 
+# 1.22 chksensortype
+# Function to check the type of sensor
+# Returns 1 if it's an USB sensor
+# Returns 2 if it's a HD sensor
+# Returns 0 on failure to detect
+sub chksensortype() {
+  my ($chk);
+  $chk = `df | grep cdrom | wc -l`;
+  chomp($chk);
+  if ($chk == 1) {
+    return 1;
+  }
+  $chk = `df | grep "on / type ext3" | wc -l`;
+  chomp($chk);
+  if ($chk == 1) {
+    return 2;
+  }
+  return 0;
+}
+
 #########################
 # 2 All GET functions
 #########################
@@ -821,6 +848,7 @@ sub getusbdev() {
 
 # 2.12 getrev
 # Function to get the revision number of the sensor scripts
+# Takes 1 argument with either values: server or local
 sub getrev() {
   my ($rev, $loc);
   $loc = $_[0];
@@ -839,6 +867,65 @@ sub getrev() {
     return $rev;
   } else {
     return "false";
+  }
+}
+
+# 2.13 getmac
+# Function to get the MAC address of a given interface
+sub getmac() {
+  my ($if, $mac);
+  $if = $_[0];
+  chomp($if);
+  if ("$if" eq "") {
+    return "false";
+  } else {
+    $mac = `ifconfig $if | grep HWaddr | awk '{print \$NF}'`;
+    chomp($mac);
+    if ("$mac" ne "") {
+      return $mac;
+    } else {
+      return "false";
+    }
+  }
+}
+
+# 2.14 getver
+# Function to create the version string for sending to the server
+sub getver() {
+  my ($ver, @version_ar, $version);
+  @version_ar = `grep Changeset $basedir/* | grep -v sig | awk '{print \$1 \$3'}`;
+  foreach $version (@version_ar) {
+    chomp($version);
+    $version =~ s/\#//;
+    $version =~ s/$basedir\///;
+    $ver .= $version .",";
+  }
+  chomp($ver);
+  $ver =~ s/\,$//;
+  if ("$ver" ne "") {
+    return $ver;
+  } else {
+    return "false";
+  }
+}
+
+# 2.15 getpid
+# Function to return the PID of a given process
+# Takes as argument a search entry to search for any process 
+# by that name with a regexp ^.*<entry>.*$
+# Be as specific as possible, it takes the first entry it finds
+# Returns PID on success
+# Returns 0 on failure
+sub getpid() {
+  my ($pid, $process);
+  $process = $_[0];
+  chomp($process);
+  $pid = `ps -ef | grep "^.*$process.*\$" | grep -v grep | head -n1 | awk '{print \$2}'`;
+  chomp($pid);
+  if ("$pid" eq "") {
+    return 0;
+  } else {
+    return $pid;
   }
 }
 
@@ -1458,27 +1545,32 @@ sub chkuprun() {
 # Returns 0 if success
 # Returns non-zero on failure
 sub remount() {
-  my ($opts, $usbdev, $state, $newstate);
+  my ($opts, $usbdev, $state, $newstate, $sensortype);
   $newstate = $_[0];
   chomp($newstate);
 
-  $opts = &getmountopts();
-  $opts =~ s/rw,//;
-  $opts =~ s/ro,//;
+  $sensortype = chksensortype();
 
-  $usbdev = &getusbdev();
-  if ("$newstate" eq "") {
-    return 2;
+  if ($sensortype == 1) {
+    $opts = &getmountopts();
+    $opts =~ s/rw,//;
+    $opts =~ s/ro,//;
+
+    $usbdev = &getusbdev();
+    if ("$newstate" eq "") {
+      return 2;
+    }
+    if ("$usbdev" eq "") {
+      return 3;
+    }
+    if ("$opts" ne "") {
+      `mount -o remount,$newstate,$opts $usbdev /cdrom 2>/dev/null`;
+    } else {
+      `mount -o remount,$newstate $usbdev /cdrom 2>/dev/null`;
+    }
+    return $?;
   }
-  if ("$usbdev" eq "") {
-    return 3;
-  }
-  if ("$opts" ne "") {
-    `mount -o remount,$newstate,$opts $usbdev /cdrom 2>/dev/null`;
-  } else {
-    `mount -o remount,$newstate $usbdev /cdrom 2>/dev/null`;
-  }
-  return $?;
+  return 0;
 }
 
 return "true";

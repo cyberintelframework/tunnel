@@ -3,13 +3,16 @@
 #########################################
 # Caretaker script for the VLAN tunnels #
 # SURFnet IDS 2.10.00                   #
-# Changeset 004                         #
-# 03-03-2008                            #
+# Changeset 007                         #
+# 08-04-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ###################
 # Changelog:
+# 007 Moved print state to the correct spot
+# 006 Fixed reconnect issue
+# 005 Removed default gw deletion
 # 004 Modified info header and changelog
 # 003 Fixed layout & code indentation
 # 002 Fixed bug with gw 
@@ -72,9 +75,20 @@ while (0 == 0) {
         $conn = 1;
       }
       $nmapcheck = 0;
-      $line = <$sock>;
+      $reconnect = 0;
       print $sock "state\n";
-      if ($line =~ /.*RECONNECTING.*/) {
+      while ($line = <$sock>) {
+        chomp($line);
+        if ($line =~ /.*RECONNECTING.*/) {
+          $reconnect = 1;
+          last;
+        } elsif ($line =~ /.*CONNECTED.*/) {
+          last;
+        } elsif ($line eq "END") {
+          last;
+        }
+      }
+      if ($reconnect == 1) {
         # OpenVPN is trying to reconnect
         # Now we need to add default gateway, etc
         $ts = getdatetime();
@@ -99,13 +113,15 @@ while (0 == 0) {
             if ($line =~ /.*CONNECTED.*/) {
               $ts = getdatetime();
               print LOG "[$ts] $manport CONNECTED AFTER RELEASE\n";
-              `ip route del default 2>/dev/null`;
+              # c005
+#              `ip route del default 2>/dev/null`;
               $rel = 1;
             }
             if ($tryrel == 25) {
               $ts = getdatetime();
               print LOG "[$ts] $manport FAILED TO CONNECT AFTER RELEASE\n";
-              `ip route del default 2>/dev/null`;
+              # c005
+#              `ip route del default 2>/dev/null`;
               $rel = 1;
             }
             sleep 2;

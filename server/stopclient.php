@@ -2,9 +2,9 @@
 
 ####################################
 # Stopclient info update           #
-# SURFnet IDS                      #
-# Version 2.00.01                  #
-# 14-09-2007                       #
+# SURFnet IDS 2.10.00              #
+# Changeset 001                    #
+# 01-04-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
@@ -14,37 +14,9 @@
 # Called by the stopclient script on the sensor. This script is used to exchange information from and to the sensor when the stopclient script
 # on the sensor is run.
 
-#########################################################################################
-# Copyright (C) 2005 SURFnet                                                            #
-# Authors Jan van Lith & Kees Trippelvitz                                               #
-# Modified by Peter Arts                                                                #
-#                                                                                       #
-# This program is free software; you can redistribute it and/or                         #
-# modify it under the terms of the GNU General Public License                           #
-# as published by the Free Software Foundation; either version 2                        #
-# of the License, or (at your option) any later version.                                #
-#                                                                                       #
-# This program is distributed in the hope that it will be useful,                       #
-# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
-# GNU General Public License for more details.                                          #
-#                                                                                       #
-# You should have received a copy of the GNU General Public License                     #
-# along with this program; if not, write to the Free Software                           #
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
-#                                                                                       #
-# Contact ids@surfnet.nl                                                                #
-#########################################################################################
-
 ####################################
 # Changelog:
-# 2.00.01 version 2.00
-# 1.04.03 Added extractvars stuff
-# 1.04.02 Fixed an uptime calculation bug
-# 1.04.01 Released as 1.04.01
-# 1.03.01 Released as part of the 1.03 package
-# 1.02.02 Added some more input checks
-# 1.02.01 Initial release
+# 001 Removed server variable stuff
 ####################################
 
 # Include configuration and connection information.
@@ -65,25 +37,6 @@ $remoteip = $_SERVER['REMOTE_ADDR'];
 
 # First check if all the variables are present.
 $err = 0;
-
-######################
-# Wget Accept header #
-######################
-#$accept_header = $_SERVER['HTTP_ACCEPT'];
-#$search = substr_count($accept_header, ",");
-#if ($search > 0) {
-#  $accept_header_ar = explode(",", $accept_header);
-#  $accept_header = $accept_header_ar[1];
-#}
-#$sensor_md5 = trim($accept_header);
-#$server_md5 = `md5sum $surfidsdir/serverkeys/ca.crt | awk '{print $1}'`;
-#$server_md5 = trim($server_md5);
-
-#if ($server_md5 != $sensor_md5) {
-#  echo "ERRNO: 90\n";
-#  echo "ERROR: Wrong header info.\n";
-#  $err = 1;
-#}
 
 ###########
 # Keyname #
@@ -150,7 +103,6 @@ if ($err == 0) {
   $status = $row['status'];
   $laststart = $row['laststart'];
   $uptime = $row['uptime'];
-  $server = $row['server'];
   $tapip = $row['tapip'];
   $serverconf = $row['netconf'];
   if ($laststart != "") {
@@ -164,7 +116,6 @@ if ($err == 0) {
   echo "ACTION: $action\n";
   echo "SSH: $ssh\n";
   echo "STATUS: $status\n";
-  echo "SERVER: $server\n";
   echo "TAPIP: $tapip\n";
   echo "SERVERCONF: $serverconf\n";
   echo "VLANID: $vlanid\n";

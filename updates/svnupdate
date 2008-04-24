@@ -3,13 +3,15 @@
 #########################################
 # SVN Update script                     #
 # SURFnet IDS 2.10.00                   #
-# Changeset 003                         #
-# 03-03-2008                            #
+# Changeset 005                         #
+# 15-04-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ##################
 # Changelog:
+# 005 Changed the updating of caretaker
+# 004 Making sure the updated files are +x
 # 003 Fixed paths for svn commands
 # 002 Added non-interactive
 # 001 Changed update process to work with a RO disk
@@ -63,7 +65,6 @@ if ($chksvn != 0) {
     printmsg("SURFids scripts revision (local):", " $local_rev ");
     if ($server_rev != $local_rev) {
       $mount = remount("rw");
-      printmsg("Remounting the USB read/write:", $mount);
 
       printdelay("Starting SVN update:");
       `svn update --non-interactive --username $svnuser --password $svnpass $basedir 2>/dev/null`;
@@ -73,7 +74,6 @@ if ($chksvn != 0) {
         $process = 1;
       } else {
         $mount = remount("ro");
-        printmsg("Remounting the USB read-only:", $mount);
       }
     }
   }
@@ -102,8 +102,15 @@ if ($process == 1) {
       `openssl smime -verify -text -inform SMIME -in $basedir/$file.sig -out $basedir/$file.new -CAfile $basedir/scripts.crt 2>/dev/null`;
       `dos2unix $basedir/$file.new`;
       `mv $basedir/$file.new $basedir/$file`;
+      `chmod +x $basedir/$file`;
+    }
+    if ("$file" eq "caretaker") {
+      $pid = getpid("caretaker");
+      if ($pid != 0) {
+        `kill $pid 2>/dev/null`;
+        sustem("$basedir/caretaker & >/dev/null 1>/dev/null 2>/dev/null");
+      }
     }
   }
   $mount = remount("ro");
-  printmsg("Remounting the USB read-only:", $mount);
 }

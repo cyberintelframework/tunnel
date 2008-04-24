@@ -1,32 +1,36 @@
 <?php
 
 ####################################
-# SURFnet IDS                      #
-# Version 2.10.01                  #
-# 09-01-2008                       #
-# Jan van Lith & Kees Trippelvitz  #
+# SURFnet IDS 2.10.00
+# Changeset 002
+# 01-04-2008
+# Jan van Lith & Kees Trippelvitz
 ####################################
 
 #####################
 # Changelog:
-# 2.10.01 Excluded RIPE-CIDR-BLOCK from whois
-# 2.00.01 version 2.00
-# 1.04.05 Added logdb function
-# 1.04.04 Added check on outgoing whois traffic
-# 1.04.03 Added debug_input()
-# 1.04.02 Added chkwhois function
-# 1.04.01 Released as 1.04.01
-# 1.03.01 Released as part of the 1.03 package
-# 1.02.02 Added the stripinput function
-# 1.02.01 Initial release
+# 002 Added mac regexp to extractvars
+# 001 Excluded RIPE-CIDR-BLOCK from whois
 #####################
 
-function logdb($sensorid, $log) {
+function logdb($sensorid, $log, $args) {
   global $pgconn;
   if ($sensorid != "" && $log != "") {
     $date = date("U");
-    $sql_log = "INSERT INTO sensors_log (sensorid, timestamp, logid) VALUES ('$sensorid', '$date', '$log')";
-    $result_log = pg_query($pgconn, $sql_log);
+
+    $pattern = '/^[0-9]*$/';
+    if (preg_match($pattern, $sensorid)) {
+      $sql_log = "INSERT INTO sensors_log (sensorid, timestamp, logid, args) VALUES ('$sensorid', '$date', '$log', '$args')";
+      $result_log = pg_query($pgconn, $sql_log);
+    } else {
+      $sql_getids = "SELECT id FROM sensors WHERE keyname = '$sensorid'";
+      $result_getids = pg_query($sql_getids);
+      while ($row = pg_fetch_assoc($result_getids)) {
+        $sid = $row['id'];
+        $sql_log = "INSERT INTO sensors_log (sensorid, timestamp, logid, args) VALUES ('$sid', '$date', '$log', '$args')";
+        $result_log = pg_query($pgconn, $sql_log);
+      }
+    }
   }
 }
 
@@ -113,6 +117,13 @@ function extractvars($source, $allowed) {
                   } else {
                     $tainted[$temp] = $var;
                   }
+                } elseif ($check == "mac") {
+                  $macregexp = '/^([a-zA-Z0-9]{2}:){5}[a-zA-Z0-9]{2}$/';
+                  if (preg_match($macregexp, $var)) {
+                    $clean[$temp] = $var;
+                  } else {
+                    $tainted[$temp] = $var;
+                  } 
                 } elseif (!in_array($temp, $clean)) {
                   $tainted[$temp] = $var;
                 }

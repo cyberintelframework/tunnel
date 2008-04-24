@@ -1,17 +1,16 @@
 #!/bin/sh
 
-###################################
-# IPtables script for IDS server  #
-# SURFnet IDS                     #
-# Version 2.00.01                 #
-# 21-09-2007                      #
-# Jan van Lith & Kees Trippelvitz #
-###################################
+#########################################
+# IPtables script for IDS server        #
+# SURFnet IDS 2.10.00                   #
+# Changeset 001                         #
+# 18-03-2008                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
 
 #####################
 # Changelog:
-# 2.00.01 version 2.00
-# 1.04.01 Initial release
+# 001 version 2.10.00 release
 #####################
 
 # Configuration Options

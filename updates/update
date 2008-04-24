@@ -3,13 +3,15 @@
 #########################################
 # Update script for SURFnet IDS Sensor	#
 # SURFnet IDS 2.10.00                   #
-# Changeset 005                         #
-# 04-03-2008                            #
+# Changeset 007                         #
+# 18-03-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ##################
 # Changelog:
+# 007 Added MAC update to server
+# 006 Don't remove default gw at end of vlan loop
 # 005 hourly run-parts update doesn't work correctly, adding it directly
 # 004 Crontab chk
 # 003 Better action handling 
@@ -178,14 +180,15 @@ if ($netconf eq "vlan") {
         update_process($if, $vlanid);
       }
       sleeptimer("Preparing for next VLAN:", 10);
-      `ip route del default 2>/dev/null`;
+      # c006
+      #`ip route del default 2>/dev/null`;
     } else {
       $if = getif();
       printmsg("Active interface:", $if);
       `modprobe 8021q`;
       $chkif = `cat /proc/net/dev | grep $if.$vlanid | wc -l 2>/dev/null`;
       if ($chkif == 0) {
-      	`vconfig add $if $vlanid`;
+        `vconfig add $if $vlanid`;
       }
       $if = "$if.$vlanid";
       if ($vlan_method eq "dhcp") {			 
@@ -193,8 +196,8 @@ if ($netconf eq "vlan") {
         if ($chkdhclient == 1) {
           `dhclient3 -lf /var/lib/dhcp3/dhcp$vlanid.lease -sf $basedir/dhclient-script-vlan -pf /var/run/dhcp3/dhcp$vlanid.pid $if 2>/dev/null`;
           sleeptimer("Waiting for DHCP Client:", 10);
-	}
-	$if_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' | cut -d";" -f1 | tail -n1`;
+        }
+        $if_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' | cut -d";" -f1 | tail -n1`;
       } else {
         $if_ip = $vlan{$vlanid}{if_ip};
         $if_nm = $vlan{$vlanid}{if_nm};
@@ -314,12 +317,16 @@ sub update_process() {
 
   # Creating the serverurl
   $serverurl = "$http://$server:$port/server";
-   
+
   # Update the scripts
   system("$basedir/svnupdate");
 
+  $rev = getrev("local");
+  $verstring = getver();
+  $mac = getmac($if);
+
   # Updating sensor information to the server
-  `wget -q $wgetarg --bind-address=$if_ip -O $tmpdir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh"`;
+  `wget -q $wgetarg --bind-address=$if_ip -O $tmpdir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh&int_rev=$rev&strip_html_escape_version=$verstring&mac_mac=$mac"`;
 
   &printmsg("Updating status information:", $?);
 
@@ -345,76 +352,75 @@ sub update_process() {
 ################
 
 if ($action eq "SSHON") {
-      &printmsg("Server request - start SSH:", $?);
-      `/etc/init.d/ssh start`;
+  &printmsg("Server request - start SSH:", $?);
+  `/etc/init.d/ssh start`;
 } elsif ($action eq "SSHOFF") {
-     &printmsg("Server request - stop SSH:", $?);
-      `killall sshd`;
+  &printmsg("Server request - stop SSH:", $?);
+  `killall sshd`;
 } elsif ($action eq "START") {
-      &printmsg("Server request - start sensor:", $?);
-      &printmsg("Starting Sensor:", "info");
-      exec "$basedir/startclient 0";
+  &printmsg("Server request - start sensor:", $?);
+  &printmsg("Starting Sensor:", "info");
+  exec "$basedir/startclient 0";
 } elsif ($action eq "STOP") {
-      &printmsg("Server request - stop sensor:", $?);
-      &printmsg("Stopping Sensor:", "info");
-      exec "$basedir/stopclient";
+  &printmsg("Server request - stop sensor:", $?);
+  &printmsg("Stopping Sensor:", "info");
+  exec "$basedir/stopclient";
 } elsif ($action eq "BLOCK") {
-      if (! -e "$basedir/$sensor.bcrt") { 
-        $j = 0;
-        &printmsg("Stopping Sensor:", $?);
-     	`$basedir/stopclient`;
+  if (! -e "$basedir/$sensor.bcrt") { 
+    $j = 0;
+    &printmsg("Stopping Sensor:", $?);
+    `$basedir/stopclient`;
 
-        # Making sure we can write on the USB
-        remount("rw");
+    # Making sure we can write on the USB
+    remount("rw");
 
-      	if ($? != 0) { $j++ };
-      	`cp $basedir/$sensor.crt $basedir/$sensor.bcrt`;
-      	if ($? != 0) { $j++ };
-      	`cp $basedir/$sensor.key $basedir/$sensor.bkey`;
-      	if ($? != 0) { $j++ };
-      	`echo "DISABLED" > $basedir/$sensor.crt`;
-      	if ($? != 0) { $j++ };
-      	`echo "DISABLED" > $basedir/$sensor.key`;
-      	if ($? != 0) { $j++ };
-     	`chmod 600 $basedir/$sensor.bkey`;
-      	if ($? != 0) { $j++ };
-      	`chmod 600 $basedir/$sensor.bcrt`;
-      	if ($? != 0) { $j++ };
+    if ($? != 0) { $j++ };
+    `cp $basedir/$sensor.crt $basedir/$sensor.bcrt`;
+    if ($? != 0) { $j++ };
+    `cp $basedir/$sensor.key $basedir/$sensor.bkey`;
+    if ($? != 0) { $j++ };
+    `echo "DISABLED" > $basedir/$sensor.crt`;
+    if ($? != 0) { $j++ };
+    `echo "DISABLED" > $basedir/$sensor.key`;
+    if ($? != 0) { $j++ };
+    `chmod 600 $basedir/$sensor.bkey`;
+    if ($? != 0) { $j++ };
+    `chmod 600 $basedir/$sensor.bcrt`;
+    if ($? != 0) { $j++ };
 
-        # Remounting read-only
-        remount("ro");
+    # Remounting read-only
+    remount("ro");
 
-      	&printmsg("Server request - disable client:", $i);
-      } else {
-      	&printmsg("Client already disabled:", "info");
-      } 
+    &printmsg("Server request - disable client:", $i);
+  } else {
+    &printmsg("Client already disabled:", "info");
+  } 
 } elsif ($action eq "UNBLOCK") {    
-      if (-e "$basedir/$sensor.bcrt") { 
+  if (-e "$basedir/$sensor.bcrt") { 
 
-        # Making sure we can write on the USB
-        remount("rw");
+    # Making sure we can write on the USB
+    remount("rw");
 
-        $j = 0;
-      	`mv $basedir/$sensor.bcrt $basedir/$sensor.crt`;
-      	if ($? != 0) { $j++ };
-      	`mv $basedir/$sensor.bkey $basedir/$sensor.key`;
-      	if ($? != 0) { $j++ };
-      	`chmod 600 $basedir/$sensor.key`;
-      	if ($? != 0) { $j++ };
-      	`chmod 644 $basedir/$sensor.crt`;
-      	if ($? != 0) { $j++ };
+    $j = 0;
+    `mv $basedir/$sensor.bcrt $basedir/$sensor.crt`;
+    if ($? != 0) { $j++ };
+    `mv $basedir/$sensor.bkey $basedir/$sensor.key`;
+    if ($? != 0) { $j++ };
+    `chmod 600 $basedir/$sensor.key`;
+    if ($? != 0) { $j++ };
+    `chmod 644 $basedir/$sensor.crt`;
+    if ($? != 0) { $j++ };
 
-        # Remounting read-only
-        remount("ro");
+    # Remounting read-only
+    remount("ro");
 
-      	&printmsg("Server request - enable client:", $i);
-      } else {
-      	&printmsg("Client already enabled:", "info");
-      }
+    &printmsg("Server request - enable client:", $i);
+  } else {
+    &printmsg("Client already enabled:", "info");
+  }
 } 
 
 if ($action eq "REBOOT") {
-    &printmsg("Server request - Reboot", "info");
-    `init 6`;
+  &printmsg("Server request - Reboot", "info");
+  `init 6`;
 }
-

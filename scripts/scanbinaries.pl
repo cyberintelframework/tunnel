@@ -1,47 +1,19 @@
 #!/usr/bin/perl
 
-######################################
-# Scanbinaries script                #
-# SURFnet IDS                        #
-# Version 2.10.02                    #
-# 05-11-2007                         #
-# Jan van Lith & Kees Trippelvitz    #
-######################################
+#########################################
+# Scanbinaries script                   #
+# SURFnet IDS 2.10.00                   #
+# Changeset 003                         #
+# 18-03-2008                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
 
-#########################################################################################
-# Copyright (C) 2005 SURFnet                                                            #
-# Authors Jan van Lith & Kees Trippelvitz                                               #
-#                                                                                       #
-# This program is free software; you can redistribute it and/or                         #
-# modify it under the terms of the GNU General Public License                           #
-# as published by the Free Software Foundation; either version 2                        #
-# of the License, or (at your option) any later version.                                #
-#                                                                                       #
-# This program is distributed in the hope that it will be useful,                       #
-# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
-# GNU General Public License for more details.                                          #
-#                                                                                       #
-# You should have received a copy of the GNU General Public License                     #
-# along with this program; if not, write to the Free Software                           #
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
-#                                                                                       #
-# Contact ids@surfnet.nl                                                                #
-#########################################################################################
-
-#########################################################################
+#####################
 # Changelog:
-# 2.10.02 Added more scan methods
-# 2.10.01 Added scan method support
-# 2.00.02 added qw(localtime)
-# 2.00.01 version 2.00
-# 1.04.01 Code layout
-# 1.03.01 Released as part of the 1.03 package
-# 1.02.05 Added sql to fill the stats_virus and stats_dialogue tables
-# 1.02.04 Added more comments
-# 1.02.03 Database logging instead of virusinfo files
-# 1.02.02 Initial release
-#########################################################################
+# 003 Added more scan methods
+# 002 Added scan method support
+# 001 version 2.10.00 release
+#####################
 
 ####################
 # Modules used
@@ -89,7 +61,7 @@ printlog("Starting scanbinaries.pl");
 $checkdb = connectdb();
 
 # Virus scanner declarations
-$sql_scanners = "SELECT id, name, command, update, vercommand, version FROM scanners WHERE status = 1";
+$sql_scanners = "SELECT id, name, command, update, vercommand, version FROM scanners WHERE status = 1 ORDER BY id";
 $sth_scanners = $dbh->prepare($sql_scanners);
 $result_scanners = $sth_scanners->execute();
 

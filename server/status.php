@@ -2,44 +2,22 @@
 
 ####################################
 # Status info                      #
-# SURFnet IDS                      #
-# Version 2.00.01                  #
-# 14-09-2007                       #
+# SURFnet IDS 2.10.00              #
+# Changeset 005                    #
+# 08-04-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
 # Peter Arts                       #
 ####################################
 
-#########################################################################################
-# Copyright (C) 2005 SURFnet                                                            #
-# Authors Jan van Lith & Kees Trippelvitz                                               #
-# Modified by Peter Arts                                                                #
-#                                                                                       #
-# This program is free software; you can redistribute it and/or                         #
-# modify it under the terms of the GNU General Public License                           #
-# as published by the Free Software Foundation; either version 2                        #
-# of the License, or (at your option) any later version.                                #
-#                                                                                       #
-# This program is distributed in the hope that it will be useful,                       #
-# but WITHOUT ANY WARRANTY; without even the implied warranty of                        #
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                         #
-# GNU General Public License for more details.                                          #
-#                                                                                       #
-# You should have received a copy of the GNU General Public License                     #
-# along with this program; if not, write to the Free Software                           #
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.       #
-#                                                                                       #
-# Contact ids@surfnet.nl                                                                #
-#########################################################################################
-
 ####################################
 # Changelog:
-# 2.00.01 version 2.00
-# 1.04.04 Fixed missing tap from sql query result
-# 1.04.03 Removed remoteip update
-# 1.04.02 Added remoteip and localip updates
-# 1.04.01 Initial release
+# 005 Changed logdb for rev change
+# 004 Removed $server variable stuff
+# 003 Fixed localip bug, added MAC address stuff
+# 002 Added revision and version support
+# 001 version 2.10.00
 ####################################
 
 # Include configuration and connection information
@@ -56,7 +34,10 @@ $allowed_get = array(
                 "strip_html_escape_keyname",
                 "ip_localip",
                 "int_ssh",
-                "int_vlanid"
+                "int_vlanid",
+		"int_rev",
+		"strip_html_escape_version",
+		"mac_mac"
 );
 $check = extractvars($_GET, $allowed_get);
 debug_input();
@@ -91,6 +72,15 @@ if (isset($clean['localip'])) {
   echo "ERROR: Invalid or missing local IP address!\n";
 }
 
+###########
+# localip #
+###########
+if (isset($clean['mac'])) {
+  $mac = $clean['mac'];
+} else {
+  $mac = "";
+}
+
 ############
 # checkssh #
 ############
@@ -104,6 +94,24 @@ if (isset($clean['ssh'])) {
   echo "ERRNO: $err\n";
   echo "ERROR: Invalid or missing SSH variable!\n";
   $err = 1;
+}
+
+############
+# revision #
+############
+if (isset($clean['rev'])) {
+  $rev = $clean['rev'];
+} else {
+  $rev = 0;
+}
+
+############
+# version  #
+############
+if (isset($clean['version'])) {
+  $version = $clean['version'];
+} else {
+  $version = "";
 }
 
 ###########
@@ -121,7 +129,7 @@ if (isset($clean['vlanid'])) {
 # Database #
 ############
 if ($err == 0) {
-  $sql_sensors = "SELECT action, ssh, status, laststart, uptime, server, tapip, netconf, tap, id";
+  $sql_sensors = "SELECT action, ssh, status, laststart, uptime, tapip, netconf, tap, id, rev, localip, remoteip, sensormac";
   $sql_sensors .= " FROM sensors WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
   $result_sensors = pg_query($pgconn, $sql_sensors);
   $numrows = pg_num_rows($result_sensors);
@@ -146,17 +154,14 @@ if ($err == 0) {
   $status = $row['status'];
   $laststart = $row['laststart'];
   $uptime = $row['uptime'];
-  $server = $row['server'];
   $tap = $row['tap'];
   $tapip = $row['tapip'];
   $db_localip = $row['localip'];
+  $db_remoteip = $row['remoteip'];
+  $db_mac = $row['sensormac'];
   $serverconf = $row['netconf'];
   $newuptime = $uptime + ($date - $laststart);
-
-  $sql_server = "SELECT server FROM servers WHERE id = $server";
-  $result_server = pg_query($pgconn, $sql_server);
-  $row = pg_fetch_assoc($result_server);
-  $server = $row['server'];
+  $oldrev = $row['rev'];
 
   if ($action == "") {
     $action = "NONE";
@@ -167,21 +172,51 @@ if ($err == 0) {
   echo "ACTION: $action\n";
   echo "SERVERSSH: $ssh\n";
   echo "STATUS: $status\n";
-  echo "SERVER: $server\n";
   echo "TAPIP: $tapip\n";
+  echo "LOCALIP: $db_localip\n";
+  echo "REMOTEIP: $db_remoteip\n";
   echo "SERVERCONF: $serverconf\n";
   echo "VLANID: $vlanid\n";
   echo "NEWUPTIME: $newuptime\n";
+  echo "REVISION: $oldrev\n";
+  echo "SENSORMAC: $db_mac\n";
   echo "############-CLIENT-INFO-##########\n";
   echo "REMOTEIP: $remoteip\n";
   echo "KEYNAME: $keyname\n";
   echo "CLIENTSSH: $checkssh\n";
+  echo "REVISION: $rev\n";
+  echo "LOCALIP: $localip\n";
+  echo "REMOTEIP: $remoteip\n";
+  echo "SENSORMAC: $mac\n";
 
   echo "#######-Action log-#######\n";
   if ($checkssh != $ssh) {
     $sql_checkssh = "UPDATE sensors SET ssh = $checkssh WHERE keyname = '$keyname'";
     $result_checkssh = pg_query($pgconn, $sql_checkssh);
     echo "[Database] SSH update!\n";
+  }
+
+  if ($rev != 0) {
+    if ($rev > $oldrev) {
+      $sql_rev = "UPDATE sensors SET rev = '$rev' WHERE keyname = '$keyname'";
+      $result_rev = pg_query($pgconn, $sql_rev);
+      echo "[Database] Revision update!\n";
+      logdb($keyname, 17, $rev);
+    }
+  }
+
+  if ($version != "") {
+    $sql_version = "UPDATE sensors SET version = '$version' WHERE keyname = '$keyname'";
+    $result_version = pg_query($pgconn, $sql_version);
+    echo "[Database] Version update!\n";
+  }
+
+  if ($mac != "") {
+    if ($mac != $db_mac) {
+      $sql_mac = "UPDATE sensors SET sensormac = '$mac' WHERE keyname = '$keyname'";
+      $result_mac = pg_query($pgconn, $sql_mac);
+      echo "[Database] MAC address update!\n";
+    }
   }
 
 #  if ($remoteip != "") {
