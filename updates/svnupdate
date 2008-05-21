@@ -3,13 +3,14 @@
 #########################################
 # SVN Update script                     #
 # SURFnet IDS 2.10.00                   #
-# Changeset 005                         #
-# 15-04-2008                            #
+# Changeset 006                         #
+# 21-05-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ##################
 # Changelog:
+# 006 Fixed typo
 # 005 Changed the updating of caretaker
 # 004 Making sure the updated files are +x
 # 003 Fixed paths for svn commands
@@ -108,7 +109,7 @@ if ($process == 1) {
       $pid = getpid("caretaker");
       if ($pid != 0) {
         `kill $pid 2>/dev/null`;
-        sustem("$basedir/caretaker & >/dev/null 1>/dev/null 2>/dev/null");
+        system("$basedir/caretaker & >/dev/null 1>/dev/null 2>/dev/null");
       }
     }
   }
