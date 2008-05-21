@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS 2.10.00
-# Changeset 008
-# 08-04-2008
+# Changeset 009
+# 20-05-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 009 Fixed mii-tool bug
 # 008 Added chksensortype
 # 007 Added getpid
 # 006 Added getmac and getver
@@ -636,7 +637,7 @@ sub getif() {
         if ($checkif != 0) {
           $found_if = $if;
         } else {
-          $checkif = `mii-tool $if | grep negotiated | wc -l`;
+          $checkif = `mii-tool $if | grep "link ok" | wc -l`;
           chomp($checkif);
           if ($checkif != 0) {
             $found_if = $if;
