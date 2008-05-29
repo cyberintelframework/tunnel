@@ -3,13 +3,14 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS 2.10.00
-# Changeset 009
-# 20-05-2008
+# Changeset 010
+# 28-05-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 010 Added randommac stuff
 # 009 Fixed mii-tool bug
 # 008 Added chksensortype
 # 007 Added getpid
@@ -49,7 +50,7 @@ $| = 1;
 # 1.19		chkupscript
 # 1.20		chksys
 # 1.21		chksvn
-# 1.22      chksensortype
+# 1.22      	chksensortype
 # 2		All GET functions
 # 2.01		getnetinfo
 # 2.02		getnetconf
@@ -63,9 +64,9 @@ $| = 1;
 # 2.10		getmountr
 # 2.11		getusbdev
 # 2.12		getrev
-# 2.13      getmac
-# 2.14      getver
-# 2.15      getpid
+# 2.13      	getmac
+# 2.14      	getver
+# 2.15      	getpid
 # 3		MISC functions
 # 3.01		prompt
 # 3.02		printmsg
@@ -91,6 +92,7 @@ $| = 1;
 # 3.22		startdhcp
 # 3.23		chkuprun
 # 3.24		remount
+# 3.25		randommac
 ###############################################
 
 #########################
@@ -1177,6 +1179,16 @@ sub setbridge() {
     if ($? != 0 && $i == 0) { $i = 5; }
   }
 
+  if ($netconf eq "vlan") {
+    if ($random_mac == 1) {
+      if ($c_mac{'$br'} eq "") {
+        $c_mac{'$br'} = randommac($c_mac_prefix);
+        `echo '\$c_mac{'\\"$br\\"'} = \"$c_mac{'$br'}\"' >> local.conf`;
+      }
+      `ifconfig $if hw ether $c_mac{'$br'} >/dev/null`;
+      if ($? != 0 && $i == 0) { $i = 12; }
+    }
+  }
   if ($enable_promisc == 1) {
     `ifconfig $if 0.0.0.0 promisc up 2>/dev/null`;
     if ($? != 0 && $i == 0) { $i = 6; }
@@ -1572,6 +1584,28 @@ sub remount() {
     return $?;
   }
   return 0;
+}
+
+# 3.25 randommac
+# Function to generate a random MAC address
+# Returns mac address
+sub randommac() {
+  my ($c, $mac, $i);
+  if ("$_[0]" ne "") {
+    $mac = $_[0];
+    $c = 6;
+  } else {
+    $c = 12;
+    $mac = "";
+  }
+  while ( ++$i ) {
+    last if $i > $c;
+    if ($i % 2 && "$mac" ne "") {
+      $mac .= ':';
+    }
+    $mac .= sprintf "%" . ( qw (X x) [int ( rand ( 2 ) ) ] ), int ( rand ( 16 ) );
+  }
+  return $mac;
 }
 
 return "true";

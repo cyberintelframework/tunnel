@@ -1,3 +1,10 @@
+### SURFids 2.00.03
+* Added sensor MAC address view in show status
+* Added version checks
+* Fixed some issues with the updater
+* Added read-only support for USB
+* Added some filtering for the detectarp.pl script
+
 ### SURF IDS 2.00
 
 * Layer 2 detection

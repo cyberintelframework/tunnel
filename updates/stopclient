@@ -3,8 +3,8 @@
 #########################################
 # Stop script for SURFnet IDS Sensor
 # SURFnet IDS 2.10.00
-# Changeset 002
-# 03-03-2008
+# Changeset 003
+# 28-05-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 # Contributors:                     
@@ -13,6 +13,7 @@
 
 ################
 # Changelog:
+# 003 Fixed chkreach bug for gateway
 # 002 Removed up check 
 # 001 Saving downloaded php files in /tmp now
 ################
@@ -155,7 +156,7 @@ if ($netconf eq "dhcp" || $netconf eq "static") {
 
   if ($if_gw ne "false") {
     printdelay("Checking gateway connectivity:");
-    $e = chkreach($if_gw);
+    $e = chkreach($if_gw, $if);
     if ($e != 0) {
       $e = "warning";
     }

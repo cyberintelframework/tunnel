@@ -3,13 +3,14 @@
 #########################################
 # ARP detection module                  #
 # SURFnet IDS 2.10.00                   #
-# Changeset 001                         #
-# 18-03-2008                            #
+# Changeset 002                         #
+# 28-05-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 #####################
 # Changelog:
+# 002 Added blacklists
 # 001 Ignore checking the gateway if it is not in the local network range
 #####################
 
@@ -72,6 +73,15 @@ $argcount = @ARGV;
 if ($argcount == 0) {
   exit 1;
 }
+
+#################
+# Blacklists
+#################
+
+$arp_blacklist{"01:00:0c:cd:cd:cd"} = 1;
+$arp_blacklist{"01:00:0C:CD:CD:CD"} = 1;
+
+$dhcp_blacklist{"169.254.2.1"} = 1;
 
 ##################
 # Data sets
@@ -545,7 +555,9 @@ sub filter_packets {
 #            print "$t\n";
             $dhcp_ident = $dhcp_obj->getOptionValue(DHO_DHCP_SERVER_IDENTIFIER());
 #            print "DHCP[$op]: $src_ip($src_mac) -> $dst_ip($dst_mac)\n";
-            $check = chk_dhcp_server($src_mac, $src_ip, $dhcp_ident);
+            if (! exists $dhcp_blacklist{"$src_ip"}) {
+              $check = chk_dhcp_server($src_mac, $src_ip, $dhcp_ident);
+            }
 #            print "\n";
           }
         }
@@ -620,8 +632,10 @@ sub filter_packets {
 
 #      print "ARPQUERY: $arp_source_mac ($arp_source_ip) -> $arp_dest_mac ($arp_dest_ip)\n";
 
-      $check = add_arp_cache($arp_source_mac, $arp_source_ip, $sensorid);
-      $check = chk_static_arp($arp_source_mac, $arp_source_ip, $sensorid);
+      if (! exists $arp_blacklist{"$arp_source_mac"}) {
+        $check = add_arp_cache($arp_source_mac, $arp_source_ip, $sensorid);
+        $check = chk_static_arp($arp_source_mac, $arp_source_ip, $sensorid);
+      }
     } elsif ($arp_opcode == 2) {
       #######################
       # (2.1.1) ARP Reply
@@ -633,14 +647,16 @@ sub filter_packets {
 
 #      print "ARPREPLY: $arp_source_mac ($arp_source_ip) -> $arp_dest_mac ($arp_dest_ip)\n";
 
-      $check = add_arp_cache($arp_dest_mac, $arp_dest_ip, $sensorid);
-      $check = chk_static_arp($arp_dest_mac, $arp_dest_ip, $sensorid);
+      if (! exists $arp_blacklist{"$arp_source_mac"}) {
+        $check = add_arp_cache($arp_dest_mac, $arp_dest_ip, $sensorid);
+        $check = chk_static_arp($arp_dest_mac, $arp_dest_ip, $sensorid);
 
-      # Reply source check
-      $arp_source_ip_long = ip2long($arp_source_ip);
-      if ($arp_source_ip_long > $ifmin && $ifmax > $arp_source_ip_long) {
-        $check = add_arp_cache($arp_source_mac, $arp_source_ip, $sensorid);
-        $check = chk_static_arp($arp_source_mac, $arp_source_ip, $sensorid);
+        # Reply source check
+        $arp_source_ip_long = ip2long($arp_source_ip);
+        if ($arp_source_ip_long > $ifmin && $ifmax > $arp_source_ip_long) {
+          $check = add_arp_cache($arp_source_mac, $arp_source_ip, $sensorid);
+          $check = chk_static_arp($arp_source_mac, $arp_source_ip, $sensorid);
+        }
       }
     }
   }

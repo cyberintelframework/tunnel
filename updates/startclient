@@ -3,8 +3,8 @@
 #########################################
 # Startup script for SURFnet IDS Sensor
 # SURFnet IDS 2.10.00
-# Changeset 006
-# 03-03-2008
+# Changeset 007
+# 28-05-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 # Contributors:
@@ -13,6 +13,7 @@
 
 ################
 # Changelog:
+# 007 Added randommac stuff
 # 006 Modified chkreach 
 # 005 Removed remove of tunnel.status 
 # 004 Moved the updating of the bridge IP
@@ -24,10 +25,13 @@
 use File::Basename;
 use IO::Socket;
 
+$use_randommac = 0;
+
 $basedir = "/cdrom/scripts/";
 do "$basedir/sensor.conf";
 require "$basedir/functions.inc.pl";
 do "$networkconf";
+do "$basedir/local.conf";
 
 if ("$netconf" eq "") {
   $netconf = "config";

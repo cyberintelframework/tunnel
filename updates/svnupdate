@@ -3,13 +3,14 @@
 #########################################
 # SVN Update script                     #
 # SURFnet IDS 2.10.00                   #
-# Changeset 006                         #
+# Changeset 007                         #
 # 21-05-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ##################
 # Changelog:
+# 007 Always fix client.conf after update
 # 006 Fixed typo
 # 005 Changed the updating of caretaker
 # 004 Making sure the updated files are +x
@@ -114,4 +115,7 @@ if ($process == 1) {
     }
   }
   $mount = remount("ro");
+
+  # Always fix the client.conf after an update
+  fixclientconf();
 }
