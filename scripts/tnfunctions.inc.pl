@@ -18,11 +18,11 @@ use POSIX;
 ###############################################
 # INDEX
 ###############################################
-# 1     All CHK functions
-# 1.01      chkdhclient
+# 1	All CHK functions
+# 1.01      	chkdhclient
 # 1.02		chk_static_arp
 # 1.03		chk_dhcp_server
-# 2	    All GET functions
+# 2	All GET functions
 # 2.01		getts
 # 2.02		getec
 # 2.03		getlocalgw
@@ -31,11 +31,11 @@ use POSIX;
 # 2.06		getdatetime
 # 2.07		getifmask
 # 2.08		getnetinfo
-# 3		ALL DB functions
+# 3	ALL DB functions
 # 3.01		dbremoteip
 # 3.02		dbnetconf
 # 3.03		dbmacaddr
-# 4		ALL misc functions
+# 4	ALL misc functions
 # 4.01		printlog
 # 4.02		killdhclient
 # 4.03		deliprules

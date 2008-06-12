@@ -1,15 +1,16 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 #########################################
 # Janitor                               #
 # SURFids 2.10.00                       #
 # Changeset 002                         #
-# 11-06-2008                            #
+# 12-06-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 #####################
 # Changelog:
+# 002 Complete remake
 # 001 Initial release
 #####################
 
@@ -23,7 +24,13 @@ use Time::localtime qw(localtime);
 # Variables used
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
-require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
+require "$c_surfidsdir/scripts/jfuncs.inc.pl";
+
+# Color codes
+$n = "\033[0;39m";
+$y = "\033[1;33m";
+$r = "\033[1;31m";
+$g = "\033[1;32m";
 
 ##################
 # Main script
@@ -34,8 +41,13 @@ $dbconn = connectdb();
 $verbose = 0;
 $sim = 0;
 
-if (grep $_ eq "-v", @ARGV) {
-  $verbose = 1;
+if (grep $_ eq "-vv", @ARGV) {
+  $verbose = 2;
+}
+if ($verbose == 0) {
+  if (grep $_ eq "-v", @ARGV) {
+    $verbose = 1;
+  }
 }
 if (grep $_ eq "-s", @ARGV) {
   $sim = 1;
@@ -50,129 +62,13 @@ chomp($gw);
 $dev = `ip route list | grep default | awk '{print \$5}'`;
 chomp($dev);
 
-##############################
-# Checking tapip (system)
-##############################
-
-printlog("Checking tapip (system)");
-
-# Checks to see if all the tap interfaces with IP's are also in the database with the same IP.
-@interfaces = `ifconfig -a | grep -A1 tap | grep "inet addr" | awk '{print \$2}' | awk -F: '{print \$2}'`;
-
-foreach $ifip (@interfaces) {
-  chomp($ifip);
-  $tp = `ifconfig -a | grep -B1 "$ifip " | grep tap | awk '{print \$1}'`;
-  chomp($tp);
-
-  # Checking if $ifip and $tp have a rule
-  $chk = `ip rule list | grep "$ifip " | grep "$tp " | wc -l`;
-  chomp($chk);
-  if ($chk == 0) {
-    print "Adding missing rule for $tp - $ifip\n";
-    if ($sim == 0) {
-      `ip rule add from $ifip table $tp`;
-    } else {
-      print "Skipping: ip rule add from $ifip table $tp\n";
-    }
-  }
-
-  $sql = "SELECT id, vlanid FROM sensors WHERE tapip = '$ifip'";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-
-  @row = $sth->fetchrow_array;
-  $sid = $row[0];
-  $vlan = $row[1];
-
-  if ("$sid" ne "") {
-    if ($verbose == 1) {
-      print "Sensor" .$sid. "-" .$vlan. ": Ok\n";
-    }
-  } else {
-    # There was no record of a sensor with the $ifip in the database
-    print "No DB record for: $ifip\n";
-  }
-}
-
-##############################
-# Checking ip routes (system)
-##############################
-
-# Checks for left over routes
-@routes = `ip route list | grep -v scope | grep -v default | awk '{print \$1}'`;
-
-printlog("Checking ip routes (system)");
-
-foreach $route (@routes) {
-  chomp($route);
-
-  $sql = "SELECT id, vlanid FROM sensors WHERE remoteip = '$route'";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-
-  @row = $sth->fetchrow_array;
-  $sid = $row[0];
-  $vlan = $row[1];
-
-  if ("$sid" ne "") {
-    if ($verbose == 1) {
-      print "Sensor" .$id. "-" .$vlan. ": Ok\n";
-    }
-  } else {
-    print "Deleting unused route: $route\n";
-
-    # Deleting route as it's not in use.
-    if ($sim == 0) {
-      `ip route del $route`;
-    } else {
-      print "Skipping: ip route del $route\n";
-    }
-  }
-}
-
-##############################
-# Checking ip rules (system)
-##############################
-
-# Checks for left over routes
-@routes = `ip rule list | grep -v main | grep -v default | grep -v all | awk '{print \$3}'`;
-
-printlog("Checking ip rules (system)");
-
-foreach $rule (@rules) {
-  chomp($rule);
-
-  $sql = "SELECT id, vlanid FROM sensors WHERE tapip = '$rule'";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-
-  @row = $sth->fetchrow_array;
-  $sid = $row[0];
-  $vlan = $row[1];
-
-  if ("$sid" ne "") {
-    if ($verbose == 1) {
-      print "Sensor" .$id. "-" .$vlan. ": Ok\n";
-    }
-  } else {
-    print "Deleting unused rule: $rule\n";
-
-    # Deleting route as it's not in use.
-    if ($sim == 0) {
-      `ip rule del $rule`;
-    } else {
-      print "Skipping: ip rule del $rule\n";
-    }
-  }
-}
-
-##############################
-# Checking ip routes (database)
-##############################
-
-$sql = "SELECT id, vlanid, remoteip, tapip, tap, arp FROM sensors WHERE status = 1";
+$sql = "SELECT id, vlanid, remoteip, tapip, tap, arp, netconf FROM sensors WHERE status = 1";
 $sth = $dbh->prepare($sql);
 $er = $sth->execute();
+
+##############################
+# CHECKING DATABASE INFO
+##############################
 
 printlog("Checking database info with system info");
 while (@row = $sth->fetchrow_array) {
@@ -182,180 +78,156 @@ while (@row = $sth->fetchrow_array) {
   $tapip = $row[3];
   $tp = $row[4];
   $arp = $row[5];
+  $netconf = $row[6];
+  $sensor = "sensor" .$sid. "-" .$vlan;
 
-  if ("$rip" ne "") {
-    # Checking ip routes
-    $chk_rip = `ip route list | grep -v scope | grep -v default | awk '{print \$1}' | grep $rip | wc -l`;
-    chomp($chk_rip);
-    if ($chk_rip == 0) {
-      $sensors{$sid}{1} = "0";
-      print "Missing route: $rip\n";
-      if ($sim == 0) {
-        `ip route add $rip via $gw dev $dev`;
+  # INTERFACE
+  print "[$sensor] Starting check for $sensor\n";
+  ($chk_if, $err) = chkif($tp);
+  logmsg($chk_if, $err, "Checking for interface:");
+
+  if ($sim == 0) {
+    if ($chk_if eq "false") {
+      if ($netconf eq "dhcp" || $netconf eq "" || $netconf eq "vland") {
+        $sql = "UPDATE sensors SET tap = '', tapip = NULL, status = 0 WHERE tap = '$tp'";
+        $er = $dbh->do($sql);
       } else {
-        print "Skipping: ip route add $rip via $gw dev $dev\n";
-      }
-    } elsif ($chk_rip == 1) {
-      $sensors{$sid}{1} = "1";
-      if ($verbose == 1) {
-        print "Sensor" .$sid. "-" .$vlan. ": Ok\n";
-      }
-    } else {
-      $sensors{$sid}{1} = "0";
-      print "Too many routes for $rip. FIXME!\n";
-    }
-  }
-
-  # Checking tapip
-  if ("$tp" ne "") {
-    $chk_tip = `ifconfig $tp | grep 'inet addr:' | awk '{print \$2}' | awk -F: '{print \$2}'`;
-    chomp($chk_tip);
-    if ("$chk_tip" ne "$tapip") {
-      print "Sensor" .$sid. "-" .$vlan. ": Fail\n";
-    } else {
-      if ($verbose == 1) {
-        print "Sensor" .$sid. "-" .$vlan. ": Ok\n";
+        $sql = "UPDATE sensors SET tap = '', status = 0 WHERE tap = '$tp'";
+        $er = $dbh->do($sql);
       }
     }
   }
 
-  if ("$tapip" ne "") {
-    # Checking ip rules
-    if ("$tapip" ne "" && "$tp" ne "") {
-      $chk_rule = `ip rule list | grep -v default | grep -v main | grep -v all | grep $tapip | grep $tp | wc -l`;
-      chomp($chk_rule);
-      if ($chk_rule == 0) {
-        print "Missing rule: $tapip\n";
-        $sensors{$sid}{3} = "0";
-      } elsif ($chk_rule == 1) {
-        $sensors{$sid}{3} = "1";
-        if ($verbose == 1) {
-          print "Sensor" .$sid. "-" .$vlan. ": Ok\n";
-        }
+  # INTERFACE IP ADDRESS
+  ($chk_ifip, $err, $ifip) = getifip($tp);
+  logmsg($chk_ifip, $err, "Checking for interface IP address:");
+
+  if ($sim == 0) {
+    if ($chk_ifip eq "false") {
+      if ($netconf eq "dhcp" || $netconf eq "" || $netconf eq "vland") {
+        $sql = "UPDATE sensors SET tap = '', tapip = NULL, status = 0 WHERE tap = '$tp'";
+        $er = $dbh->do($sql);
       } else {
-        $sensors{$sid}{3} = "0";
-
-        # Removing duplicate ip rules for $tapip
-        @rules = `ip rule list | grep $tapip | awk '{print \$2" "\$3" table "\$5}'`;
-
-        $oldrule = "";
-        foreach $rule (@rules) {
-          chomp($rule);
-
-          if ("$oldrule" ne "") {
-            if ("$oldrule" eq "$rule") {
-              # Duplicate rules, remove 1
-              print "Deleting duplicate $rule\n";
-              if ($sim == 0) {
-                `ip rule del $rule`;
-              } else {
-                print "Skipping: ip rule del $rule\n";
-              }
-            }
-          }
-          $oldrule = $rule;
-        }
-
-
-        $chk_rule = `ip rule list | grep -v default | grep -v main | grep -v all | grep $tapip | grep $tp | wc -l`;
-        chomp($chk_rule);
-        if ($chk_rule == 0) {
-          $sensors{$sid}{3} = "0";
-        } elsif ($chk_rule == 1) {
-          $sensors{$sid}{3} = "1";
-        } else {
-          $sensors{$sid}{3} = "0";
-        }
-      }
-
-      $chktaprules = `ip rule list | grep "$tp " | wc -l`;
-      chomp($chktaprules);
-      if ($chktaprules > 1) {
-        $systapip = `ifconfig $tp | grep "inet addr:" | awk '{print \$2}' | awk -F: '{print \$2}'`;
-        chomp($systapip);
-
-        # Removing obsolete ip rules
-        if ("$tapip" eq "$systapip") {
-          @rules = `ip rule list | grep "$tp " | awk '{print \$3}'`;
-          foreach $rule (@rules) {
-            chomp($rule);
-            if ("$rule" ne "$tapip") {
-              if ($sim == 0) {
-                `ip rule del from $rule table $tp`;
-              } else {
-                print "Skipping: ip rule del from $rule table $tp\n";
-              }
-            }
-          }
-        }
+        $sql = "UPDATE sensors SET tap = '', status = 0 WHERE tap = '$tp'";
+        $er = $dbh->do($sql);
       }
     }
   }
 
-  if ("$tp" ne "") {
-    # Checking tap routing tables
-    $chk_taproute = `ip route list table $tp | grep default | wc -l`;
-    chomp($chk_taproute);
-    if ($chk_taproute == 0) {
-      $sensors{$sid}{4} = "0";
-      print "Missing default route for table $tp. FIXME!\n";
-    } elsif ($chk_taproute == 1) {
-      $sensors{$sid}{4} = "1";
-      if ($verbose == 1) {
-        print "Sensor" .$sid. "-" .$vlan. ": Ok\n";
-      }
-    } else {
-      $sensors{$sid}{4} = "0";
-      print "Too many routes for table $tp. FIXME!\n";
+  # RULE (IF)
+  ($chk_rule_if, $err, $rule_if_count) = chkrule_by_if($tp);
+  logmsg($chk_rule_if, $err, "Checking rule (check 1):");
+
+  # RULE (IP)
+  ($chk_rule_ip, $err, $rule_ip_count) = chkrule_by_ip($tapip);
+  logmsg($chk_rule_ip, $err, "Checking rule (check 2):");
+
+  if ($sim == 0) {
+    # FIX RULE
+    if ($chk_rule_if eq "false" && $chk_rule_ip eq "false") {
+      ($chk, $err) = fix_rule($chk_rule_if, $chk_rule_ip, $tp, $tapip, $rule_if_count, $rule_ip_count);
+      logmsg($chk, $err, "Fixing rules:");
     }
   }
 
-  if ($c_enable_arp == 1) {
-    # Checking if detectarp.pl has to be started or stopped
-    if ("$tp" ne "") {
-      $chkarp = `ps -ef | grep -v grep | grep detectarp | grep $tp | wc -l`;
-      chomp($chkarp);
-      if ($chkarp == 0 && $arp == 1) {
-        $chktap = `ifconfig $tp >/dev/null 2>/dev/null`;
-        if ($chktap == 0) {
-          if ($sim == 0) {
-            system("$c_surfidsdir/scripts/detectarp.pl $tp &");
-          } else {
-            print "Skipping: $c_surfidsdir/scripts/detectarp.pl $tp &\n";
-          }
-        } else {
-          print "Missing interface: $tp\n";
-        }
-      } elsif ($chkarp == 1 && $arp == 0) {
-        $arppid = `ps -ef | grep -v grep | grep detectarp | grep $tp | awk '{print \$2}'`;
-        chomp($arppid);
-        if ($sim == 0) {
-          `kill $arppid`;
-        } else {
-          print "Skipping: kill $arppid\n";
-        }
-      }
+  # ROUTE (TABLE MAIN)
+  ($chk_route_main, $err) = chkroute($rip, "main");
+  logmsg($chk_route_main, $err, "Checking main route (table main):");
+
+  if ($sim == 0) {
+    if ($chk_route_main eq "false") {
+      ($chk, $err) = addroute($rip, $gw, $dev, "main");
+      logmsg($chk, $err, "Adding route to table main:");
     }
   }
 
-  # Checking if p0f has to be started
-  if ("$tp" ne "") {
-    $chkpof = `ps -ef | grep -v grep | grep p0f | grep $tp | wc -l`;
-    chomp($chkpof);
-    if ($chkpof == 0) {
-      $chktap = `ifconfig $tp >/dev/null 2>/dev/null`;
-      if ($chktap == 0) {
-        if ($sim == 0) {
-          system "p0f -d -i $tp -o /dev/null";
-        } else {
-          print "Skipping: p0f -d -i $tp -o /dev/null\n";
-        }
-      } else {
-        print "Missing interface: $tp\n";
-      }
-    }
+  # ROUTE (TALBE TAP)
+  ($chk, $err) = chkroute($tapip, $tp);
+  logmsg($chk, $err, "Checking main route (table $tp):");
+
+  # ROUTE (TABLE TAP - default)
+  ($chk, $err) = chkroute("default", $tp);
+  logmsg($chk, $err, "Checking default route (table $tp):");
+
+  print "\n";
+}
+
+##############################
+# CHECKING RULES
+##############################
+
+printlog("Checking rules");
+$sensor = "rules ";
+
+($chk_rules, $err, @rules) = getallrules();
+
+foreach $rule (@rules) {
+  chomp($rule);
+
+  $sql = "SELECT id, vlanid FROM sensors WHERE tapip = '$rule' AND status = 1";
+  $sth = $dbh->prepare($sql);
+  $sth->execute();
+
+  @row = $sth->fetchrow_array;
+  $count = scalar(@row);
+
+  if ($count == 0) {
+    logmsg("false", "No DB record for $rule", "Checking database for $rule:");
+    ($chk, $err) = delrule_by_ip($rule);
+    logmsg($chk, $err, "Deleting unused rule for $rule:");
+  } else {
+    logmsg("true", "Database record found for $rule!", "Checking database for $rule:");
   }
 }
+
+##############################
+# CHECKING ROUTES
+##############################
+
+print "\n";
+printlog("Checking routes");
+$sensor = "routes";
+
+($chk_rules, $err, @routes) = getallroutes();
+
+foreach $route (@routes) {
+  chomp($route);
+
+  $sql = "SELECT id, vlanid FROM sensors WHERE remoteip = '$route' AND status = 1";
+  $sth = $dbh->prepare($sql);
+  $sth->execute();
+
+  @row = $sth->fetchrow_array;
+  $count = scalar(@row);
+
+  if ($count == 0) {
+    logmsg("false", "No DB record for $route", "Checking database for $route:");
+    if ($sim == 0) {
+      ($chk, $err) = delroute($route, "main");
+      logmsg($chk, $err, "Deleting unused route for $route:");
+    } else {
+      logmsg("skip", "", "delroute for $route in main");
+    }
+  } else {
+    logmsg("true", "Database record found for $route!", "Checking database for $route:");
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Cleaning up sensor logs
 $ts = time();
