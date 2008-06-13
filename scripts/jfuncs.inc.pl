@@ -614,14 +614,14 @@ sub fix_rule() {
       return $chk, $err;
     }
     ($chk, $err) = \&addrule($if, $ifip);
-    \&logmsg($chk, $err, "Adding rule for $if with $ifip!");
+    $bla = \&logmsg($chk, $err, "Adding rule for $if with $ifip!");
     return $chk, $err;
   } elsif ($chk_rule_ip eq "false") {
     if ($chk_rule_if eq "true") {
       ($chk, $err) = \&delrule_by_if($if);
     }
     ($chk, $err) = \&addrule($if, $ifip);
-    \&logmsg($chk, $err, "Adding rule for $if with $ifip!");
+    $bla = \&logmsg($chk, $err, "Adding rule for $if with $ifip!");
     return $chk, $err;
   }
 }
