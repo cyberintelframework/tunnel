@@ -129,6 +129,9 @@ sub logmsg() {
 # Function to check the existance of an interface
 sub chkif() {
   my ($if);
+  if (!$_[0]) {
+    return "false", "Given interface argument was empty!";
+  }
   $if = $_[0];
   chomp($if);
   if ("$if" eq "" ) {
@@ -147,6 +150,9 @@ sub chkif() {
 # Function to get the IP address of a given interface
 sub getifip() {
   my ($if, $ifip, $chkif, $err);
+  if (!$_[0]) {
+    return "false", "Given interface argument was empty!";
+  }
   $if = $_[0];
   ($chkif, $err) = \&chkif($if);
   if ($chkif eq "false") {
@@ -182,6 +188,9 @@ sub getalltap() {
 # Function to get the interface name when given an IP address
 sub getif() {
   my ($if, $ifip);
+  if (!$_[0]) {
+    return "false", "Given IP address was empty!";
+  }
   $ifip = $_[0];
   chomp($ifip);
 
@@ -221,6 +230,12 @@ sub getallroutes() {
 # Function to check if a route exists in a given table
 sub chkroute() {
   my ($route, $table, $chkroute);
+  if (!$_[0]) {
+    return "false", "Given route argument was empty!";
+  }
+  if (!$_[1]) {
+    return "false", "Given table argument was empty!";
+  }
   $route = $_[0];
   $table = $_[1];
   chomp($route);
@@ -250,6 +265,12 @@ sub chkroute() {
 # Function to delete a given route within a given table
 sub delroute() {
   my ($route, $table, $err, $chkroute);
+  if (!$_[0]) {
+    return "false", "Given route argument was empty!";
+  }
+  if (!$_[1]) {
+    return "false", "Given table argument was empty!";
+  }
   $route = $_[0];
   $table = $_[1];
   chomp($route);
@@ -276,6 +297,18 @@ sub delroute() {
 #  $table - into this table
 sub addroute() {
   my ($route, $gw, $dev, $table, $err, $chkroute, $count);
+  if (!$_[0]) {
+    return "false", "Given route argument was empty!";
+  }
+  if (!$_[1]) {
+    return "false", "Given gateway argument was empty!";
+  }
+  if (!$_[2]) {
+    return "false", "Given device argument was empty!";
+  }
+  if (!$_[3]) {
+    return "false", "Given table argument was empty!";
+  }
   $route = $_[0];
   $gw = $_[1];
   $dev = $_[2];
@@ -316,6 +349,12 @@ sub addroute() {
 # Function to add an ip rule
 sub addrule() {
   my ($if, $ifip, $chkif, $err, $count, $chkrule);
+  if (!$_[0]) {
+    return "false", "Given interface argument was empty!";
+  }
+  if (!$_[1]) {
+    return "false", "Given IP address argument was empty!";
+  }
   $if = $_[0];
   ($chkif, $err) = \&chkif($if);
   if ($chkif eq "false") {
@@ -345,6 +384,9 @@ sub addrule() {
 # Function to check for the existance of a rule given an IP address
 sub chkrule_by_ip() {
   my ($rule, $chkrule);
+  if (!$_[0]) {
+    return "false", "Given rule argument was empty!";
+  }
   $rule = $_[0];
   chomp($rule);
   if ("$rule" eq "") {
@@ -369,6 +411,9 @@ sub chkrule_by_ip() {
 # Function to check for the existance of a rule given an interface name
 sub chkrule_by_if() {
   my ($if, $chkrule, $chkif, $err);
+  if (!$_[0]) {
+    return "false", "Given interface argument was empty!";
+  }
   $if = $_[0];
   ($chkif, $err) = \&chkif($if);
   if ($chkif eq "false") {
@@ -395,6 +440,12 @@ sub chkrule_by_if() {
 # given both the IP address and interface name
 sub chkrule() {
   my ($chkrule, $chkrule_if, $chkrule_ip, $ifip, $if, $chkif, $err, $count);
+  if (!$_[0]) {
+    return "false", "Given interface argument was empty!";
+  }
+  if (!$_[1]) {
+    return "false", "Given IP address argument was empty!";
+  }
   $if = $_[0];
   $ifip = $_[1];
   chomp($if);
@@ -426,6 +477,9 @@ sub chkrule() {
 # Function to delete an ip rule given an IP address
 sub delrule_by_ip() {
   my ($rule, $err, $chkrule);
+  if (!$_[0]) {
+    return "false", "Given rule argument was empty!";
+  }
   $rule = $_[0];
   chomp($rule);
   if ("$rule" eq "") {
@@ -448,6 +502,9 @@ sub delrule_by_ip() {
 # Function to delete an ip rule given an interface
 sub delrule_by_if() {
   my ($if, $err, $chkrule);
+  if (!$_[0]) {
+    return "false", "Given interface argument was empty!";
+  }
   $if = $_[0];
   chomp($if);
   if ("$if" eq "") {
@@ -486,6 +543,24 @@ sub getallrules() {
 # Function to fix the rule of a sensor
 sub fix_rule() {
   my ($chk_rule_if, $chk_rule_ip, $chk, $err, $if, $ifip, $rule_if_count, $rule_ip_count, $i);
+  if (!$_[0]) {
+    return "false", "Given IF rule check argument was empty!";
+  }
+  if (!$_[1]) {
+    return "false", "Given IP rule check argument was empty!";
+  }
+  if (!$_[2]) {
+    return "false", "Given interface argument was empty!";
+  }
+  if (!$_[3]) {
+    return "false", "Given IP address argument was empty!";
+  }
+  if (!$_[4]) {
+    return "false", "Given IF count argument was empty!";
+  }
+  if (!$_[5]) {
+    return "false", "Given IP count argument was empty!";
+  }
   $chk_rule_if = $_[0];
   $chk_rule_ip = $_[1];
   $if = $_[2];
