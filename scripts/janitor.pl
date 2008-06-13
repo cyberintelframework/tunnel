@@ -82,7 +82,6 @@ while (@row = $sth->fetchrow_array) {
   $sensor = "sensor" .$sid. "-" .$vlan;
 
   # INTERFACE
-  print "[$sensor] Starting check for $sensor\n";
   ($chk_if, $err) = chkif($tp);
   logmsg($chk_if, $err, "Checking for interface:");
 
@@ -173,8 +172,12 @@ foreach $rule (@rules) {
 
   if ($count == 0) {
     logmsg("false", "No DB record for $rule", "Checking database for $rule:");
-    ($chk, $err) = delrule_by_ip($rule);
-    logmsg($chk, $err, "Deleting unused rule for $rule:");
+    if ($sim == 0) {
+      ($chk, $err) = delrule_by_ip($rule);
+      logmsg($chk, $err, "Deleting unused rule for $rule:");
+    } else {
+      logmsg("skip", "", "Delrule_by_ip($rule)");
+    }
   } else {
     logmsg("true", "Database record found for $rule!", "Checking database for $rule:");
   }
