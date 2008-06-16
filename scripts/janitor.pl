@@ -113,6 +113,12 @@ while (@row = $sth->fetchrow_array) {
     }
   }
 
+  if ($chk_if eq "true" && $chk_ifip eq "true") {
+    if ($ifip ne $tapip) {
+      logmsg("false", "Database & System mismatch!", "Verifying interface IP address:");
+    }
+  }
+
   # RULE (IF)
   ($chk_rule_if, $err, $rule_if_count) = chkrule_by_if($tp);
   logmsg($chk_rule_if, $err, "Checking rule (check 1):");
@@ -121,7 +127,7 @@ while (@row = $sth->fetchrow_array) {
   ($chk_rule_ip, $err, $rule_ip_count) = chkrule_by_ip($tapip);
   logmsg($chk_rule_ip, $err, "Checking rule (check 2):");
 
-  if ($sim == 0) {
+  if ($sim == 0 && $chk_if eq "true" && $chk_ifip eq "true") {
     # FIX RULE
     if ($chk_rule_if eq "false" && $chk_rule_ip eq "false") {
       ($chk, $err) = fix_rule($chk_rule_if, $chk_rule_ip, $tp, $tapip, $rule_if_count, $rule_ip_count);
@@ -133,7 +139,7 @@ while (@row = $sth->fetchrow_array) {
   ($chk_route_main, $err) = chkroute($rip, "main");
   logmsg($chk_route_main, $err, "Checking main route (table main):");
 
-  if ($sim == 0) {
+  if ($sim == 0 && $chk_if eq "true" && $chk_ifip eq "true") {
     if ($chk_route_main eq "false") {
       ($chk, $err) = addroute($rip, $gw, $dev, "main");
       logmsg($chk, $err, "Adding route to table main:");
@@ -148,7 +154,7 @@ while (@row = $sth->fetchrow_array) {
   ($chk, $err) = chkroute("default", $tp);
   logmsg($chk, $err, "Checking default route (table $tp):");
 
-  print "\n";
+#  print "\n";
 }
 
 ##############################
@@ -187,7 +193,7 @@ foreach $rule (@rules) {
 # CHECKING ROUTES
 ##############################
 
-print "\n";
+#print "\n";
 printlog("Checking routes");
 $sensor = "routes";
 
