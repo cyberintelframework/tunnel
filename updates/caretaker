@@ -3,13 +3,14 @@
 #########################################
 # Caretaker script for the VLAN tunnels #
 # SURFnet IDS 2.10.00                   #
-# Changeset 007                         #
-# 08-04-2008                            #
+# Changeset 008                         #
+# 18-06-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ###################
 # Changelog:
+# 008 Ignoring ESTABLISHED connections to manports
 # 007 Moved print state to the correct spot
 # 006 Fixed reconnect issue
 # 005 Removed default gw deletion
@@ -54,7 +55,7 @@ if ($chkcare != 0) {
   exit;
 }
 
-@vlan_ar = `netstat -natep | grep "127.0.0.1" | grep openvpn | awk '{print \$4}' | awk -F":" '{print \$2}'`;
+@vlan_ar = `netstat -natep | grep LISTEN | grep "127.0.0.1" | grep openvpn | awk '{print \$4}' | awk -F":" '{print \$2}'`;
 
 open(LOG, ">> /var/log/caretaker.log");
 $ts = getdatetime();
