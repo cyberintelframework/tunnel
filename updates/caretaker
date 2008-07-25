@@ -3,13 +3,14 @@
 #########################################
 # Caretaker script for the VLAN tunnels #
 # SURFnet IDS 2.10.00                   #
-# Changeset 008                         #
-# 18-06-2008                            #
+# Changeset 009                         #
+# 24-07-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ###################
 # Changelog:
+# 009 Make sure "hold=1" always
 # 008 Ignoring ESTABLISHED connections to manports
 # 007 Moved print state to the correct spot
 # 006 Fixed reconnect issue
@@ -77,6 +78,7 @@ while (0 == 0) {
       }
       $nmapcheck = 0;
       $reconnect = 0;
+      print $sock "hold on\n";
       print $sock "state\n";
       while ($line = <$sock>) {
         chomp($line);
@@ -105,6 +107,12 @@ while (0 == 0) {
           $ts = getdatetime();
           print LOG "[$ts] $manport RELEASED\n";
           print $sock "hold release\n";
+
+          $chkgw = `ip route list | grep default | awk '{print \$3}'`;
+          chomp($chkgw);
+          print "[$ts] $manport GW: $chkgw\n";
+          `echo "[$ts] $manport GW: $chkgw\n" >> /var/log/caretaker.log`;
+
           $rel = 0;
           $tryrel = 0;
           sleep 5;
@@ -119,6 +127,7 @@ while (0 == 0) {
               $rel = 1;
             }
             if ($tryrel == 25) {
+              print $sock "hold on\n";
               $ts = getdatetime();
               print LOG "[$ts] $manport FAILED TO CONNECT AFTER RELEASE\n";
               # c005
@@ -141,7 +150,10 @@ while (0 == 0) {
         $conn = 1;
       }
     }
+    print $sock "exit\n";
   }
+  $ts = getdatetime();
+  print "[$ts] LOOPING\n";
   sleep 2;
 }
 

@@ -3,13 +3,16 @@
 #########################################
 # Function library for the sensor scripts
 # SURFnet IDS 2.10.00
-# Changeset 010
-# 28-05-2008
+# Changeset 013
+# 08-07-2008
 # Jan van Lith & Kees Trippelvitz
 #########################################
 
 ################
 # Changelog:
+# 013 Added ebtables check for setiptables
+# 012 Added version check for iptables
+# 011 Fixed broken pipe issue with getrev
 # 010 Added randommac stuff
 # 009 Fixed mii-tool bug
 # 008 Added chksensortype
@@ -860,7 +863,7 @@ sub getrev() {
     $rev = `svn info $basedir | grep -i revision | awk '{print \$2}' 2>/dev/null`;
     chomp($rev);
   } elsif ("$loc" eq "server") {
-    $rev = `svn log --non-interactive -r HEAD --username $svnuser --password $svnpass $svnurl | head -n2 | tail -n1 |awk '{print \$1}' | awk -F"r" '{print \$2}' 2>/dev/null`;
+    $rev = `svn log --xml --non-interactive -r HEAD --username $svnuser --password $svnpass $svnurl | grep revision | awk -F\\" '{print \$2}' 2>/dev/null`;
     chomp($rev);
   } else {
     return "false";
@@ -1136,9 +1139,24 @@ sub updatefile() {
 # Returns 0 on success
 # Returns nonzero on failure
 sub setiptables() {
-  my ($dev);
+  my ($dev, $ver);
   $dev = $_[0];
-  `iptables -A OUTPUT -p TCP -m physdev --physdev-out $dev --dport 1194 -j DROP`;
+  chomp($dev);
+
+  `ebtables -h >/dev/null 2>/dev/null`;
+  $ebchk = $?;
+  if ($ebchk == 0) {
+    `ebtables -F OUTPUT`;
+    `ebtables -A OUTPUT -p ipv4 -o $dev --ip-proto TCP --ip-dport 1194 -j DROP`;
+  }
+
+  $ver = `iptables --help | head -n1 | awk '{print \$2}'`;
+  chomp($ver);
+  if ($ver =~ /^v1\.4.*/) {
+    `iptables -A OUTPUT -p TCP -m physdev --physdev-is-bridged --physdev-out $dev --dport 1194 -j DROP`;
+  } else {
+    `iptables -A OUTPUT -p TCP -m physdev --physdev-out $dev --dport 1194 -j DROP`;
+  }
   return $?;
 }
 

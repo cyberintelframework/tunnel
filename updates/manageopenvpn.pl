@@ -27,6 +27,7 @@ $tunnel = $ARGV[0];
 $port = 1000 + $tunnel;
 print "PORT: $port\n";
 
+# Opening socket
 my $sock = new IO::Socket::INET (
 			PeerAddr => '127.0.0.1',
 			PeerPort => $port,
@@ -43,6 +44,7 @@ die "Can't fork!: $!" unless defined($kidpid = fork());
 print "KIDPID: $kidpid\n";
 
 if ($kidpid) {
+  # Printing stuff
   while (defined ($line = <$sock>)) {
     print STDOUT $line;
   }
