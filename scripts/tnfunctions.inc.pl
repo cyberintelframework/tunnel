@@ -68,6 +68,7 @@ use POSIX;
 # 4.30		refresh_cache
 # 4.31		printinfo
 # 4.32		printdblog
+# 4.33		logsys
 ###############################################
 
 # 1.01 chkdhclient
@@ -1220,6 +1221,10 @@ sub add_proto_type() {
   chomp($head);
   chomp($nr);
 
+  if ("$nr" eq "") {
+    return 1;
+  }
+
   # Default protocol name is Unknown
   $proto = "Unknown";
 
@@ -1394,6 +1399,34 @@ sub cidr() {
   $binm = &dec2bin($mask);
   $cidr = ($binm =~ tr/1//);
   return $cidr;
+}
+
+# 4.33 logsys
+# Function to log messages to the syslog table
+sub logsys() {
+  my ($ts, $prefix, $msg, @row, $er, $sql, $sensorid, $dev);
+  $prefix = $_[0];
+  $level = $_[1];
+  $msg = $_[2];
+  $sensorid = $_[3];
+  $dev = $_[4];
+  chomp($prefix);
+  chomp($msg);
+  chomp($sensorid);
+  chomp($dev);
+  $ts = time();
+
+  if ($_[5]) {
+    $args = $_[5];
+    chomp($args);
+  } else {
+    $args = "";
+  }
+
+  $sql = "INSERT INTO syslog (source, timestamp, error, args, level, sensorid, device) VALUES ";
+  $sql .= " ('$prefix', '$ts', '$msg', '$args', '$level', '$sensorid', '$dev')";
+  $er = $dbh->do($sql);
+  return "true";
 }
 
 return "true";

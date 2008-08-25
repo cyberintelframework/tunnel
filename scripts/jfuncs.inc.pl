@@ -21,6 +21,7 @@ use POSIX;
 # 3.05 delrule_by_ip
 # 3.06 delrule_by_if
 # 3.07 getallrules
+# 4.33 logsys
 
 # 0.01 connectdb
 # Function to connect to the database
@@ -624,6 +625,34 @@ sub fix_rule() {
     $bla = \&logmsg($chk, $err, "Adding rule for $if with $ifip!");
     return $chk, $err;
   }
+}
+
+# 4.33 logsys
+# Function to log messages to the syslog table
+sub logsys() {
+  my ($ts, $prefix, $msg, @row, $er, $sql, $sensorid, $dev);
+  $prefix = $_[0];
+  $level = $_[1];
+  $msg = $_[2];
+  $sensorid = $_[3];
+  $dev = $_[4];
+  chomp($prefix);
+  chomp($msg);
+  chomp($sensorid);
+  chomp($dev);
+  $ts = time();
+
+  if ($_[5]) {
+    $args = $_[5];
+    chomp($args);
+  } else {
+    $args = "";
+  }
+
+  $sql = "INSERT INTO syslog (source, timestamp, error, args, level, sensorid, device) VALUES ";
+  $sql .= " ('$prefix', '$ts', '$msg', '$args', '$level', '$sensorid', '$dev')";
+  $er = $dbh->do($sql);
+  return "true";
 }
 
 return "true";

@@ -2,14 +2,15 @@
 
 #########################################
 # Update script for SURFnet IDS Sensor	#
-# SURFnet IDS 2.10.00                   #
-# Changeset 007                         #
-# 18-03-2008                            #
+# SURFids 2.10.00                       #
+# Changeset 008                         #
+# 25-08-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ##################
 # Changelog:
+# 008 Added OS version to status.php call
 # 007 Added MAC update to server
 # 006 Don't remove default gw at end of vlan loop
 # 005 hourly run-parts update doesn't work correctly, adding it directly
@@ -325,8 +326,16 @@ sub update_process() {
   $verstring = getver();
   $mac = getmac($if);
 
+  if (-e "/etc/knoppix-version") {
+    $knoppixv = "Knoppix ";
+    $knoppixv .= `cat /etc/knoppix-version | awk '{print \$1}'`;
+    chomp($knoppixv);
+  } else {
+    $knoppixv = 0;
+  }
+
   # Updating sensor information to the server
-  `wget -q $wgetarg --bind-address=$if_ip -O $tmpdir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh&int_rev=$rev&strip_html_escape_version=$verstring&mac_mac=$mac"`;
+  `wget -q $wgetarg --bind-address=$if_ip -O $tmpdir/update$vlanid.php "$serverurl/status.php?ip_localip=$if_ip&strip_html_escape_keyname=$sensor&int_vlanid=$vlanid&int_ssh=$chkssh&int_rev=$rev&strip_html_escape_version=$verstring&mac_mac=$mac&strip_html_escape_knoppixv=$knoppixv"`;
 
   &printmsg("Updating status information:", $?);
 

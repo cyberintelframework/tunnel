@@ -144,7 +144,7 @@
 	"33072" => "Hayes Microcomputers",
 	"33073" => "VG Laboratory Systems",
 	"33074" => "Bridge Communications",
-	"33079" => "Novell, Inc.",
+	"33079" => "IPX",
 	"33081" => "KTI",
 	"33100" => "SNMP",
 	"34525" => "Internet Protocol (IPv6)",

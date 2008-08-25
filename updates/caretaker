@@ -2,14 +2,15 @@
 
 #########################################
 # Caretaker script for the VLAN tunnels #
-# SURFnet IDS 2.10.00                   #
-# Changeset 009                         #
-# 24-07-2008                            #
+# SURFids 2.10.00                       #
+# Changeset 010                         #
+# 12-08-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 ###################
 # Changelog:
+# 010 Fixed logging
 # 009 Make sure "hold=1" always
 # 008 Ignoring ESTABLISHED connections to manports
 # 007 Moved print state to the correct spot
@@ -111,7 +112,7 @@ while (0 == 0) {
           $chkgw = `ip route list | grep default | awk '{print \$3}'`;
           chomp($chkgw);
           print "[$ts] $manport GW: $chkgw\n";
-          `echo "[$ts] $manport GW: $chkgw\n" >> /var/log/caretaker.log`;
+          print LOG "[$ts] $manport GW: $chkgw\n";
 
           $rel = 0;
           $tryrel = 0;

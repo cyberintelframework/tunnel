@@ -3,13 +3,14 @@
 #########################################
 # Startup script for IDS server         #
 # SURFnet IDS 2.10.00                   #
-# Changeset 001                         #
-# 18-03-2008                            #
+# Changeset 002                         #
+# 15-07-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 #####################
 # Changelog:
+# 002 Added logsys stuff
 # 001 version 2.10.00 release
 #####################
 
@@ -17,12 +18,18 @@
 # Modules used
 ##################
 use Time::localtime qw(localtime);
+use DBI;
 
 ##################
 # Variables used
 ##################
 # Get tap device that's coming up.
 $tap = $ARGV[0];
+$prefix = "up.pl";
+
+# Get the remoteip.
+$remoteip = $ENV{REMOTE_HOST};
+chomp($remoteip);
 
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
@@ -61,17 +68,27 @@ open(LOG, ">> $logfile");
 
 $ts = getts();
 printlog("Starting up.pl");
-#print LOG "[$ts - $tap] Starting up.pl\n";
+
+# connect to the database
+connectdb();
+
+# Get the sensorid
+$sql = "SELECT id FROM sensors WHERE remoteip = '$remoteip'";
+$sth = $dbh->prepare($sql);
+$sth->execute();
+@row = $sth->fetchrow_array;
+$sensorid = $row[0];
+
+logsys($prefix, 0, "START_UPPL", $sensorid, $tap, $remoteip);
 
 if ($tap eq "") {
   $err = 1;
   printlog("No tap device info!", "Err");
+
+  logsys($prefix, 4, "NO_TAP_DEVICE", $sensorid, $tap);
 }
 
 if ($err == 0) {
-  # Get the remoteip.
-  $remoteip = $ENV{REMOTE_HOST};
-  chomp($remoteip);
   printlog("Retrieved remoteip: $remoteip");
 
   # Check for leftover source based routing rules and delete them.
@@ -89,13 +106,25 @@ if ($err == 0) {
   if ($? == 0 && "$local_gw" ne "false") {
     # Add route to remote ip address via local gateway to avoid routing loops
     `route add -host $remoteip gw $local_gw`;
+    if ($? != 0) {
+      logsys($prefix, 4, "FAILED_ADD_ROUTE", $sensorid, $tap, "$remoteip , $local_gw");
+    } else {
+      logsys($prefix, 0, "SYS_ADD_ROUTE", $sensorid, $tap, "$remoteip , $local_gw");
+    }
     $ec = getec();
     printlog("Adding route via local gateway", "$ec");
   } else {
+
+    logsys($prefix, 4, "NO_LOCAL_GATEWAY", $sensorid, $tap);
+
     printlog("Could not retrieve local gateway. Exiting with error!");
     printlog("-------------finished up.pl-----------");
+
+    logsys($prefix, 0, "DONE_UPPL", $sensorid, $tap);
+
     exit 1;
   }
 }
 printlog("-------------finished up.pl-----------");
 close(LOG);
+logsys($prefix, 0, "DONE_UPPL", $sensorid, $tap);

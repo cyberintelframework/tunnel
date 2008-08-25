@@ -3,13 +3,14 @@
 #########################################
 # Stop script for IDS server	        #
 # SURFnet IDS 2.10.00                   #
-# Changeset 001                         #
-# 18-03-2008                            #
+# Changeset 002                         #
+# 15-07-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 #####################
 # Changelog:
+# 002 Added logsys stuff
 # 001 version 2.10.00 release
 #####################
 
@@ -72,6 +73,11 @@ if ($dbconn eq "true") {
   $ts = getts();
   printlog("Prepared query: $sql");
   $er = $sth->execute();
+
+  if ("$er" eq "0E0") {
+    logsys($prefix, 2, "FAILED_QUERY", "$sensorid", "$tap", $sql);
+  }
+
   $ts = getts();
   printlog("Executed query: $er");
 }
@@ -104,6 +110,11 @@ if ($dbconn eq "true") {
     # Execute query to remove tap device information from database.
     $sql = "UPDATE sensors SET tap = '', tapip = NULL, status = 0 WHERE tap = '$tap'";
     $er = $dbh->do($sql);
+
+    if ("$er" eq "0E0") {
+      logsys($prefix, 2, "FAILED_QUERY", "$sensorid", "$tap", $sql);
+    }
+
     $ts = getts();
     printlog("Prepared query: $sql");
     printlog("Executed query: $er");
@@ -113,6 +124,11 @@ if ($dbconn eq "true") {
     # Execute query to remove tap device information from database.
     $sql = "UPDATE sensors SET tap = '', status = 0 WHERE tap = '$tap'";
     $er = $dbh->do($sql);
+
+    if ("$er" eq "0E0") {
+      logsys($prefix, 2, "FAILED_QUERY", "$sensorid", "$tap", $sql);
+    }
+
     $ts = getts();
     printlog("Prepared query: $sql");
     printlog("Executed query: $er");
@@ -124,6 +140,11 @@ if ($dbconn eq "true") {
   $ts = getts();
   printlog("Prepared query: $sql");
   $er = $sth->execute();
+
+  if ("$er" eq "0E0") {
+    logsys($prefix, 2, "FAILED_QUERY", "$sensorid", "$tap", $sql);
+  }
+
   $ts = getts();
   printlog("Executed query: $er");
 

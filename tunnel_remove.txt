@@ -9,3 +9,4 @@ updates/network_config.sig
 updates/update_remove.sig
 updates/scripts.conf.sig
 updates/start_bridge.sig
+server/update.php

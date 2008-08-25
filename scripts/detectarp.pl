@@ -3,13 +3,15 @@
 #########################################
 # ARP detection module                  #
 # SURFnet IDS 2.10.00                   #
-# Changeset 002                         #
-# 28-05-2008                            #
+# Changeset 004                         #
+# 25-07-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 #####################
 # Changelog:
+# 004 Ignoring IEEE802.3 Length Fields for ethernet packets
+# 003 Changed sensorid retrieval
 # 002 Added blacklists
 # 001 Ignore checking the gateway if it is not in the local network range
 #####################
@@ -45,6 +47,7 @@ use GnuPG qw( :algo );
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 $tap = $ARGV[0];
+$sensorid = $ARGV[1];
 
 $logfile = $c_logfile;
 $logfile =~ s|.*/||;
@@ -99,15 +102,14 @@ $dbconn = connectdb();
 
 # Getting the sensor ID
 if ("$dbconn" ne "false") {
-  $sql = "SELECT id, organisation, netconf, netconfdetail FROM sensors WHERE tap = '$tap'";
+  $sql = "SELECT organisation, netconf, netconfdetail FROM sensors WHERE id = '$sensorid'";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
 
   @row = $sth->fetchrow_array;
-  $sensorid = $row[0];
-  $org = $row[1];
-  $netconf = $row[2];
-  $netconfdet = $row[3];
+  $org = $row[0];
+  $netconf = $row[1];
+  $netconfdet = $row[2];
   if ("$sensorid" eq "") {
     exit 1;
   }
@@ -484,8 +486,10 @@ sub filter_packets {
     $dhcp_refresh = $ts + $c_dhcp_static_refresh;
   }
 
-  if (! exists $sniff_protos_eth{$eth_type}) {
-    $check = add_proto_type($sensorid, $head, $eth_type);
+  if ($eth_type > 1500) {
+    if (! exists $sniff_protos_eth{$eth_type}) {
+      $check = add_proto_type($sensorid, $head, $eth_type);
+    }
   }
 
   #########################################
@@ -535,7 +539,12 @@ sub filter_packets {
       # UDP protocol detected
       $udp_obj = NetPacket::UDP->decode($ip_obj->{data});
       $dst_port = $udp_obj->{dest_port};
-      
+
+      $tijd = time();      
+      if ($dst_port == 68 || $dst_port == 67) {
+        `echo "[$tijd] $src_ip -> $dst_ip : $dst_port" >> /var/log/sensor${sensorid}.log`;
+      }
+
       if ($dst_port == 68) {
         $head = 11768;
         $dhcp_obj = Net::DHCP::Packet->new($udp_obj->{data});
