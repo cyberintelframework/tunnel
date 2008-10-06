@@ -142,27 +142,27 @@ case "$reason" in
 #        ifconfig $interface 0 up
 #        sleep 1
         ts=`date`
-        `ifconfig $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg`
+        ifconfig $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg
         echo "[$ts - $?] ifconfig $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg" >> $logfile
 
         ### Checking for ip rules
         rulecheck=`ip rule list | grep $interface | wc -l`
         echo "[$ts - $?] Ip rules present: $rulecheck" >> $logfile
         if [ $rulecheck == 0 ]; then
-          `ip rule add from $new_ip_address table $interface`
+          ip rule add from $new_ip_address table $interface
           echo "[$ts - $?] ip rule add from $new_ip_address table $interface" >> $logfile
         else
           oldip=`ip rule list | grep $interface | awk '{print $3}'`
           echo "[$ts - $?] Old ip address: $oldip" >> $logfile
-          `ip rule del from $oldip table $interface`
+          ip rule del from $oldip table $interface
           echo "[$ts - $?] ip rule del from $oldip table $interface" >> $logfile
-          `ip rule add from $new_ip_address table $interface`
+          ip rule add from $new_ip_address table $interface
           echo "[$ts - $?] ip rule add from $new_ip_address table $interface" >> $logfile
           checktap=`$surfnetidsdir/scripts/checktap.pl $interface`
           echo "[$ts - $?] Running: $surfnetidsdir/scripts/checktap.pl $interface" >> $logfile
         fi
 
-        `ip route flush table $interface`
+        ip route flush table $interface
         echo "[$ts - $?] ip route flush table $interface" >> $logfile
 
         ### Checking for routes
