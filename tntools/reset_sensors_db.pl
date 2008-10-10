@@ -23,6 +23,10 @@ use Time::localtime qw(localtime);
 # Variables used
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
+
+$c_pgsql_dbname = "blaatdb";
+$c_dsn = "DBI:Pg:dbname=$c_pgsql_dbname;host=$c_pgsql_host;port=$c_pgsql_port";
+
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
 connectdb();

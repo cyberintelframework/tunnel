@@ -69,6 +69,7 @@ use POSIX;
 # 4.31		printinfo
 # 4.32		printdblog
 # 4.33		logsys
+# 4.34		in_array
 ###############################################
 
 # 1.01 chkdhclient
@@ -536,6 +537,7 @@ sub startdhcp() {
   chomp($tap);
 
   `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
+#  `/opt/dhcp-3.0.7/bin/dhclient -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
   $ec = getec();
   &printlog("Starting dhclient3 for $tap!", "$ec");
   sleep 1;
@@ -1427,6 +1429,14 @@ sub logsys() {
   $sql .= " ('$prefix', '$ts', '$msg', '$args', '$level', '$sensorid', '$dev')";
   $er = $dbh->do($sql);
   return "true";
+}
+
+# 4.34 in_array
+# Checks to see if a certain value is in the given array
+# Usage: in_array(@array, $search_value)
+sub in_array() {
+  my ($ar, $search) = @_;
+  return grep { $search eq $_ } @$ar;
 }
 
 return "true";

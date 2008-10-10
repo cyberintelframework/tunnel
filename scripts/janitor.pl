@@ -97,14 +97,14 @@ while (@row = $sth->fetchrow_array) {
         if ($netconf eq "dhcp" || $netconf eq "" || $netconf eq "vland") {
           $sql = "UPDATE sensors SET tap = '', tapip = NULL, status = 0 WHERE tap = '$tp'";
           $er = $dbh->do($sql);
-          logsys($prefix, 0, "DB_CLEAR_TAP", $sensorid, $tp);
-          logsys($prefix, 0, "DB_CLEAR_TAPIP", $sensorid, $tp);
-          logsys($prefix, 0, "DB_UPDATE_STATUS", $sensorid, $tp, 0);
+#          logsys($prefix, 0, "DB_CLEAR_TAP", $sensorid, $tp);
+#          logsys($prefix, 0, "DB_CLEAR_TAPIP", $sensorid, $tp);
+#          logsys($prefix, 0, "DB_UPDATE_STATUS", $sensorid, $tp, 0);
         } else {
           $sql = "UPDATE sensors SET tap = '', status = 0 WHERE tap = '$tp'";
           $er = $dbh->do($sql);
-          logsys($prefix, 0, "DB_CLEAR_TAP", $sensorid, $tp);
-          logsys($prefix, 0, "DB_UPDATE_STATUS", $sensorid, $tp, 0);
+#          logsys($prefix, 0, "DB_CLEAR_TAP", $sensorid, $tp);
+#          logsys($prefix, 0, "DB_UPDATE_STATUS", $sensorid, $tp, 0);
         }
       }
     }
@@ -118,14 +118,14 @@ while (@row = $sth->fetchrow_array) {
         if ($netconf eq "dhcp" || $netconf eq "" || $netconf eq "vland") {
           $sql = "UPDATE sensors SET tap = '', tapip = NULL, status = 0 WHERE tap = '$tp'";
           $er = $dbh->do($sql);
-          logsys($prefix, 0, "DB_CLEAR_TAP", $sensorid, $tp);
-          logsys($prefix, 0, "DB_CLEAR_TAPIP", $sensorid, $tp);
-          logsys($prefix, 0, "DB_UPDATE_STATUS", $sensorid, $tp, 0);
+#          logsys($prefix, 0, "DB_CLEAR_TAP", $sensorid, $tp);
+#          logsys($prefix, 0, "DB_CLEAR_TAPIP", $sensorid, $tp);
+#          logsys($prefix, 0, "DB_UPDATE_STATUS", $sensorid, $tp, 0);
         } else {
           $sql = "UPDATE sensors SET tap = '', status = 0 WHERE tap = '$tp'";
           $er = $dbh->do($sql);
-          logsys($prefix, 0, "DB_CLEAR_TAP", $sensorid, $tp);
-          logsys($prefix, 0, "DB_UPDATE_STATUS", $sensorid, $tp, 0);
+#          logsys($prefix, 0, "DB_CLEAR_TAP", $sensorid, $tp);
+#          logsys($prefix, 0, "DB_UPDATE_STATUS", $sensorid, $tp, 0);
         }
       }
     }
@@ -141,7 +141,7 @@ while (@row = $sth->fetchrow_array) {
         if ($total == 1) {
           $sql = "UPDATE sensors SET tapip = '$ifip' WHERE tap = '$tp'";
           $er = $dbh->do($sql);
-          logsys($prefix, 0, "DB_UPDATE_TAPIP", $sensorid, $tp, "$ifip, $tapip");
+#          logsys($prefix, 0, "DB_UPDATE_TAPIP", $sensorid, $tp, "$ifip, $tapip");
         }
       }
     }
@@ -150,34 +150,33 @@ while (@row = $sth->fetchrow_array) {
     ($chk_rule_if, $err, $rule_if_count) = chkrule_by_if($tp);
     logmsg($chk_rule_if, $err, "Checking rule (check 1):");
   }
-}
 
-# RULE (IP)
-($chk_rule_ip, $err, $rule_ip_count) = chkrule_by_ip($tapip);
-logmsg($chk_rule_ip, $err, "Checking rule (check 2):");
+  # RULE (IP)
+  ($chk_rule_ip, $err, $rule_ip_count) = chkrule_by_ip($tapip);
+  logmsg($chk_rule_ip, $err, "Checking rule (check 2):");
 
-if ("$tp" ne "") {
-  if ($sim == 0 && $chk_if eq "true" && $chk_ifip eq "true") {
-    # FIX RULE
-    if ($chk_rule_if eq "false" && $chk_rule_ip eq "false") {
-      ($chk, $err) = fix_rule($chk_rule_if, $chk_rule_ip, $tp, $tapip, $rule_if_count, $rule_ip_count);
-      logmsg($chk, $err, "Fixing rules:");
-      logsys($prefix, 0, "SYS_FIX_RULE", $sensorid, $tp);
+  if ("$tp" ne "") {
+    if ($sim == 0 && $chk_if eq "true" && $chk_ifip eq "true") {
+      # FIX RULE
+      if ($chk_rule_if eq "false" && $chk_rule_ip eq "false") {
+        ($chk, $err) = fix_rule($chk_rule_if, $chk_rule_ip, $tp, $tapip, $rule_if_count, $rule_ip_count);
+        logmsg($chk, $err, "Fixing rules:");
+#      logsys($prefix, 0, "SYS_FIX_RULE", $sensorid, $tp);
+      }
     }
   }
-}
 
-# ROUTE (TABLE MAIN)
-($chk_route_main, $err) = chkroute($rip, "main");
-logmsg($chk_route_main, $err, "Checking main route (table main):");
+  # ROUTE (TABLE MAIN)
+  ($chk_route_main, $err) = chkroute($rip, "main");
+  logmsg($chk_route_main, $err, "Checking main route (table main):");
 
-if ($sim == 0 && $chk_if eq "true" && $chk_ifip eq "true") {
-  if ($chk_route_main eq "false") {
-    ($chk, $err) = addroute($rip, $gw, $dev, "main");
-    logmsg($chk, $err, "Adding route to table main:");
-    logsys($prefix, 0, "SYS_ADD_ROUTE", $sensorid, $tp, "main");
+  if ($sim == 0 && $chk_if eq "true" && $chk_ifip eq "true") {
+    if ($chk_route_main eq "false") {
+      ($chk, $err) = addroute($rip, $gw, $dev, "main");
+      logmsg($chk, $err, "Adding route to table main:");
+#    logsys($prefix, 0, "SYS_ADD_ROUTE", $sensorid, $tp, "main");
+    }
   }
-}
 
   if ("$tp" ne "") {
     # ROUTE (TALBE TAP)
@@ -189,31 +188,48 @@ if ($sim == 0 && $chk_if eq "true" && $chk_ifip eq "true") {
     logmsg($chk, $err, "Checking default route (table $tp):");
   }
 
-if ($c_enable_arp == 1) {
-  # Checking if detectarp.pl has to be started or stopped
-  if ("$tp" ne "") {
-    $chkarp = `ps -ef | grep detectarp | grep -v grep | grep $tp | wc -l`;
-    chomp($chkarp);
-    if ($chkarp == 0 && $arp == 1) {
-      $chktap = `ifconfig $tp >/dev/null 2>/dev/null`;
-      if ($chk_if eq "true") {
-        if ($sim == 0) {
-          system("$c_surfidsdir/scripts/detectarp.pl $tp $sid &");
-          logsys($prefix, 0, "SYS_START_DETECTARP", $sensorid, $tp);
-        } else {
-          print "Skipping: $c_surfidsdir/scripts/detectarp.pl $tp $sid &\n";
+  if ($c_enable_arp == 1) {
+    # Checking if detectarp.pl has to be started or stopped
+    if ("$tp" ne "") {
+      $chkarp = `ps -ef | grep detectarp | grep -v grep | grep $tp | wc -l`;
+      chomp($chkarp);
+      if ($chkarp == 0 && $arp == 1) {
+        $chktap = `ifconfig $tp >/dev/null 2>/dev/null`;
+        if ($chk_if eq "true") {
+          if ($sim == 0) {
+            system("$c_surfidsdir/scripts/detectarp.pl $tp $sid &");
+#          logsys($prefix, 0, "SYS_START_DETECTARP", $sensorid, $tp);
+          } else {
+            print "Skipping: $c_surfidsdir/scripts/detectarp.pl $tp $sid &\n";
+          }
+        }
+      } elsif ($chkarp == 1 && $arp == 0) {
+        $arppid = `ps -ef | grep detectarp | grep -v grep | grep "detectarp.pl $tp " | awk '{print \$2}'`;
+        chomp($arppid);
+        if ("$arppid" ne "") {
+          if ($sim == 0) {
+            `kill $arppid`;
+#          logsys($prefix, 0, "SYS_KILL_DETECTARP", $sensorid, $tp);
+          } else {
+            print "Skipping: kill $arppid\n";
+          }
         }
       }
-    } elsif ($chkarp == 1 && $arp == 0) {
-      $arppid = `ps -ef | grep detectarp | grep -v grep | grep "detectarp.pl $tp " | awk '{print \$2}'`;
-      chomp($arppid);
-      if ("$arppid" ne "") {
+    }
+  }
+  if ("$tp" ne "") {
+    $chkpof = `ps -ef | grep -v grep | grep p0f | grep $tp | wc -l`;
+    chomp($chkpof);
+    if ($chkpof == 0) {
+      `ifconfig $tp >/dev/null 2>/dev/null`;
+      if ($? == 0) {
         if ($sim == 0) {
-          `kill $arppid`;
-          logsys($prefix, 0, "SYS_KILL_DETECTARP", $sensorid, $tp);
+          system "p0f -d -i $tp -o /dev/null";
         } else {
-          print "Skipping: kill $arppid\n";
+          print "Skipping: p0f -d -i $tp -o /dev/null\n";
         }
+      } else {
+        print "Missing interface: $tp\n";
       }
     }
   }
@@ -244,7 +260,7 @@ foreach $rule (@rules) {
     if ($sim == 0) {
       ($chk, $err) = delrule_by_ip($rule);
       logmsg($chk, $err, "Deleting unused rule for $rule:");
-      logsys($prefix, 0, "SYS_DEL_RULE", $sensorid, $tp, $rule);
+#      logsys($prefix, 0, "SYS_DEL_RULE", $sensorid, $tp, $rule);
     } else {
       logmsg("skip", "", "Delrule_by_ip($rule)");
     }
@@ -279,7 +295,7 @@ foreach $route (@routes) {
     if ($sim == 0) {
       ($chk, $err) = delroute($route, "main");
       logmsg($chk, $err, "Deleting unused route for $route:");
-      logsys($prefix, 0, "SYS_DEL_ROUTE", $sensorid, $tp, "main");
+#      logsys($prefix, 0, "SYS_DEL_ROUTE", $sensorid, $tp, "main");
     } else {
       logmsg("skip", "", "delroute for $route in main");
     }

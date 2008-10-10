@@ -154,7 +154,7 @@ while (0 == 0) {
     print $sock "exit\n";
   }
   $ts = getdatetime();
-  print "[$ts] LOOPING\n";
+  #print "[$ts] LOOPING\n";
   sleep 2;
 }
 
