@@ -1,12 +1,12 @@
 #!/usr/bin/perl 
 
-#########################################
-# Traffic script                        #
-# SURFnet IDS                           #
-# Version 1.04.02                       #
-# 07-11-2006                            #
-# Kees Trippelvitz                      #
-#########################################
+###################################
+# Traffic script                  #
+# SURFnet IDS                     #
+# Version 1.04.03                 #
+# 07-08-2007                      #
+# Jan van Lith & Kees Trippelvitz #
+###################################
 
 #########################################################################################
 # Copyright (C) 2005 SURFnet                                                            #
@@ -31,6 +31,7 @@
 
 #############################################
 # Changelog:
+# 1.04.03 Removed org_id in sql query 
 # 1.04.02 Added VLAN support 
 # 1.04.01 Code layout
 # 1.03.01 Released as part of the 1.03 package
@@ -44,7 +45,7 @@
 use RRDs;
 use DBI;
 use MIME::Base64;
-use Time::localtime;
+use Time::localtime qw(localtime);
 
 ##################
 # Variables used
@@ -62,7 +63,7 @@ foreach (@test) {
   chomp($tap);
 
   $sql = "SELECT sensors.keyname, organisations.organisation, sensors.vlanid ";
-  $sql .= "FROM sensors, organisations, org_id ";
+  $sql .= "FROM sensors, organisations ";
   $sql .= "WHERE sensors.tap = '$tap' AND organisations.id = sensors.organisation";
   $sth = $dbh->prepare($sql);
   $exe = $sth->execute();

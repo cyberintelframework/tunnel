@@ -3,8 +3,8 @@
 #########################################
 # Status check                          #
 # SURFnet IDS                           #
-# Version 1.04.02                       #
-# 20-04-2007                            #
+# Version 1.04.04                       #
+# 05-07-2007                            #
 # Kees Trippelvitz                      #
 #########################################
 
@@ -31,6 +31,8 @@
 
 #############################################
 # Changelog:
+# 1.04.04 Added client.conf to ignore
+# 1.04.03 Fixed typo in the last print statement
 # 1.04.02 Removed the server_version.txt stuff
 # 1.04.01 Initial release. Converted from makeversion.sh.
 #############################################
@@ -52,7 +54,7 @@ do '/etc/surfnetids/surfnetids-tn.conf';
 `rm -f $c_surfidsdir/updates/server_version.txt`;
 
 # Setting up ignored files
-%ignore = ("client.conf.dist", 0, "client.conf.temp.dist", 0, "wgetrc.dist", 0, "sensor.conf.dist", 0);
+%ignore = ("client.conf.dist", 0, "client.conf.temp.dist", 0, "wgetrc.dist", 0, "sensor.conf.dist", 0, "client.conf", 0);
 
 # Opening server_version.txt for writing
 #open(VERS, "> $c_surfidsdir/updates/server_version.txt");
@@ -76,4 +78,4 @@ foreach $file (@file_ar) {
 #close(VERS);
 
 #print "Creation of $c_surfidsdir/updates/server_version.txt done!\n";
-Print "Signing scripts done!\n";
+print "Signing scripts done!\n";
