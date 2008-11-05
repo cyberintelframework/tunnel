@@ -1,0 +1,45 @@
+#!/bin/sh
+
+#########################################
+# IPtables script for IDS server        #
+# SURFnet IDS 2.10.00                   #
+# Changeset 001                         #
+# 18-03-2008                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
+
+#####################
+# Changelog:
+# 001 version 2.10.00 release
+#####################
+
+# Configuration Options
+IF="eth0"                               # Main interface (runs OpenVPN, updates, ssh, bootps)
+IF2="eth1"				# Private network to Argos
+
+# Flushing mangle table
+iptables -t mangle -F
+
+# Adding rules to make sure stuff like SSH, openvpn, updates and dhcp keeps working
+iptables -t mangle -A PREROUTING -i $IF -p tcp --dport ssh -j MARK --set-mark 9999
+iptables -t mangle -A PREROUTING -i $IF -p tcp --dport bootps -j MARK --set-mark 9999
+iptables -t mangle -A PREROUTING -i $IF -p tcp --dport 4443 -j MARK --set-mark 9999
+iptables -t mangle -A PREROUTING -i $IF -p tcp --dport openvpn -j MARK --set-mark 9999
+# Making sure DNS keeps working for main interface
+iptables -t mangle -A PREROUTING -i $IF -p udp --source-port 53 -j MARK --set-mark 9999
+
+# Listener port for Argos script
+iptables -t mangle -A PREROUTING -i $IF2 -p tcp --source-port 7676 -j MARK --set-mark 9999
+# Everything for the 2nd interface to Argos should be delivered localy
+iptables -t mangle -A PREROUTING -i $IF2 -j MARK --set-mark 9999
+
+# Set the default mark to 1
+iptables -t mangle -I PREROUTING -j MARK --set-mark 1
+
+# Making sure all interfaces are configured correctly for forward sharing
+echo 1 > /proc/sys/net/ipv4/conf/all/forward_shared
+echo 1 > /proc/sys/net/ipv4/conf/default/forward_shared
+echo 1 > /proc/sys/net/ipv4/conf/$IF/forward_shared
+echo 1 > /proc/sys/net/ipv4/conf/$IF2/forward_shared
+echo 1 > /proc/sys/net/ipv4/ip_forward
+

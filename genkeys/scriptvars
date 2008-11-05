@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# Load the generic certificate variables.
+. /home/surfnetids/2.10/tunnel/trunk/genkeys/vars.conf
+
+# Scripts specific variables.
+export KEY_COMMONNAME="scripts"
+export KEY_DIR=$D/updates
