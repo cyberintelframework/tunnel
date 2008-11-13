@@ -1,28 +1,36 @@
 <?php
 
 ####################################
-# SURFids 2.10.00
-# Changeset 004
-# 25-08-2008
+# SURFids 2.00.03
+# Changeset 002
+# 22-05-2008
 # Jan van Lith & Kees Trippelvitz
 ####################################
 
 #####################
 # Changelog:
-# 004 Correctly chain checks in extractvars
-# 003 Changed logdb with default args
 # 002 Added mac regexp to extractvars
 # 001 Excluded RIPE-CIDR-BLOCK from whois
 #####################
 
-function logdb($prefix, $level, $msg, $sensorid, $args = "") {
+function logdb($sensorid, $log, $args) {
   global $pgconn;
-  $dev = "";
-  if ($sensorid != "" && $msg != "") {
-    $ts = date("U");
+  if ($sensorid != "" && $log != "") {
+    $date = date("U");
 
-    $sql_log = "INSERT INTO syslog (source, timestamp, error, args, level, sensorid, device) VALUES ('$prefix', '$ts', '$msg', '$args', '$level', '$sensorid', '$dev')";
-    $result_log = pg_query($pgconn, $sql_log);
+    $pattern = '/^[0-9]*$/';
+    if (preg_match($pattern, $sensorid)) {
+      $sql_log = "INSERT INTO sensors_log (sensorid, timestamp, logid, args) VALUES ('$sensorid', '$date', '$log', '$args')";
+      $result_log = pg_query($pgconn, $sql_log);
+    } else {
+      $sql_getids = "SELECT id FROM sensors WHERE keyname = '$sensorid'";
+      $result_getids = pg_query($sql_getids);
+      while ($row = pg_fetch_assoc($result_getids)) {
+        $sid = $row['id'];
+        $sql_log = "INSERT INTO sensors_log (sensorid, timestamp, logid, args) VALUES ('$sid', '$date', '$log', '$args')";
+        $result_log = pg_query($pgconn, $sql_log);
+      }
+    }
   }
 }
 
@@ -64,9 +72,6 @@ function extractvars($source, $allowed) {
             $count = count($explodedkey);
             if ($count != 0) {
               foreach ($explodedkey as $check) {
-                if (isset($clean[$temp])) {
-                  $var = $clean[$temp];
-                }
                 if ($check == "int") {
                   $var = intval($var);
                   $clean[$temp] = $var;

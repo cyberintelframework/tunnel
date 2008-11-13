@@ -15,6 +15,14 @@
 
 use POSIX;
 
+use constant  {
+	LOG_DEBUG => 0,
+	LOG_INFO => 1,
+	LOG_WARN => 2,
+	LOG_ERROR => 3,
+	LOG_CRITICAL => 4,
+};
+
 ###############################################
 # INDEX
 ###############################################
@@ -70,6 +78,8 @@ use POSIX;
 # 4.32		printdblog
 # 4.33		logsys
 # 4.34		in_array
+# 4.35		startstatic
+# 4.36		check_interface_ip
 ###############################################
 
 # 1.01 chkdhclient
@@ -382,18 +392,16 @@ sub dbnetconf() {
 # Returns mac on success
 # Returns false on failure
 sub dbmacaddr() {
-  my ($sth, $mac, $sensor, $remoteip, @row, $sql, $er);
+  my ($sth, $mac, $sensor, $remoteip, @row, $sql, $er, $vlan);
   $sensor = $_[0];
   $remoteip = $_[1];
+  $vlan = $_[2];
+
   chomp($sensor);
   chomp($remoteip);
 
-  $sql = "SELECT mac FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip'";
-  $sth = $dbh->prepare($sql);
-  &printlog("Prepared query: $sql");
-  $er = $sth->execute();
-  &printlog("Executed query", "$er");
-  @row = $sth->fetchrow_array;
+  $res = &dbquery("SELECT mac FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip' AND vlanid = '$vlan'");
+  @row = $res->fetchrow_array;
   $mac = $row[0];
   if ("$mac" eq "") {
     return "false";
@@ -513,16 +521,10 @@ sub printenv() {
 # Returns "false" on failure
 sub connectdb() {
   my ($ts, $pgerr);
-  $dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass);
-  &printlog("Connecting to $c_pgsql_dbname with DSN: $c_dsn");
+  our $dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass);
   if ($dbh ne "") {
-    &printlog("Connect result: Ok");
     return "true";
   } else {
-    &printlog("Connect result: failed");
-    $pgerr = $DBI::errstr;
-    chomp($pgerr);
-    &printlog("Error message: $pgerr");
     return "false";
   }
 }
@@ -536,6 +538,13 @@ sub startdhcp() {
   $tap = $_[0];
   chomp($tap);
 
+  # The dhclient script (surfids-dhclient) is responsible for setting up
+  # the interface and routes when an ip address is obtained. This
+  # script is heavily customized for the surfids system, as special
+  # routes need to be crafted.
+  #
+  # See startstatc() below to see the steps that are taken to set
+  # up these routes.
   `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
 #  `/opt/dhcp-3.0.7/bin/dhclient -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
   $ec = getec();
@@ -1386,6 +1395,8 @@ sub printdblog() {
   return "true";
 }
 
+
+
 # 3.19 cidr
 # # Function to convert a dotted decimal netmask to CIDR notation
 # # Returns CIDR notation on success
@@ -1405,29 +1416,41 @@ sub cidr() {
 
 # 4.33 logsys
 # Function to log messages to the syslog table
-sub logsys() {
-  my ($ts, $prefix, $msg, @row, $er, $sql, $sensorid, $dev);
-  $prefix = $_[0];
-  $level = $_[1];
-  $msg = $_[2];
-  $sensorid = $_[3];
-  $dev = $_[4];
-  chomp($prefix);
-  chomp($msg);
-  chomp($sensorid);
-  chomp($dev);
-  $ts = time();
 
-  if ($_[5]) {
-    $args = $_[5];
+sub logsys() {
+  my ($ts, $level, $msg, $sql, $er);	# local variables
+  our $source;
+  our $sensor;
+  our $tap;		
+  our $pid;
+
+  if (!$source) { $source = "source_unknown"; }
+  if (!$sensor) { $sensor = "sensor_unknown"; }
+  if (!$tap)    { $tap    = "tap_unknown"; }
+  if (!$pid)	{ $pid 	  = "pid_unknown"; }
+
+  $level = $_[0];	# Loglegel (DEBUG, INFO, WARN, ERROR, CRIT)
+  $msg = $_[1];		# Message (SATRT_SCRIPT, STOP_SCRIPT, etc )
+  chomp($msg);		
+
+  if ($_[2]) {
+    $args = $_[2];
     chomp($args);
   } else {
     $args = "";
   }
 
-  $sql = "INSERT INTO syslog (source, timestamp, error, args, level, sensorid, device) VALUES ";
-  $sql .= " ('$prefix', '$ts', '$msg', '$args', '$level', '$sensorid', '$dev')";
-  $er = $dbh->do($sql);
+  $ts = time();
+
+#  $sql = "INSERT INTO syslog (source, timestamp, error, args, level, sensorid, device, $pid) VALUES ";
+#  $sql .= " ('$source', '$ts', '$msg', '$args', '$level', '$sensor', '$tap', $pid)";
+#  $er = $dbh->do($sql);
+
+  open LOG,  ">>/tmp/logsys" || die ("cant open log: $!");
+  print LOG "$pid	$source		$sensor		$level\n";
+  print LOG "$msg	$args\n";
+  print LOG "\n";
+  close LOG;
   return "true";
 }
 
@@ -1437,6 +1460,161 @@ sub logsys() {
 sub in_array() {
   my ($ar, $search) = @_;
   return grep { $search eq $_ } @$ar;
+}
+
+
+# 4.35 startstatic
+# Function to start static networking. Works like 
+# startdhcp (4.07) but takes more arguments
+sub startstatic() {
+        my ($tap, $if_ip, $if_nm, $if_gw, $if_bc);
+        $tap = $_[0];
+        $if_ip = $_[1];
+        $if_nm = $_[2];
+        $if_gw = $_[3];
+        $if_bc = $_[4];
+
+        # Configure the interface
+        `ifconfig $tap $if_ip netmask $if_nm broadcast $if_bc`;
+        $ec = getec();
+        &printlog("Setting IP address: $if_ip - $if_nm - $if_bc", "$ec");
+
+        # Check for existing rules.
+        $rulecheck = `ip rule list | grep $tap | wc -l`;
+        chomp($rulecheck);
+        if ($rulecheck == 0) {
+                $result = &ipruleadd($tap, $if_ip);
+        } else {
+                $result = &deliprules($tap);
+                $result = &ipruleadd($tap, $if_ip);
+                $checktap = `$c_surfidsdir/scripts/checktap.pl $tap`;
+                $ec = getec();
+                &printlog("Running: $c_surfidsdir/scripts/checktap.pl $tap", "$ec");
+        }
+
+        # Just to be sure, flush the routing table of the tap device.
+        &flushroutes($tap);
+        $ec = getec();
+        &printlog("Flushing $tap routing table!", "$ec");
+
+        # Calculate the network based on the if_ip and the netmask.
+        $network = &getnetwork($if_ip, $if_nm);
+        $ec = getec();
+        &printlog("Network: $network", "$ec");
+        ##print LOG "[$ts - $tap - $ec] Network: $network\n";
+
+        # Check if there are any routes present in the main routing table.
+        $routecheck = `ip route list | grep $tap | wc -l`;
+        chomp($routecheck);
+        $ec = getec();
+        &printlog("IP routes present in main table: $routecheck", "$ec");
+
+        # If none were present, add it. This needs to be done otherwise
+        # you'll get an error when adding the default gateway
+        # for the tap device routing table.
+        if ($routecheck == 0) {
+                $result = &addroute($network, $tap, $if_ip, "main");
+                $ec = getec();
+                &printlog("Adding route to table main", "$ec");
+        }
+
+        # Add default gateway to the routing table of the tap device.
+        $result = &adddefault($if_gw, $tap);
+        $ec = getec();
+        &printlog("Adding default route to table $tap", "$ec");
+
+        # At this point we can delete the route to the network from the
+        # main table as there is now a default gateway in the routing table
+        # from the tap device.
+        $result = &delroute($network, $tap, $if_ip, "main");
+        $ec = getec();
+        &printlog("Deleting route from table main", "$ec");
+
+        # Add the route to the network to the routing table of the tap device.
+        $result = &addroute($network, $tap, $if_ip, $tap);
+        $ec = getec();
+        &printlog("Adding route to table $tap", "$ec");
+}
+
+# 4.36 check_interface_ip
+# Function to check if the interface has an IP address. Wait 'timeout'
+# seconds to allow (slow) DHCP interfaces to obtain an address
+sub check_interface_ip() {
+        my ($tap, $timeout, $count, $i);
+        $tap = $_[0];
+        $timeout = $_[1];
+
+        $ok = 0; $i = 0;
+        while ($ok != 1 && $i < $timeout) {
+                $tapcheck = `ifconfig $tap`;
+                if ($? != 0) {
+                        $count = 1;
+                        $ec = getec();
+                        &printlog("The tap device was not present!", "$ec");
+                        return -1;
+                } else {
+                        $ok = `ifconfig $tap | grep "inet addr:" | wc -l`;
+                        chomp($ok);
+                }
+                $i++;
+                if ($i == $timeout) {
+                        &printlog("The tap device could not get an IP address!", "Err");
+                        return -1;
+                }
+                sleep 1;
+        }
+        return 0;
+}
+
+
+# 4.37 dbquery
+# Performs a query to the database. If the query fails, log the query to the database
+# and return false. Otherwise, return the data.
+sub dbquery {
+	my $sql = $_[0];
+	
+	if (!$dbh) {
+		&logsys(LOG_ERROR, "DB_ERROR", "No database handler!");
+		return 'false';
+	}
+	$sth = $dbh->prepare($sql);
+	$er = $sth->execute();
+	if (!$er) {
+		&logsys(LOG_ERROR, "DB_QUERY_FAIL", $sql);
+		exit(1);
+	} else {
+		&logsys(LOG_DEBUG, "DB_QUERY_OK", $sql);
+	}
+
+	return $sth;
+}
+
+
+# 4.38 sys_exec 
+# Executes the specified command. Logs nonzero return value to database.
+sub sys_exec {
+	my $cmd = $_[0];
+
+	`$cmd`;
+
+	if ($?) {
+		&logsys(LOG_DEBUG, "SYS_EXEC_FAIL", "$cmd (errorcode $?)");
+	} else {
+		&logsys(LOG_DEBUG, "SYS_EXEC_OK", $cmd);
+	}
+
+	return $?;
+}
+
+# 4.39 disconnectdb
+# Closes the DB connection
+sub disconnectdb {
+	if ($sth) {
+		$sth->finish;
+	}
+	if ($dbh) {
+		$dbh->disconnect();
+	}
 }
 
 return "true";

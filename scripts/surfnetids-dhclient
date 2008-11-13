@@ -16,7 +16,7 @@
 ####################
 # Variables used
 ####################
-surfnetidsdir="/opt/surfnetids/2.10/tunnel/trunk"
+surfnetidsdir="/opt/surfnetids/tunnel/"
 datumadd=`date "+%d%m%Y"`
 if [ ! -d "$surfnetidsdir/log/$datumadd" ]; then
   mkdir "$surfnetidsdir/log/$datumadd"

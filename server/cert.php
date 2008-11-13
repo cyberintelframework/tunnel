@@ -2,9 +2,9 @@
 
 ####################################
 # Certificate Generation Handler   #
-# SURFnet IDS 2.10.00              #
+# SURFids 2.00.03                  #
 # Changeset 001                    #
-# 01-04-2008                       #
+# 22-05-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
@@ -26,7 +26,6 @@ $err =0;
 
 $allowed_get = array(
                 "ip_localip",
-                "int_vlanid",
 		"md5_ris"
 );
 $check = extractvars($_GET, $allowed_get);
@@ -42,14 +41,6 @@ if (isset($clean['localip'])) {
 } else {
   $err = 1;
   echo "ERROR: Localip was empty.<br />\n";
-}
-
-# Check if vlanid is set.
-if (isset($clean['vlanid'])) {
-  $vlanid = $clean['vlanid'];
-} else {
-  $err = 1;
-  echo "ERROR: vlanid was empty.<br />\n";
 }
 
 if ($err == 0) {
@@ -151,7 +142,7 @@ if ($err == 0) {
   }
 
   # Update the database with Keyname, Remoteip, Localip and Organisation.
-  $sql_addsensor = "INSERT INTO sensors (keyname, remoteip, localip, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', $orgid, $vlanid)";
+  $sql_addsensor = "INSERT INTO sensors (keyname, remoteip, localip, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', $orgid, 0)";
   $result_addsensor = pg_query($pgconn, $sql_addsensor);
 
   # Start the scripts to generate and sign the certificates for the sensor.

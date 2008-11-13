@@ -1,18 +1,33 @@
 #!/usr/bin/perl
 
+use warnings;
+use strict 'vars';
+
 #########################################
-# Stop script for IDS server	        #
+# Stop script for IDS server            #
 # SURFnet IDS 2.10.00                   #
 # Changeset 002                         #
 # 15-07-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
+# Auke Folkerts (changeset 003)         #
 #########################################
 
 #####################
 # Changelog:
+# 003 - Support for multiple vlans per tunnel
+#     - various cleanups
 # 002 Added logsys stuff
 # 001 version 2.10.00 release
 #####################
+
+
+#####################
+# Includes
+####################
+use vars qw ($c_surfidsdir);
+do '/etc/surfnetids/surfnetids-tn.conf';
+require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
+
 
 ####################
 # Modules used
@@ -20,164 +35,91 @@
 use DBI;
 use Time::localtime qw(localtime);
 
-####################
-# Variables used
-####################
-# Get tap device that's going down.
-$tap = $ARGV[0];
 
-do '/etc/surfnetids/surfnetids-tn.conf';
-require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
+####################
+# Global variables
+####################
+our $source = 'down.pl';
+our $sensor = $ENV{sensor} || die ("no sensor");
+our $tap = $ENV{tap} || die ("no tap");
+our $remoteip = $ENV{remoteip} || die ("no remoteip");
+our $pid = $ENV{pid} || die ("no pid");
 
-$logfile = $c_logfile;
-$logfile =~ s|.*/||;
-if ($c_logstamp == 1) {
-  $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  $year = localtime->year() + 1900;
-  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
-    mkdir("$c_surfidsdir/log/$day$month$year");
-  }
-  if ( ! -d "$c_surfidsdir/log/$day$month$year/$tap" ) {
-    mkdir("$c_surfidsdir/log/$day$month$year/$tap");
-  }
-  $logfile = "$c_surfidsdir/log/$day$month$year/$tap/$logfile";
-} else {
-  $logfile = "$c_surfidsdir/log/$logfile";
-}
 
 ####################
 # Main script
-####################
-
-# Opening log file
-open(LOG, ">> $logfile");
-
-$ts = getts();
-printlog("Starting down.pl");
-#print LOG "[$ts - $tap] Starting down.pl\n";
-
-# Connect to the database (dbh = DatabaseHandler or linkserver)
-$dbconn = connectdb();
-
-if ($dbconn eq "true") {
-  # Reset status
-  $sql = "UPDATE sensors SET status = 0 WHERE tap = '$tap'";
-  $sth = $dbh->prepare($sql);
-  $ts = getts();
-  printlog("Prepared query: $sql");
-  $er = $sth->execute();
-
-  if ("$er" eq "0E0") {
-    logsys($prefix, 2, "FAILED_QUERY", "$sensorid", "$tap", $sql);
-  }
-
-  $ts = getts();
-  printlog("Executed query: $er");
+###################
+my $result = connectdb();
+if ($result eq 'false') {
+	die ("No database connection");
 }
 
-$killresult = killdhclient($tap);
 
-# Delete .leases file
-`rm -f /var/lib/dhcp3/$tap.leases`;
-$ec = getec();
-printlog("Deleted dhcp lease file /var/lib/dhcp3/$tap.leases", $ec);
+logsys(LOG_DEBUG, "SCRIPT_START");
 
-$result = deliprules($tap);
 
-if ($dbconn eq "true") {
-  # Get the remote IP address.
-  $remoteip = $ENV{REMOTE_HOST};
-  if ( ! $remoteip ) {
-    # Remote IP address was not set in the environment variables. Get it from the database.
-    # Prepare and execute sql query on database to retrieve remoteip.
-    $remoteip = dbremoteip($tap);
-  }
-  printlog("Remoteip: $remoteip");
-
-  # Get the network config method. (Static / DHCP)
-  $netconf = dbnetconf($tap);
-
-  if ($netconf eq "dhcp" || $netconf eq "" || $netconf eq "vland") {
-    # Network configuration method was DHCP. We delete both the tap device and address from the database.
-    printlog("Network config method: DHCP");
-    # Execute query to remove tap device information from database.
-    $sql = "UPDATE sensors SET tap = '', tapip = NULL, status = 0 WHERE tap = '$tap'";
-    $er = $dbh->do($sql);
-
-    if ("$er" eq "0E0") {
-      logsys($prefix, 2, "FAILED_QUERY", "$sensorid", "$tap", $sql);
-    }
-
-    $ts = getts();
-    printlog("Prepared query: $sql");
-    printlog("Executed query: $er");
-  } else {
-    # Network configuration method was Static. We don't delete the tap IP address from the database.
-    printlog("Network config method: static");
-    # Execute query to remove tap device information from database.
-    $sql = "UPDATE sensors SET tap = '', status = 0 WHERE tap = '$tap'";
-    $er = $dbh->do($sql);
-
-    if ("$er" eq "0E0") {
-      logsys($prefix, 2, "FAILED_QUERY", "$sensorid", "$tap", $sql);
-    }
-
-    $ts = getts();
-    printlog("Prepared query: $sql");
-    printlog("Executed query: $er");
-  }
-
-  # Delete route to connecting ip address of client via local gateway.
-  $sql = "SELECT COUNT(remoteip) FROM sensors WHERE remoteip = '$remoteip'";
-  $sth = $dbh->prepare($sql);
-  $ts = getts();
-  printlog("Prepared query: $sql");
-  $er = $sth->execute();
-
-  if ("$er" eq "0E0") {
-    logsys($prefix, 2, "FAILED_QUERY", "$sensorid", "$tap", $sql);
-  }
-
-  $ts = getts();
-  printlog("Executed query: $er");
-
-  # Get the count of remote ip addresses from the query result.
-  @row = $sth->fetchrow_array;
-  $ts = getts();
-  $count = $row[0];
-  printlog("Query result: count = $count");
-  if ($count == 1) {
-    # There is only 1 remoteip address in the database so we can delete the static route towards this IP.
-    `route del -host $remoteip`;
-    $ts = getts();
-    $ec = getec();
-    printlog("Deleted route: route del -host $remoteip", "$ec");
-  }
-} else {
-  $remoteip = $ENV{REMOTE_HOST};
-  `route del -host $remoteip`;
-  $ts = getts();
-  $ec = getec();
-  printlog("Deleted route: route del -host $remoteip", "$ec");
+# find all tap devices in use
+my $res = dbquery("SELECT tap FROM sensors WHERE keyname = '$sensor' AND status = 1");
+my @devices;
+for (my $i = 0; $i < $res->rows(); $i++) {
+	my @row = $res->fetchrow_array;
+	my $dev = $row[0];
+	push (@devices, $dev);
+	logsys(LOG_DEBUG, "SPEC", "$dev added");
 }
 
-# Flush the routing table of the tap device just to be sure.
-$result = flushroutes($tap);
-$ec = getec();
-printlog("Flushing routing table for $tap", $ec);
 
-# Closing database connection.
-$dbh = "";
 
-$ts = getts();
-printlog("-------------finished down.pl-----------");
+# Update database. Clear the tap and tapip fields for all entries for this sensor.
+dbquery("UPDATE sensors SET tap = '', tapip = '0.0.0.0' WHERE keyname = '$sensor'");
 
-# Closing log filehandle.
-close(LOG);
+
+# Update dabase. Set the status field to 0 for all active clients. This
+# is a safety net in case the stopclient.php script is not run by the 
+# sensor (ie. it is crashed). down.pl will be called any time an openvpn
+# connection drops.
+dbquery("UPDATE sensors SET status = 0 WHERE keyname = '$sensor' AND status = 1");
+
+
+# For all tap devices affected by the openvpn tunnel going down, clean up.
+# (this uses the array of affected devices created earlier in this script)
+foreach my $dev (@devices) {
+	# Stop DHCP. Does nothing for staticcaly configured clients.
+	killdhclient($dev);
+
+	# Delete .leases file
+	sys_exec("rm -f /var/lib/dhcp3/$dev.leases");
+
+	# Fix routes
+	$result = deliprules($dev);
+	if ($result) {
+		logsys(LOG_WARN, "SYS_FAIL", "Deleting ip rules for $dev failed (error code $result)");
+	} else {
+		logsys(LOG_DEBUG, "NOTIFY", "Removed routing table for $dev");
+	}
+
+
+	# Flush the routing table of the tap device just to be sure.
+	$result = flushroutes($dev);
+	if ($result) {
+		logsys(LOG_WARN, "SYS_FAIL", "Flushing routes for $dev failed. (error code ($result)");
+	} else {
+		logsys(LOG_DEBUG, "NOTIFY", "Flushed routes for $dev");
+	}
+}
+
+
+# Delete route to connecting ip address of client via local gateway.
+sys_exec("route del -host $remoteip");
+if ($?) {
+	logsys(LOG_ERROR, "NETWORK_ERROR", "Failed  to delete host route (error code $?)");
+	exit(1);
+} else{ 
+	logsys(LOG_DEBUG, "NOTIFY", "Deleted host route for $remoteip.");
+}
+
+
+END {
+	logsys(LOG_DEBUG, "SCRIPT_END");
+	disconnectdb();
+}

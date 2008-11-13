@@ -2,9 +2,9 @@
 
 ####################################
 # Stopclient info update           #
-# SURFnet IDS 2.10.00              #
-# Changeset 002                    #
-# 05-08-2008                       #
+# SURFids 2.00.03                  #
+# Changeset 001                    #
+# 22-05-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
@@ -16,7 +16,6 @@
 
 ####################################
 # Changelog:
-# 002 Extra check before query
 # 001 Removed server variable stuff
 ####################################
 
@@ -27,7 +26,6 @@ include 'include/certfunc.inc.php';
 
 $allowed_get = array(
                 "ip_localip",
-                "int_vlanid",
                 "strip_html_escape_keyname"
 );
 $check = extractvars($_GET, $allowed_get);
@@ -35,7 +33,6 @@ debug_input();
 
 # Get remoteip and querystring.
 $remoteip = $_SERVER['REMOTE_ADDR'];
-$prefix = "stopclient.php";
 
 # First check if all the variables are present.
 $err = 0;
@@ -49,36 +46,12 @@ if (isset($clean['keyname'])) {
   if (!preg_match($pattern, $keyname)) {
     echo "ERRNO: 91\n";
     echo "ERROR: Keyname not valid.\n";
-    logdb($prefix, 3, "NO_KEYNAME_GIVEN", $sensorid, $remoteip);
     $err = 1;
   }
 } else {
   echo "ERRNO: 91\n";
   echo "ERROR: Keyname not valid.\n";
   $err = 1;
-}
-
-###########
-# vlanid  #
-###########
-if (isset($clean['vlanid'])) {
-  $vlanid = $clean['vlanid'];
-} else {
-  echo "ERRNO: 93\n";
-  echo "ERROR: vlanid not present.\n";
-  logdb($prefix, 3, "NO_VLANID_GIVEN", $sensorid, $remoteip);
-  $err = 1;
-}
-
-# Get the sensorid for the logs
-if ($err == 0) {
-  $sql = "SELECT id FROM sensors WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
-  $result = pg_query($pgconn, $sql);
-  $numrows = pg_num_rows($result);
-  if ($numrows != 0) {
-    $row = pg_fetch_assoc($result);
-    $sensorid = $row['sensorid'];
-  }
 }
 
 ###########
@@ -89,24 +62,19 @@ if (isset($clean['localip'])) {
 } else {
   echo "ERRNO: 92\n";
   echo "ERROR: Localip not present.\n";
-  logdb($prefix, 3, "NO_LOCALIP_GIVEN", $sensorid, $remoteip);
   $err = 1;
 }
 
 ############
 # Database #
 ############
-if ($err == 0) {
-  $sql_sensors = "SELECT id, action, ssh, status, laststart, uptime, tapip, netconf, localip, remoteip ";
-  $sql_sensors .= " FROM sensors WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
-  $result_sensors = pg_query($pgconn, $sql_sensors);
-  $numrows = pg_num_rows($result_sensors);
-  if ($numrows == 0) {
-    echo "ERRNO: 94\n";
-    echo "ERROR: No record in the database for sensor: $keyname-$vlanid\n";
-    logdb($prefix, 3, "NO_SENSOR_FOUND", $sensorid, $remoteip);
-    $err = 1;
-  }
+$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname'";
+$result_sensors = pg_query($pgconn, $sql_sensors);
+$numrows = pg_num_rows($result_sensors);
+if ($numrows == 0) {
+  echo "ERRNO: 94\n";
+  echo "ERROR: No record in the database for sensor: $keyname\n";
+  $err = 1;
 }
 
 ###############################
@@ -123,12 +91,10 @@ if ($err == 0) {
   $status = $row['status'];
   $laststart = $row['laststart'];
   $uptime = $row['uptime'];
-  $tapip = $row['tapip'];
-  $serverconf = $row['netconf'];
   if ($laststart != "") {
-    $newuptime = $uptime + ($date - $laststart);
+    $newuptime = 0 + $uptime + ($date - $laststart);
   } else {
-    $newuptime = $uptime;
+    $newuptime = 0;
   }
 
   echo "############-SERVER-INFO-##########\n";
@@ -136,9 +102,6 @@ if ($err == 0) {
   echo "ACTION: $action\n";
   echo "SSH: $ssh\n";
   echo "STATUS: $status\n";
-  echo "TAPIP: $tapip\n";
-  echo "SERVERCONF: $serverconf\n";
-  echo "VLANID: $vlanid\n";
   echo "NEWUPTIME: $newuptime\n";
   echo "############-CLIENT-INFO-##########\n";
   echo "REMOTEIP: $remoteip\n";
@@ -148,30 +111,23 @@ if ($err == 0) {
   echo "#######-Taken actions-#######\n";
 
   # If remoteip has changed, update it to the database.
-  $old_remoteip = $row['remoteip'];
   if ($row['remoteip'] != $remoteip) {
     echo "Updated remote IP address.\n";
-    $sql_update_remote = "UPDATE sensors SET remoteip = '" .$remoteip. "' WHERE keyname = '$keyname' AND vlanid='$vlanid'";
+    $sql_update_remote = "UPDATE sensors SET remoteip = '" .$remoteip. "' WHERE keyname = '$keyname'";
     $result_update_remote = pg_query($pgconn, $sql_update_remote);
-    logdb($prefix, 0, "DB_UPDATE_REMOTEIP", $sensorid, "$remoteip, $old_remoteip");
   }
 
   # If localip has changed, update it to the database.
-  $old_localip = $row['localip'];
   if ($row['localip'] != $localip) {
     echo "Updated local IP address.\n";
-    $sql_update = "UPDATE sensors SET localip = '" .$localip. "' WHERE keyname = '$keyname' AND vlanid='$vlanid'";
+    $sql_update = "UPDATE sensors SET localip = '" .$localip. "' WHERE keyname = '$keyname'";
     $result_update = pg_query($pgconn, $sql_update);
-    logdb($prefix, 0, "DB_UPDATE_LOCALIP", $sensorid, "$localip, $old_localip");
   }
 
   # Update the last start timestamp to the database.
-  $sql_laststart = "UPDATE sensors SET status = 0, uptime = $newuptime, laststop = '$date' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
+  $sql_laststart = "UPDATE sensors SET status = 0, uptime = $newuptime, laststop = $date WHERE keyname = '$keyname' AND status = 1";
   echo "SQLLASTSTART: $sql_laststart\n";
   $result_laststart = pg_query($pgconn, $sql_laststart);
-  logdb($prefix, 0, "DB_UPDATE_STATUS", $sensorid, 0);
-  logdb($prefix, 0, "DB_UPDATE_UPTIME", $sensorid, $newuptime);
-  logdb($prefix, 0, "DB_UPDATE_LASTSTOP", $sensorid, $date);
 }
 
 # Close the connection with the database.
