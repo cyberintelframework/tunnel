@@ -3,13 +3,14 @@
 #########################################
 # Scanbinaries script                   #
 # SURFids 2.10                          #
-# Changeset 003                         #
-# 18-03-2008                            #
+# Changeset 004                         #
+# 14-11-2008                            #
 # Jan van Lith & Kees Trippelvitz       #
 #########################################
 
 #####################
 # Changelog:
+# 004 Revised the logic, should perform better now
 # 003 Added more scan methods
 # 002 Added scan method support
 # 001 version 2.10.00 release
@@ -76,17 +77,26 @@ printlog("Starting scanbinaries.pl");
 $checkdb = connectdb();
 
 @contents = ();
-if ($c_scan_method == 1) {
+if ($c_scan_method == 0) {
+    print "Scanning all binaries\n";
+    # Scan all binaries
+
+    # Getting bindir contents
+    opendir BINDIR, $c_bindir;
+    @contents = grep !/^\.\.?$/, readdir BINDIR;
+} elsif ($c_scan_method == 1) {
     # Scan only new malware
+    print "Scanning new binaries only\n";
 
     # First define the set of binaries that already have been scanned
-    $sql_scanned = "SELECT DISTINCT uniq_binaries.name FROM binaries, uniq_binaries WHERE binaries.bin = uniq_binaries.id";
+    $sql_scanned = "SELECT DISTINCT uniq_binaries.name FROM uniq_binaries ";
+    $sql_scanned .= " INNER JOIN binaries ON uniq_binaries.id = binaries.bin ";
     $sth_scanned = $dbh->prepare($sql_scanned);
     $result_scanned = $sth_scanned->execute();
-    @scanned = ();
+    %scanned = ();
     while (@rs = $sth_scanned->fetchrow_array) {
         $binary = $rs[0];
-        push(@scanned, $binary);
+        $scanned{$binary} = 1;
     }
 
     # Now get all the existing binaries on the system
@@ -101,10 +111,13 @@ if ($c_scan_method == 1) {
     }
 } elsif ($c_scan_method == 2) {
     # Scan only new malware and undetected/suspicious malware
+    print "Scanning new binaries and undetected binaries only\n";
 
     # First define the set of binaries that already have been scanned and are known
-    $sql_known = "SELECT DISTINCT uniq_binaries.name FROM binaries, uniq_binaries, stats_virus ";
-    $sql_known .= " WHERE binaries.info = stats_virus.id AND NOT stats_virus.name = 'Suspicious' AND uniq_binaries.id = binaries.bin";
+    $sql_known = "SELECT DISTINCT uniq_binaries.name FROM uniq_binaries ";
+    $sql_known .= " INNER JOIN binaries ON uniq_binaries.id = binaries.bin ";
+    $sql_known .= " INNER JOIN stats_virus ON binaries.info = stats_virus.id ";
+    $sql_known .= " AND NOT stats_virus.name = 'Suspicious' ";
     $sth_known = $dbh->prepare($sql_known);
     $result_known = $sth_known->execute();
     %known = ();
@@ -123,18 +136,15 @@ if ($c_scan_method == 1) {
             push(@contents, $bin);
         }
     }
-} elsif ($c_scan_method == 0) {
-    # Scan all binaries
-
-    # Getting bindir contents
-    opendir BINDIR, $c_bindir;
-    @contents = grep !/^\.\.?$/, readdir BINDIR;
 } elsif ($c_scan_method == 3) {
-    # Scan only new malware and undetected/suspicious malware
+    # Scan only new malware and undetected/suspicious malware and all binaries with limitation
+    print "Scanning new, undetected and all binaries (limited)\n";    
 
     # First define the set of binaries that already have been scanned and are known
-    $sql_known = "SELECT DISTINCT uniq_binaries.name FROM binaries, uniq_binaries, stats_virus ";
-    $sql_known .= " WHERE binaries.info = stats_virus.id AND NOT stats_virus.name = 'Suspicious' AND uniq_binaries.id = binaries.bin";
+    $sql_known = "SELECT DISTINCT uniq_binaries.name FROM uniq_binaries ";
+    $sql_known .= " INNER JOIN binaries ON uniq_binaries.id = binaries.bin ";
+    $sql_known .= " INNER JOIN stats_virus ON binaries.info = stats_virus.id ";
+    $sql_known .= " AND NOT stats_virus.name = 'Suspicious' ";
     $sth_known = $dbh->prepare($sql_known);
     $result_known = $sth_known->execute();
     %known = ();
@@ -154,9 +164,12 @@ if ($c_scan_method == 1) {
             push(@contents, $bin);
         } else {
             # If the scan_period_limit hasn't been reached, check period
-            if ($limit_counter != $c_scan_perdiod_limit) {
+            if ($c_scan_period_limit == 0) {
+              push(@contents, $file);
+            } elsif ($limit_counter != $c_scan_period_limit) {
                 # Check the c_scan_period threshold
                 $period_check = `find ${c_bindir}/$bin -amin +$c_scan_period | wc -l`;
+                
                 if ($period_check == 1) {
                     # If above threshold, add to contents
                     $limit_counter++;
@@ -184,6 +197,9 @@ if (@ARGV) {
     @contents = @ARGV;
 }
 
+print "COUNT:" . scalar(@contents) . "\n";
+
+exit;
 # Serialize the contents array
 $files = "";
 $total_files = 0;
