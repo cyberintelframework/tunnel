@@ -1,0 +1,413 @@
+#!/usr/bin/perl
+
+#########################################
+# Stop script for SURFids Sensor
+# SURFids 2.04
+# Changeset 003
+# 28-05-2008
+# Jan van Lith & Kees Trippelvitz
+#########################################
+# Contributors:                     
+# Peter Arts                        
+#########################################
+
+################
+# Changelog:
+# 003 Fixed chkreach bug for gateway
+# 002 Removed up check 
+# 001 Saving downloaded php files in /tmp now
+################
+
+# This script is run at reboot or shutdown.
+
+################
+# Variables    #
+################
+$basedir = "/cdrom/scripts";
+do "$basedir/sensor.conf";
+require "$basedir/functions.inc.pl";
+require "$networkconf";
+
+################
+# Start script #
+################
+
+if ($netconf eq "vlan") {
+  $statusif = "br1";
+} else { 
+  $statusif = "$br";
+}
+
+# Generate the server URL
+$serverurl = "$http://$server:$port/server";
+
+# Check for static of dynamic network connection
+printmsg("Network configuration method:", $netconf);
+
+# Removing iptables rules.
+`iptables -F >/dev/null`;
+printmsg("Clearing ethernet loop prevention:", $?);
+
+# If OpenVPN is running, stop it
+$chkopenvpn = chkopenvpn();
+if ($chkopenvpn == 0) {
+  # Stopping openvpn client.
+  `killall openvpn`;
+  printmsg("Stopping OpenVPN tunnel:", $?);
+}
+
+if ($netconf eq "dhcp" || $netconf eq "static") {
+  # Get the active ethernet interface
+  $if = getif();
+  if ($if eq "false") {
+    printmsg("Checking active interface:", "ignore");
+  } else {
+    printmsg("Checking active interface:", $if);
+  }
+  if ($netconf eq "dhcp") {
+    # Get the bridge interface IP address.
+    $chkbr = chkif($br);
+    if ($chkbr == 0) {
+      $if_ip = getifip($br);
+      printmsg("Checking IP address:", $if_ip);
+    } else {
+      printmsg("Checking IP address:", "ignore");
+    }
+  } else {
+    printmsg("Checking IP address:", $if_ip);
+  }
+  
+  # If the bridge is present, remove it and restore the main interface
+  
+  $chkif = chkif($br);
+  if ($chkif == 0) {
+    # Removing bridge and tap devices.
+    `ifconfig $br down >/dev/null`;
+    printmsg("Shutting down bridge interface:", $?);
+  }
+
+  $chkbrif = `brctl show $br | grep $if | wc -l`;
+  if ($chkbrif != 0) {
+    # Removing the active interface from the bridge
+    `brctl delif $br $if 2>/dev/null`;
+    printmsg("Removing $if from $br:", $?);
+  }
+
+  # Checking if $tap device is present in the bridge
+  $chkbrtap = `brctl show $br | grep $tap | wc -l`;
+  chomp($chkbrtap);
+  if ($chkbrtap != 0) {
+    `brctl delif $br $tap 2>/dev/null`;
+    printmsg("Removing $tap from $br:", $?);
+  }
+
+  $chkif = chkif($br);
+  if ($chkif == 0) {
+    # Removing the bridge
+    `brctl delbr $br 2>/dev/null`;
+    printmsg("Removing bridge interface:", $?);
+  }
+  
+  $chktap = chkif($tap);
+  if ($chktap == 0) {
+    `openvpn --dev $tap --rmtun`;
+    printmsg("Removing $tap device:", $?);
+  }
+  
+  if ($netconf eq "dhcp") {
+    # If dhclient is running for the bridge, kill it.
+    $chkdhclient = chkdhclient();
+    if ($chkdhclient == 0) {
+      `killall -9 dhclient3 2>/dev/null`;
+      printmsg("Killing all dhcp clients:", $?);
+    }
+    if ($if ne "false") {
+      printdelay("Starting dhclient for active interface:");
+      $e = startdhcp($if);
+      printresult($e);
+      $if_gw = getnetinfo("gw", $if);
+    } else {
+      printmsg("Starting dhclient for active interface:", "ignore");
+      $if_gw = "false";
+    }
+    sleeptimer("Waiting for connection:", 5);
+  } elsif ($netconf eq "static") {
+    printmsg("Configured IP address:", $if_ip);
+    printmsg("Configured Netmask:", $if_nm);
+    printmsg("Configured Gateway:", $if_gw);
+    printmsg("Configured Broadcast:", $if_bc);
+    printmsg("Configured Nameserver:", $if_ns);
+    if ($if ne "false") {
+      `ifconfig $if $if_ip netmask $if_nm broadcast $if_bc`;
+      $chkdefault = chkdefault($if);
+      if ($chkdefault != 0) {
+        `ip route del default 2>/dev/null`;
+        `ip route add default via $if_gw 2>/dev/null`;
+      }
+    }
+  }
+
+  # Checking if wget needs to authenticate the server certificate.
+  if ($checkcert == 0) {
+    $wgetarg = "--no-check-certificate";
+  } else {
+    $wgetarg = "";
+  }
+
+  if ($if_gw ne "false") {
+    printdelay("Checking gateway connectivity:");
+    $e = chkreach($if_gw, $if);
+    if ($e != 0) {
+      $e = "warning";
+    }
+    printresult($e);
+  }
+
+  if ($if ne "false") {
+    # Check if wget authentication is correct.
+    printdelay("Checking wget authentication:");
+    $chkwgetauth = chkwgetauth($wgetarg);
+    printresult($chkwgetauth);
+  }
+
+  # Get the keyname.
+  $sensor = getsensor();
+
+  if ($if ne "false") {
+    # Check if DNS name resolving works
+    printdelay("Checking DNS resolver:");
+    $chkresolv = getresolv($server);
+    if ($chkresolv eq "false") {
+      $chkresolv = 1;
+    } else {
+      $chkresolv = 0;
+    }
+    printresult($chkresolv);
+  } else {
+    $chkresolv = 1;
+  }
+
+  # Get the localip.
+  if ($netconf eq "dhcp" && $if ne "false") {
+    $if_ip = getifip($if);
+  }
+  if ($chkresolv == 0) {
+    printdelay("Updating status information:");
+    `wget -q $wgetarg -O $tmpdir/stopclient.php "$serverurl/stopclient.php?ip_localip=$if_ip&int_vlanid=0&strip_html_escape_keyname=$sensor"`;
+    printresult($?);
+  } else {
+    printmsg("Updating status information:", "ignore");
+  }
+
+  if (-r "$tmpdir/stopclient.php") {
+    # Check for errors with the localip and tapip update.
+    $checkerr = `cat $tmpdir/stopclient.php | grep "ERROR" | wc -l`;
+    if ($checkerr > 0) {
+      # Errors occured while updating localip and tapip.
+      $errors = `cat $tmpdir/stopclient.php | grep "ERROR"`;
+      print "${y}Error occured while updating status information.\n${n}";
+      print "${r}$errors\n${n}";
+    }
+  }
+} elsif ($netconf eq "vlan") {
+  $if = getif();
+  printmsg("Retrieving active interface:", $if);
+  if ($if eq "false") {
+    # Retrieving active interface failed, see if we
+    # can get the interface we need from remaining vlan devices
+    $if = `ifconfig -a | grep "^eth[0-9]*\\.[1-9][0-9]*.*\$" | head -n1 | awk '{print \$1}' | awk -F"." '{print \$1}'`;
+    chomp($if);
+    if ("$if" eq "") {
+      $if = "false";
+    }
+  }
+  $i = 1;
+  for my $key ( sort keys %vlan ) {
+    $vlanid = $key;
+    $br = "br$i";
+    $tap = "tap$i";
+    printmsg("Retrieving VLAN ID:", " $vlanid ");
+    $vs = "[VLAN$vlanid]";
+
+    $chkvlanif = chkif("$if.$vlanid");
+    
+    $chkdhclient = chkdhclient();
+    if ($chkdhclient == 0) {
+      `killall -9 dhclient3 2>/dev/null`;
+      printmsg("Killing all dhcp clients:", $?);
+    }
+
+
+    # Retrieving the network config method of the vlan
+    $vlan_method = $vlan{$vlanid}{method};
+    printmsg("$vs Retrieving VLAN Method:", $vlan_method);
+    
+    if ($vlan_method eq "static") {
+      $vlan_ip = $vlan{$vlanid}{if_ip};
+      $vlan_gw = $vlan{$vlanid}{if_gw};
+    } elsif ($vlan_method eq "dhcp") {
+      $chkbr = chkif($br);
+      if ($chkbr == 0) {
+        $vlan_ip = getifip($br);
+	  $chk = `ifconfig | grep "$br " | wc -l`;
+	  chomp($chk);
+	  if ($chk > 0) {
+            $vlan_gw = `cat /var/lib/dhcp3/dhcp$vlanid.lease 2>/dev/null | grep "routers" | awk '{print \$3}' | cut -d";" -f1 | tail -n1`;
+	    chomp($vlan_gw);
+	  }
+	  if (!$vlan_gw) {
+            $vlan_gw = "false";
+	  }
+      } else {
+        $vlan_ip = "false";
+	$vlan_gw = "false";
+      }
+    }
+    if ($vlan_ip eq "false") {
+      printmsg("$vs Checking IP address:", "ignore");
+    } else {
+      printmsg("$vs Checking IP address:", $vlan_ip);
+    }
+ 
+    if ($vlan_gw ne "false") {
+      if ($chkvlanif == 0) {
+        `ip route del default 2>/dev/null`;
+        `ip route add default via $vlan_gw 2>/dev/null`;
+        printmsg("$vs Adding default gw:", $?);
+      } else {
+        printmsg("$vs Adding default gw:", "ignore");
+      }
+    } else {
+      printmsg("$vs Adding default gw:", "ignore");
+    }
+
+    # Checking if wget needs to authenticate the server certificate.
+    if ($checkcert == 0) {
+      $wgetarg = "--no-check-certificate";
+    } else {
+      $wgetarg = "";
+    }
+    
+    if ($vlan_gw ne "false") {
+      printdelay("$vs Checking gateway connectivity:");
+      $e = chkreach($vlan_gw);
+      if ($e != 0) {
+        $e = "warning";
+      }
+      printresult($e);
+    }
+
+    # Get the keyname.
+    $sensor = getsensor();
+    if ($if ne "false" && $vlan_ip ne "false") {
+      if ($chkvlanif == 0) {
+        # Check if DNS name resolving works
+        printdelay("$vs Checking DNS resolver:");
+        $chkresolv = getresolv($server);
+        if ($chkresolv eq "false") {
+          $chkresolv = 1;
+        } else {
+          $chkresolv = 0;
+        }
+	printresult($chkresolv);
+      } else {
+        printmsg("$vs Checking DNS resolver:", "ignore");
+        $chkresolv = 1;
+      }
+    } else {
+      printmsg("$vs Checking DNS resolver:", "ignore");
+      $chkresolv = 1;
+    }
+
+    if ($chkresolv == 0) {
+      # Check if wget authentication is correct.
+      printdelay("$vs Checking wget authentication:");
+      $chkwgetauth = chkwgetauth($wgetarg);
+      printresult($chkwgetauth);
+    }
+
+    # Get the localip.
+    if ($chkresolv == 0 && $if ne "false" && $chkvlanif == 0) {
+      printdelay("$vs Updating status information:");
+      `wget -q $wgetarg -O $tmpdir/stopclient$vlanid.php "$serverurl/stopclient.php?ip_localip=$vlan_ip&int_vlanid=$vlanid&strip_html_escape_keyname=$sensor"`;
+      printresult($?);
+    }
+
+    if (-r "$basedir/stopclient$vlanid.php") {
+      # Check for errors with the localip and tapip update.
+      $checkerr = `cat $tmpdir/stopclient$vlanid.php | grep "ERROR" | wc -l`;
+      if ($checkerr > 0) {
+        # Errors occured while updating localip and tapip.
+        $errors = `cat $tmpdir/stopclient$vlanid.php | grep "ERROR"`;
+        print "${y}Error occured while updating status information.\n${n}";
+        print "${r}$errors\n${n}";
+      }
+    }
+
+    $pid = `cat /var/run/dhcp3/dhcp$vlanid.pid 2>/dev/null`;
+    chomp($pid);
+    if ($pid ne "") {
+      $chkdhclientpid = `ps -ef 2>/dev/null | grep $pid | grep -v grep |wc -l`;
+      if ($chkdhclientpid == 1) {
+        `kill $pid 2>/dev/null`;
+        printmsg("$vs Killing DHCP client [$pid]:", $?);
+      }
+    }
+
+    if ($vlan_gw ne "false") {
+       $chkdefault = chkdefault($br);
+      if ($chkdefault == 0) {
+        `ip route del default 2>/dev/null`;
+        printmsg("$vs Deleting default gw:", $?);
+      } else {
+        printmsg("$vs Deleting default gw:", "ignore");
+      }
+    } else {
+      printmsg("$vs Deleting default gw:", "ignore");
+    }
+   
+    $chkif = chkif($br);
+    if ($chkif == 0) {
+      printmsg("$vs Removing bridge:", $br);
+      `ifconfig $br down`;
+      $chkif = `brctl show | grep "$if.$vlanid" | wc -l`;
+      chomp($chkif);
+      if ($chkif != 0) {
+        `brctl delif $br $if.$vlanid`;
+      }
+      $chktap = `brctl show | grep $tap | wc -l`;
+      chomp($chktap);
+      if ($chktap != 0) {
+        `brctl delif $br $tap`;
+      }
+      `brctl delbr $br`;
+    }
+
+    $chktap = chkif($tap);
+    if ($chktap == 0) {
+      printmsg("$vs Removing tap device:", $tap);
+      `openvpn --dev $tap --rmtun`;
+    }
+    $chkif = chkif("$if.$vlanid");
+    if ($chkif == 0) {
+      printmsg("$vs Removing vlan interface:", "$if.$vlanid");
+      `vconfig rem $if.$vlanid`;
+    }
+    if ($vlan_ip ne "false" && $chkvlanif == 0) {
+      $er = 0;
+      `ip rule del from $vlan_ip 2>/dev/null`;
+      if ($? != 0) { $er++; }
+      #`ip rule del to $vlan_ip 2>/dev/null`;
+      if ($? != 0) { $er++; }
+      printmsg("$vs Removing routing rules:", $er);
+      $er = 0;
+    }  
+    $i++;
+  }
+}
+
+if (-e "/var/lib/dhcp3/$br.lease") {
+  printdelay("Removing DHCP lease file:");
+  `rm -f /var/lib/dhcp3/$br.lease 2>/dev/null`;
+  printresult($?);
+}

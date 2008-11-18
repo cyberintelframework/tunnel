@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+
+#########################################
+# SVN Update script                     #
+# SURFids 2.04                          #
+# Changeset 007                         #
+# 28-05-2008                            #
+# Jan van Lith & Kees Trippelvitz       #
+#########################################
+
+##################
+# Changelog:
+# 007 Always fix client.conf after update
+# 006 Fixed typo
+# 005 Changed the updating of caretaker
+# 004 Making sure the updated files are +x
+# 003 Fixed paths for svn commands
+# 002 Added non-interactive
+# 001 Changed update process to work with a RO disk
+##################
+
+################
+# Variables    #
+################
+$basedir = "/cdrom/scripts";
+do "$basedir/sensor.conf";
+do "$basedir/functions.inc.pl";
+do "$networkconf";
+$process = 0;
+
+################
+# Start script #
+################
+printmsg("Starting update script:", "info");
+
+############
+# Updating #
+############
+
+$chksvn = chksvn();
+if ($chksvn == 0) {
+  printmsg("Checking local SVN repo:", $chksvn);
+} else {
+  printmsg("Checking local SVN repo:", "warning");
+}
+
+if ($chksvn != 0) {
+  $mount = remount("rw");
+
+  printdelay("Cleaning up sig files:");
+  `rm -f $basedir/*.sig`;
+  printresult($?);
+  printdelay("Starting SVN checkout:");
+  `svn checkout --non-interactive --username $svnuser --password $svnpass $svnurl $basedir >/dev/null`;
+  printresult($?);
+
+  $mount = remount("ro");
+} else {
+  $server_rev = getrev("server");
+  $local_rev = getrev("local");
+  if ("$server_rev" eq "false") {
+    printmsg("SURFids scripts revision (server):", "false");
+  } elsif ("$local_rev" eq "false") {
+    printmsg("SURFids scripts revision (local):", "false");
+  } else {
+    printmsg("SURFids scripts revision (server):", " $server_rev ");
+    printmsg("SURFids scripts revision (local):", " $local_rev ");
+    if ($server_rev != $local_rev) {
+      $mount = remount("rw");
+
+      printdelay("Starting SVN update:");
+      `svn update --non-interactive --username $svnuser --password $svnpass $basedir 2>/dev/null`;
+      printresult($?);
+
+      if ($? == 0) {
+        $process = 1;
+      } else {
+        $mount = remount("ro");
+      }
+    }
+  }
+}
+
+if ($process == 1) {
+  printmsg("Processing files:", "info");
+  @sigfile_ar = `ls -1 $basedir`;
+  foreach $file (@sigfile_ar) {
+    chomp($file);
+    if ($file =~ /^.*\.sig\.mime$/ || $file =~ /^.*\.sig\.r[0-9]*$/) {
+      $sigfile = $file;
+      $sigfile =~ s/\.sig\..*//;
+      printdelay("Removing file: $file");
+      `rm -f $basedir/$file`;
+      printresult($?);
+      printdelay("SVN update for $sigfile");
+      `svn update --non-interactive $basedir/$sigfile.sig --username $svnuser --password $svnpass $basedir`;
+      printresult($?);
+      `openssl smime -verify -text -inform SMIME -in $basedir/$sigfile.sig -out $basedir/$sigfile.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+      `dos2unix $basedir/$sigfile.new`;
+      `mv $basedir/$sigfile.new $basedir/$sigfile`;
+    }
+    if ($file =~ /^.*\.sig$/) {
+      $file =~ s/\.sig//;
+      `openssl smime -verify -text -inform SMIME -in $basedir/$file.sig -out $basedir/$file.new -CAfile $basedir/scripts.crt 2>/dev/null`;
+      `dos2unix $basedir/$file.new`;
+      `mv $basedir/$file.new $basedir/$file`;
+      `chmod +x $basedir/$file`;
+    }
+    if ("$file" eq "caretaker") {
+      $pid = getpid("caretaker");
+      if ($pid != 0) {
+        `kill $pid 2>/dev/null`;
+        system("$basedir/caretaker & >/dev/null 1>/dev/null 2>/dev/null");
+      }
+    }
+  }
+  $mount = remount("ro");
+
+  # Always fix the client.conf after an update
+  fixclientconf();
+}
