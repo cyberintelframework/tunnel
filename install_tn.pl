@@ -2,7 +2,7 @@
 
 ###################################
 # Tunnel installation script      #
-# SURFids 2.00.03                 #
+# SURFids 2.00.04                 #
 # Changeset 004                   #
 # 30-05-2008                      #
 # Jan van Lith & Kees Trippelvitz #

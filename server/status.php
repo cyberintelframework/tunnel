@@ -2,7 +2,7 @@
 
 ####################################
 # Status info                      #
-# SURFids 2.04                     #
+# SURFids 2.00.04                  #
 # Changeset 005                    #
 # 08-04-2008                       #
 # Jan van Lith & Kees Trippelvitz  #

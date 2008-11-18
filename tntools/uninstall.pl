@@ -2,7 +2,7 @@
 
 ###################################
 # Tunnel uninstallation script    #
-# SURFids 2.04                    #
+# SURFids 2.00.04                 #
 # Changeset 002                   #
 # 07-11-2007                      #
 # Jan van Lith & Kees Trippelvitz #

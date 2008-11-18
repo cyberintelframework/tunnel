@@ -2,7 +2,7 @@
 
 ####################################
 # Certificate Generation Handler   #
-# SURFids 2.04                     #
+# SURFids 2.00.04                  #
 # Changeset 001                    #
 # 22-05-2008                       #
 # Jan van Lith & Kees Trippelvitz  #

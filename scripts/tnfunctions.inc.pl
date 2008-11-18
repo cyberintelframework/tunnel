@@ -2,7 +2,7 @@
 
 ######################################
 # Function library for tunnel server #
-# SURFids 2.04                       #
+# SURFids 2.00.04                    #
 # Changeset 002                      #
 # 09-11-2007                         #
 # Jan van Lith & Kees Trippelvitz    #

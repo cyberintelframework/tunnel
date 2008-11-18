@@ -2,7 +2,7 @@
 
 ###################################
 # ARGOS redirect script           #
-# SURFids 2.04                    #
+# SURFids 2.00.04                 #
 # Changeset 002                   #
 # 13-12-2007                      #
 # Jan van Lith & Kees Trippelvitz #

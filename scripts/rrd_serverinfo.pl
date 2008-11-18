@@ -2,7 +2,7 @@
 
 #########################################
 # Server info script                    #
-# SURFids 2.04                          #
+# SURFids 2.00.04                       #
 # Changeset 001                         #
 # 14-09-2007                            #
 # Hiroshi Suzuki                        #

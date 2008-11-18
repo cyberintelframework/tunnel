@@ -2,7 +2,7 @@
 
 #########################################
 # Function library for the sensor scripts
-# SURFids 2.04
+# SURFids 2.00.04
 # Changeset 009
 # 28-05-2008
 # Jan van Lith & Kees Trippelvitz

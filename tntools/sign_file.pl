@@ -2,7 +2,7 @@
 
 ####################################
 # Sign a file for the IDS Server   #
-# SURFids 2.04                     #
+# SURFids 2.00.04                  #
 # Changeset 001                    #
 # 14-09-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
