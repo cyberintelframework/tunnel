@@ -16,7 +16,7 @@
 # database with the new sensor configuration. Elements included:
 #
 # keyname : name of  the sensor
-# method : 'simple' or 'vlan'. 
+# method : 'normal' or 'vlan'. 
 # interface : string  that contains primary interface
 #
 
@@ -92,7 +92,7 @@ if (isset($clean['method'])) {
 ############
 # Revision #
 ############
-if (isset($clean['rev']) {
+if (isset($clean['rev'])) {
 	$rev = $clean['rev'];
 } else {
 	echo "ERRNO: 94\n";
@@ -103,10 +103,10 @@ if (isset($clean['rev']) {
 #############
 # DNS 1 & 2 #
 #############
-if (isset($clean['dns1']) {
+if (isset($clean['dns1'])) {
 	$dns1 = $clean['dns1'];
 }
-if (isset($clean['dns2']) {
+if (isset($clean['dns2'])) {
 	$dns2 = $clean['dns2'];
 }
 
@@ -195,12 +195,12 @@ while ($row = pg_fetch_assoc($result_sensors)) {
 # Fetch revision from DB
 $sql_rev = "SELECT rev FROM sensors WHERE keyname ='$keyname' AND vlanid = 0";
 $result_rev = pg_query($pgconn, $sql_rev);
-if ($pg_num_rows($result_rev) == 0) {
+if (pg_num_rows($result_rev) == 0) {
 	echo "ERRNO: 97\n";
 	echo "ERROR: Sensor '$keyname' does not exist";
 	$err = 1;
 }
-$row = pg_fetch_assoc($sesult_rev);
+$row = pg_fetch_assoc($result_rev);
 $db_rev = $row['rev'];
 
 # Compare revisions. Only continue if  the client provides a newer version
@@ -269,12 +269,12 @@ else if ($method = "vlan") {
 			$sql_result = pg_query($pgconn, $sql);
 			$row = pg_fetch_assoc($sql_result);
 			$orgid = $row['organisation'];
-			$sql_add = "INSERT INTO sensors (localip, remoteip, keyname, organisation, vlanid) VALUES ('0.0.0.0', '0.0.0.0', '$keyname', $orgid, $vlan_id)";
+			$sql_add = "INSERT INTO sensors (localip, remoteip, keyname, organisation, vlanid, tap, tapip, action, laststart, laststop, lastupdate, uptime) VALUES ('0.0.0.0', '0.0.0.0', '$keyname', $orgid, $vlan_id, '', '0.0.0.0', 'NONE', 0, 0, 0, 0)";
 			$result_add = pg_query($pgconn, $sql_add);
 		}
 
 		# Update configuration
-		$sql = "UPDATE sensors SET status = $status_offline, netconf = 'vlan', netconfdetail = '$netconfdetail', label = '$vlan_desc'  WHERE keyname = '$keyname' AND vlanid = '$vlan_id'";
+		$sql = "UPDATE sensors SET status = 0, netconf = 'vlan', netconfdetail = '$netconfdetail', label = '$vlan_desc'  WHERE keyname = '$keyname' AND vlanid = $vlan_id";
 		$result_sql = pg_query($pgconn, $sql);
 	}
 }
@@ -283,7 +283,7 @@ else if ($method = "vlan") {
 # Continuing with main script #
 ###############################
 
-$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
+$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname' AND vlanid = 0";
 $result_sensors = pg_query($pgconn, $sql_sensors);
 if ($err == 0) {
 	$date = time();
@@ -314,22 +314,15 @@ if ($err == 0) {
 	# If version supplied, update to the database
 	if (isset($version) && $row['version'] != $version) {
 		echo "Updated version string.\n";
-		$sql_update_version = "UPDATE sensors SET version = '$version' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
+		$sql_update_version = "UPDATE sensors SET version = '$version' WHERE keyname = '$keyname' AND vlanid = 0";
 		pg_query($pgconn, $sql_update_version);
 	}
 		
 	# If remoteip has changed, update it to the database.
 	if ($row['remoteip'] != $remoteip) {
 		echo "Updated remote IP address.\n";
-		$sql_update_remote = "UPDATE sensors SET remoteip = '" .$remoteip. "' WHERE keyname = '$keyname' AND vlanid = '$vlanid'";
+		$sql_update_remote = "UPDATE sensors SET remoteip = '$remoteip' WHERE keyname = '$keyname'";
 		$result_update_remote = pg_query($pgconn, $sql_update_remote);
-	}
-
-	# If localip has changed, update it to the database.
-	if ($row['localip'] != $localip) {
-		echo "Updated local IP address.\n";
-		$sql_update = "UPDATE sensors SET localip = '" .$localip. "' WHERE keyname = '$keyname'";
-		$result_update = pg_query($pgconn, $sql_update);
 	}
 
 	# If DNS has changed, update it to the database.

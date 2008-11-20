@@ -2,15 +2,19 @@
 
 ####################################
 # Certificate Generation Handler   #
-# SURFids 2.00.03                  #
+# SURFnet IDS 2.10.00              #
 # Changeset 001                    #
-# 22-05-2008                       #
+# 01-04-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
-# Called by the startclient script on the sensor. This script is used to generate and download the certificates needed by the sensor.
-# When startclient on the sensor is run and the sensor does not have sensor certificates yet, this script will be called.
-# The certificates will be generated and send back to the sensor in the form of this php page.
+################################################################################
+# Called by the startclient script on the sensor. This script is used to 
+# generate and download the certificates needed by the sensor. When startclient 
+# on the sensor is run and the sensor does not have sensor certificates yet, this 
+# script will be called. The certificates will be generated and send back to the 
+# sensor in the form of this php page.
+################################################################################
 
 ####################################
 # Changelog:

@@ -91,31 +91,27 @@ if ($err == 0) {
 	echo "############-CLIENT-INFO-##########\n";
 	echo "REMOTEIP: $remoteip\n";
 	echo "KEYNAME: $keyname\n";
-
 	echo "#######-Taken actions-#######\n";
 
 
 	# If remoteip has changed, update it to the database.
 	if ($row['remoteip'] != $remoteip) {
 		echo "Updated remote IP address.\n";
-		$sql_update_remote = "UPDATE sensors SET remoteip = '" .$remoteip. "' WHERE keyname = '$keyname' AND vlanid = 0";
+		$sql_update_remote = "UPDATE sensors SET remoteip = '$remoteip' WHERE keyname = '$keyname'";
 		$result_update_remote = pg_query($pgconn, $sql_update_remote);
 	}
 
 	# If localip has changed, update it to the database.
 	$db_localip = $row['localip'];
 
-	echo "DBG: localip: $localip\n";
-	echo "DBG: db_localip: $db_localip\n";
-
 	if ($row['localip'] != $localip) {
 		echo "Updated local IP address.\n";
-		$sql_update = "UPDATE sensors SET localip = '" .$localip. "' WHERE keyname = '$keyname' AND vlanid = 0" ;
+		$sql_update = "UPDATE sensors SET localip = '$localip' WHERE keyname = '$keyname'" ;
 		$result_update = pg_query($pgconn, $sql_update);
 	}
 
 	# set status, laststart for current sensor
-	$sql_laststart = "UPDATE sensors SET laststart = $date, status = 1, tapip = NULL WHERE keyname = '$keyname' and status = 0";
+	$sql_laststart = "UPDATE sensors SET laststart = $date, status = 1 WHERE keyname = '$keyname' and status = 0";
 	echo ">>$sql_laststart<<";
 	$result_laststart = pg_query($pgconn, $sql_laststart);
 	echo "Sensor status updated.\n";

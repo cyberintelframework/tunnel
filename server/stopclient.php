@@ -113,14 +113,14 @@ if ($err == 0) {
   # If remoteip has changed, update it to the database.
   if ($row['remoteip'] != $remoteip) {
     echo "Updated remote IP address.\n";
-    $sql_update_remote = "UPDATE sensors SET remoteip = '" .$remoteip. "' WHERE keyname = '$keyname'";
+    $sql_update_remote = "UPDATE sensors SET remoteip = '$remoteip' WHERE keyname = '$keyname'";
     $result_update_remote = pg_query($pgconn, $sql_update_remote);
   }
 
   # If localip has changed, update it to the database.
   if ($row['localip'] != $localip) {
     echo "Updated local IP address.\n";
-    $sql_update = "UPDATE sensors SET localip = '" .$localip. "' WHERE keyname = '$keyname'";
+    $sql_update = "UPDATE sensors SET localip = '$localip' WHERE keyname = '$keyname'";
     $result_update = pg_query($pgconn, $sql_update);
   }
 
