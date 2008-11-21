@@ -65,14 +65,9 @@ if ($ret != 0) {
 }
 
 
-# Update the status of sensor in the database. This is normally done from  
-# startclient.php, but if a connection (temporarily) drops, the client 
-# auto-reconnects without calling startclient.php. 
-my $res = dbquery("SELECT * FROM sensors WHERE keyname = '$sensor' AND status = 0");
-if ($res->rows() > 0) {
-	logsys(LOG_WARNING, "NOTIFY", "Client connect without notification (connection interrupted?)");
-	dbquery("UPDATE sensors SET status = 1 WHERE status = 0 AND keyname = '$sensor'");
-}
+# Update sensor records. 
+my $date = time();
+dbquery("UPDATE sensors SET status = 1, laststart = $date WHERE status = 0 AND keyname = '$sensor'");
 
 
 # Make sure the real tap device is stored in the database on the 
@@ -82,7 +77,7 @@ dbquery("UPDATE sensors SET tap = '$tap' WHERE keyname = '$sensor' and vlanid = 
 
 
 # Get the vlans configured for this sensor (vlan = 0 means no vlans)
-$res = dbquery("SELECT vlanid FROM sensors WHERE keyname = '$sensor' AND status = 1");
+my $res = dbquery("SELECT vlanid FROM sensors WHERE keyname = '$sensor' AND status = 1");
 
 
 # Iterate over all configured entries.  For normal sensors, this is one(1) entry. 

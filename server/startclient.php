@@ -110,11 +110,7 @@ if ($err == 0) {
 		$result_update = pg_query($pgconn, $sql_update);
 	}
 
-	# set status, laststart for current sensor
-	$sql_laststart = "UPDATE sensors SET laststart = $date, status = 1 WHERE keyname = '$keyname' and status = 0";
-	echo ">>$sql_laststart<<";
-	$result_laststart = pg_query($pgconn, $sql_laststart);
-	echo "Sensor status updated.\n";
+	logsys("START_CLIENT", "Client startup notification");
 }
 
 

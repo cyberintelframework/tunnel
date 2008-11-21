@@ -101,8 +101,6 @@ for($i = 0; $i < $res->rows; $i++) {
 		$next_identifier++;
 		`echo "$next_identifier			$dev" >> /etc/iproute2/rt_tables`;
 		logsys(lOG_DEBUG, "NOTIFY", "Added entry for $dev in /etc/iproute2/rt_tables (id $next_identifier)");
-	} elsif ($exist > 1) {
-		logsys(LOG_WARN, "NOTITY", "/etc/iproute2/rt_tables contains multiple lines for $dev. Please check sql.p");
 	}
 
 	if ($netconfdetail eq "dhcp") {

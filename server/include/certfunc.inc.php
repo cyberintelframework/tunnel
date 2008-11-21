@@ -1,7 +1,7 @@
 <?php
 
 ####################################
-# SURFids 2.00.03
+# SURFids 2.10
 # Changeset 002
 # 22-05-2008
 # Jan van Lith & Kees Trippelvitz
@@ -9,9 +9,21 @@
 
 #####################
 # Changelog:
-# 002 Added mac regexp to extractvars
-# 001 Excluded RIPE-CIDR-BLOCK from whois
+# 001	initial release
 #####################
+
+function logsys($msg, $args) {
+	global $keyname;
+	$source = basename($_SERVER['SCRIPT_NAME']);
+	
+	$res = fopen("/tmp/logsys", "a");
+	if ($res != "FALSE") {
+		fprintf($res, "php	$source		$keyname	\n$msg	$args\n\n");
+		fclose($res);
+	} else {
+		echo "COULD NOT OPEN /tmp/logsys\n";
+	}
+}
 
 function logdb($sensorid, $log, $args) {
   global $pgconn;

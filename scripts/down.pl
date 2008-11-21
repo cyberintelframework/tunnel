@@ -74,11 +74,10 @@ for (my $i = 0; $i < $res->rows(); $i++) {
 dbquery("UPDATE sensors SET tap = '', tapip = '0.0.0.0' WHERE keyname = '$sensor'");
 
 
-# Update dabase. Set the status field to 0 for all active clients. This
-# is a safety net in case the stopclient.php script is not run by the 
-# sensor (ie. it is crashed). down.pl will be called any time an openvpn
-# connection drops.
-dbquery("UPDATE sensors SET status = 0 WHERE keyname = '$sensor' AND status = 1");
+# Update database. Save the uptime for each vlan, and set the status to offline (=0).
+$date = time();
+dbquery("UPDATE sensors SET laststop = $date  WHERE keyname = '$sensor' AND status = 1");
+dbquery("UPDATE sensors SET uptime = uptime + laststop - laststart, status = 0 WHERE keyname = '$sensor' AND status = 1");
 
 
 # For all tap devices affected by the openvpn tunnel going down, clean up.
