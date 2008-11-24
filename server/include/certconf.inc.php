@@ -1,15 +1,15 @@
 <?php
 
 ####################################
-# SURFids 2.00.03                  #
+# SURFids 2.10                     #
 # Changeset 001                    #
-# 14-09-2007                       #
+# 19-11-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
-# 001 version 2.00
+# 001 Initial release
 #####################
 
 $config_handle = @fopen("/etc/surfnetids/surfnetids-tn.conf", "r");

@@ -1,15 +1,15 @@
 <?php
 
 ####################################
-# SURFids 2.00.03                  #
+# SURFids 2.10                     #
 # Changeset 001                    #
-# 22-05-2008                       #
+# 19-11-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
-# 001 version 2.00
+# 001 Initial release
 #####################
 
 $pgconn = pg_connect("host=$c_pgsql_host port=$c_pgsql_port user=$c_pgsql_user password=$c_pgsql_pass dbname=$c_pgsql_dbname");

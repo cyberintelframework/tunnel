@@ -1,10 +1,10 @@
 <?php
 
 ####################################
-# SURFids 2.10
-# Changeset 002
-# 22-05-2008
-# Jan van Lith & Kees Trippelvitz
+# SURFids 2.10                     #
+# Changeset 004                    #
+# 25-08-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################

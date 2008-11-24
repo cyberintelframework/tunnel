@@ -2,9 +2,9 @@
 
 ####################################
 # Status info                      #
-# SURFids 2.00.03                  #
-# Changeset 005                    #
-# 08-04-2008                       #
+# SURFids 2.10                     #
+# Changeset 006                    #
+# 25-08-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
@@ -34,7 +34,7 @@ $allowed_get = array(
 		"strip_html_escape_keyname",
 		"ip_localip",
 		"int_rev",
-		);
+);
 $check = extractvars($_GET, $allowed_get);
 debug_input();
 
@@ -176,9 +176,6 @@ if ($err == 0) {
 	echo "LOCALIP: $localip\n";
 
 	echo "#######-Action log-#######\n";
-
-
-
 
 	#########################################################################
 	# Update IP address if changed.

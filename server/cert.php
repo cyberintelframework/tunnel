@@ -2,7 +2,7 @@
 
 ####################################
 # Certificate Generation Handler   #
-# SURFnet IDS 2.10.00              #
+# SURFids 2.10                     #
 # Changeset 001                    #
 # 01-04-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
@@ -30,7 +30,7 @@ $err =0;
 
 $allowed_get = array(
                 "ip_localip",
-		"md5_ris"
+        		"md5_ris"
 );
 $check = extractvars($_GET, $allowed_get);
 #debug_input();

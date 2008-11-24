@@ -2,9 +2,9 @@
 
 ####################################
 # Startclient info update          #
-# SURFids 2.00.03                  #
-# Changeset 001                    #
-# 22-05-2008                       #
+# SURFids 2.10                     #
+# Changeset 002                    #
+# 18-07-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
@@ -25,9 +25,9 @@ include 'include/certconn.inc.php';
 include 'include/certfunc.inc.php';
 
 $allowed_get = array(
-		"ip_localip",
-		"strip_html_escape_keyname",
-		);
+   		"ip_localip",
+        "strip_html_escape_keyname"
+);
 $check = extractvars($_GET, $allowed_get);
 debug_input();
 
