@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 
-#########################################
-# Scanbinaries script                   #
-# SURFids 2.10                          #
-# Changeset 004                         #
-# 14-11-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# Scanbinaries script              #
+# SURFids 2.10                     #
+# Changeset 004                    #
+# 14-11-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
@@ -197,9 +197,8 @@ if (@ARGV) {
     @contents = @ARGV;
 }
 
-print "COUNT:" . scalar(@contents) . "\n";
+#print "COUNT:" . scalar(@contents) . "\n";
 
-exit;
 # Serialize the contents array
 $files = "";
 $total_files = 0;
