@@ -66,7 +66,7 @@ for (my $i = 0; $i < $res->rows(); $i++) {
 dbquery("UPDATE sensors SET tap = '', tapip = '0.0.0.0' WHERE keyname = '$sensor'");
 
 # Update database. Save the uptime for each vlan, and set the status to offline (=0).
-$date = time();
+my $date = time();
 dbquery("UPDATE sensors SET laststop = $date  WHERE keyname = '$sensor' AND status = 1");
 dbquery("UPDATE sensors SET uptime = uptime + laststop - laststart, status = 0 WHERE keyname = '$sensor' AND status = 1");
 

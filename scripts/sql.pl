@@ -88,7 +88,8 @@ for($i = 0; $i < $res->rows; $i++) {
 	# Make sure the routing table exists for this device. The startstatic()
 	# function, and surfnetids-dhclient will adapt routing rules dynamically,
 	# and require that /etc/iproute2/rt_tables contains the device. 
-	my $exist = `grep $dev /etc/iproute2/rt_tables | wc -l`;
+	(my $esc_dev = $dev) =~ s/\./\\./;
+	my $exist = `grep '\\b$esc_dev\\b' /etc/iproute2/rt_tables | wc -l`;
 	if ($exist == 0) {
 		my $next_identifier = `tail -1 /etc/iproute2/rt_tables | awk '{print \$1}'`;
 		chomp($next_identifier);
