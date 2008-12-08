@@ -1,17 +1,18 @@
 #!/usr/bin/perl
 
-###################################
-# Local sensor script             #
-# SURFnet IDS                     #
-# Version 2.10.02                 #
-# 29-10-2007                      #
-# Jan van Lith & Kees Trippelvitz #
-###################################
+####################################
+# Local sensor script              #
+# SURFids 2.10                     #
+# Changeset 003                    #
+# 12-11-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
-# 2.10.02 Added usage info on failure
-# 2.10.01 Initial version
+# 003 Completely redone the script
+# 002 Added usage info on failure
+# 001 Initial version
 #####################
 
 ##################
@@ -19,80 +20,169 @@
 ##################
 use DBI;
 use Time::localtime qw(localtime);
+use Getopt::Std;
 
 ##################
-# Variables used
+# Handling opts
 ##################
-do '/etc/surfnetids/surfnetids-tn.conf';
-require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
-$logfile = "";
-$keyname = "nepenthes";
-$ts = time;
+sub usage() {
+    print "Usage: ./localsensor.pl -i <interface name> -s <sensor name> -o <organisation name>\n";
+    print "Usage: ./localsensor.pl -p <ip address> -m <mac address> -s <sensor name> -o <organisation name>\n";
+    print "\n";
+    print "   -i <interface name>                   Interface that has to be added as a sensor\n";
+    print "   -p <ip address>                       IP address of the sensor\n";
+    print "   -m <mac address>                      MAC address of the sensor, defaults to 00:00:00:00:00:00\n";
+    print "   -s <sensor name>                      Name of the sensor, defaults to Nepenthes\n";
+    print "   -o <organisation name>                Organisation name, defaults to LOCAL\n";
+    print "\n";
+    print "Example: ./localsensor.pl -i eth0 -s mySensor -o SURFnet\n";
+    print "Example: ./localsensor.pl -p 192.168.10.12 -m 00:11:22:33:44:55 -s mySensor -o SURFnet\n";
+    print "\n";
+}
+
+getopt('ipmso', \%opts);
+
+$sensor = $opts{"s"};
+$if = $opts{"i"};
+$org = $opts{"o"};
+$ip = $opts{"p"};
+$mac = $opts{"m"};
+
+##################
+# Configuration
+##################
+if (-r "/etc/surfnetids/surfnetids-log.conf") {
+  do "/etc/surfnetids/surfnetids-log.conf";
+} else {
+  # The root directory for the SURFids files (no trailing forward slash).
+  $c_surfidsdir = "/opt/surfnetids";
+
+  # User info for the logging user in the postgresql database
+  $c_pgsql_pass = "enter_database_password_here";
+  $c_pgsql_user = "idslog";
+
+  # Postgresql database info
+  $c_pgsql_host = "enter_database_host_here";
+  $c_pgsql_dbname = "idsserver";
+
+  # The port number where the postgresql database is running on.
+  $c_pgsql_port = "5432";
+
+  # Connection string, default should be correct.
+  $c_dsn = "DBI:Pg:dbname=$c_pgsql_dbname;host=$c_pgsql_host;port=$c_pgsql_port";
+}
+
+##################
+# Functions
+##################
+if (-e "logfunctions.inc.pl") {
+  require "logfunctions.inc.pl";
+} elsif (-e "$c_surfidsdir/logtools/logfunctions.inc.pl") {
+  require "$c_surfidsdir/logtools/logfunctions.inc.pl";
+} else {
+  require "$c_surfidsdir/scripts/logfunctions.inc.pl";
+}
 
 ##################
 # Main script
 ##################
-if (!$ARGV[0]) {
-  print "No interface given!\n";
-  print "Usage: ./localsensor eth0\n";
-  exit 1;
+
+if ($if eq "" && $ip eq "") {
+  usage();
+  exit;
+}
+
+if ($sensor eq "") {
+  $sensor = "Nepenthes";
+}
+
+if ($org eq "") {
+  $org = "LOCAL";
+}
+
+if ($if ne "") {
+  $ifip = getifip($if);
+  if ($ifip eq "false") {
+    print "Could not retrieve IP address for interface $if\n";
+    exit;
+  }
+  $ifmac = getifmac($if);
+  if ($ifmac eq "false") {
+    print "Could not retrieve MAC address for interface $if\n";
+    exit;
+  }
 } else {
-  $if = $ARGV[0];
-  chomp($if);
+  $ifip = $ip;
+  if ($mac eq "") {
+    $ifmac = "00:00:00:00:00:00";
+  } else {
+    $ifmac = $mac;
+  }
 }
 
-$ifip = getifip($if);
-chomp($ifip);
-$ifmac = `ifconfig $if | head -n1 | awk -F" " '{print \$5}'`;
-chomp($ifmac);
+$ts = time;
 
-$chk = connectdb();
-$sql = "SELECT id, organisation FROM sensors WHERE keyname = 'nepenthes'";
-$sth = $dbh->prepare($sql);
-$er = $sth->execute();
+dbconnect();
 
+# First check if the IP address already exists in the database
+$chk = dbnumrows("SELECT id FROM sensors WHERE tapip = '$ifip'");
+if ($chk > 0) {
+  print "Sensor with IP address $ifip already exists\n";
+  exit;
+}
+
+# First check if the sensor name already exists in the database
+$chk = dbnumrows("SELECT id FROM sensors WHERE keyname = '$sensor'");
+if ($chk > 0) {
+  print "Sensor with name $sensor already exists\n";
+  exit;
+}
+
+$sth = dbquery("SELECT value FROM serverinfo WHERE name = 'updaterev'");
 @row = $sth->fetchrow_array;
-$id = $row[0];
-$orgid = $row[1];
-if (!$id) {
-  $id = "";
+$rev = $row[0];
+if ($rev eq "") {
+  $rev = 0;
 }
 
-if ("$id" eq "") {
-  $sql = "SELECT id FROM organisations WHERE organisation = 'LOCAL'";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-
+# First check if the organisation already exists in the database
+$chk = dbnumrows("SELECT id FROM organisations WHERE organisation = '$org'");
+if ($chk > 0) {
+  $sth = dbquery("SELECT id FROM organisations WHERE organisation = '$org'");
   @row = $sth->fetchrow_array;
   $orgid = $row[0];
-
-  if (!$orgid) {
-    $orgid = "";
-  }
-
-  if ("$orgid" eq "") {
-    $sql = "INSERT INTO organisations (organisation) VALUES ('LOCAL')";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    $sql = "SELECT id FROM organisations WHERE organisation = 'LOCAL'";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    @row = $sth->fetchrow_array;
-    $orgid = $row[0];
-  }
-
-  $sql = "INSERT INTO sensors (keyname, remoteip, localip, lastupdate, laststart, status, uptime, tap, tapip, mac, netconf, organisation) ";
-  $sql .= " VALUES ('$keyname', '$ifip', '$ifip', $ts, $ts, 1, 0, '$if', '$ifip', '$ifmac', 'dhcp', $orgid)";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
 } else {
-  $sql = "UPDATE sensors SET remoteip = '$ifip', localip = '$ifip', ";
-  $sql .= " tap = '$if', tapip = '$ifip', mac = '$ifmac'  ";
-  $sql .= " WHERE keyname = '$keyname' ";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
+  $sth = dbquery("INSERT INTO organisations (organisation) VALUES ('$org')");
+
+  $sth = dbquery("SELECT id FROM organisations WHERE organisation = '$org'");
+  @row = $sth->fetchrow_array;
+  $orgid = $row[0];
 }
 
-printlog("Local interface added as sensor!");
+print "Sensor: $sensor\n";
+print "IP address: $ifip\n";
+print "MAC address: $ifmac\n";
+print "Organisation: $org\n";
+print "Org ID: $orgid\n";
+print "\n";
+
+$chk = "none";
+while ($chk !~ /^(n|N|y|Y)$/) {
+  $chk = prompt("Add this sensor? [yN]", "N");
+}
+
+if ($chk =~ /^(y|Y)/) {
+  print "Adding sensor to the database!\n";
+  if ($orgid ne "") {
+    $sql = "INSERT INTO sensors (keyname, remoteip, localip, lastupdate, laststart, status, uptime, tap, tapip, mac, netconf, organisation, rev, sensormac) ";
+    $sql .= " VALUES ('$sensor', '$ifip', '$ifip', $ts, $ts, 1, 0, '$if', '$ifip', '$ifmac', 'dhcp', $orgid, $rev, '$ifmac')";
+    $chk = dbnumrows($sql);
+    if ($chk != 0) {
+      print "Sensor successfully added to the database!\n";
+    } else {
+      print "Failed to add sensor!\n";
+    }
+  }
+} else {
+  print "Not adding sensor!\n";
+}
