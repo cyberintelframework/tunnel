@@ -1,27 +1,26 @@
 #!/usr/bin/perl
 
-##########################################
-## SURFids 2.10.00                       #
-## Changeset 006                         #
-## 19-08-2008                            #
-## Jan van Lith & Kees Trippelvitz       #
-## Auke Folkerts (changeset 007)         #
-##########################################
-## Contributors:                         #
-## Peter Arts                            #
-##########################################
+####################################
+# SURFids 2.10                     #
+# Changeset 004                    #
+# 08-12-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
+# Contributors:                    #
+# Peter Arts                       #
+# Auke Folkerts (changeset 007)    #
+####################################
 
-######################
-## Changelog:
-## 007 Support multiple vlans per tunnel
-## 006 Error check on duplicate tap's
-## 005 Passing along sensorid to detectarp.pl
-## 004 Added logsys stuff
-## 003 Destroying statement handle before disconnecting
-## 002 Don't update the tapip if statically configured
-## 001 version 2.10.00 release
-######################
-
+#####################
+# Changelog:
+# 007 Support multiple vlans per tunnel
+# 006 Error check on duplicate tap's
+# 005 Passing along sensorid to detectarp.pl
+# 004 Added logsys stuff
+# 003 Destroying statement handle before disconnecting
+# 002 Don't update the tapip if statically configured
+# 001 version 2.10.00 release
+#####################
 
 ##################
 # Includes
@@ -30,13 +29,11 @@ use vars qw($c_surfidsdir $c_sql_dhcp_retries $c_enable_pof $c_enable_arp);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
-
 ##################
 # Modules used
 ##################
 use DBI;
 use Time::localtime qw(localtime); 
-
 
 ####################
 ## Global variables 
@@ -47,7 +44,6 @@ our $tap = $ENV{tap} || die ("no tap");
 our $remoteip = $ENV{remoteip} || die ("no remoteip");
 our $pid = $ENV{pid} || die ("no pid");
 
-
 ##################
 # Main script
 ##################
@@ -57,7 +53,6 @@ if ($result eq 'false') {
 }
 logsys(LOG_DEBUG, "SCRIPT_START");
 
-
 # Get the IP address configuration for the tap device from the database.
 $res = dbquery("SELECT netconf, netconfdetail, vlanid, arp, id FROM sensors WHERE keyname = '$sensor' AND status = 1");
 if ($res->rows == 0) {
@@ -65,7 +60,6 @@ if ($res->rows == 0) {
 	logsys(LOG_ERROR, "NO_SENSOR_RECORD", "No entries for '$sensor' are configured" );
 	exit(1);
 }
-
 
 for($i = 0; $i < $res->rows; $i++) {
 	my @row = $res->fetchrow_array;

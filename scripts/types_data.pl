@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 
-#########################################
-# Types library for detectarp.pl        #
-# SURFnet IDS 2.10.00                   #
-# Changeset 001                         #
-# 18-03-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# Types library for detectarp.pl   #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 18-03-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:

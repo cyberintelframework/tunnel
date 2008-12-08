@@ -1,16 +1,16 @@
 #!/usr/bin/perl
 
-#########################################
-# Checktap script for IDS tunnel server #
-# SURFnet IDS 2.10.00                   #
-# Changeset 001                         #
-# 18-03-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# Checktap script                  #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 18-03-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
-# 001 version 2.10.00 release
+# 001 Initial release
 #####################
 
 ##################

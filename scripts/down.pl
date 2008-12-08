@@ -3,14 +3,14 @@
 use warnings;
 use strict 'vars';
 
-#########################################
-# Stop script for IDS server            #
-# SURFnet IDS 2.10.00                   #
-# Changeset 002                         #
-# 15-07-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-# Auke Folkerts (changeset 003)         #
-#########################################
+####################################
+# Down script                      #
+# SURFids 2.10                     #
+# Changeset 003                    #
+# 08-12-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+# Auke Folkerts (changeset 003)    #
+####################################
 
 #####################
 # Changelog:
@@ -20,7 +20,6 @@ use strict 'vars';
 # 001 version 2.10.00 release
 #####################
 
-
 #####################
 # Includes
 ####################
@@ -28,13 +27,11 @@ use vars qw ($c_surfidsdir);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
-
 ####################
 # Modules used
 ####################
 use DBI;
 use Time::localtime qw(localtime);
-
 
 ####################
 # Global variables
@@ -45,7 +42,6 @@ our $tap = $ENV{tap} || die ("no tap");
 our $remoteip = $ENV{remoteip} || die ("no remoteip");
 our $pid = $ENV{pid} || die ("no pid");
 
-
 ####################
 # Main script
 ###################
@@ -54,9 +50,7 @@ if ($result eq 'false') {
 	die ("No database connection");
 }
 
-
 logsys(LOG_DEBUG, "SCRIPT_START");
-
 
 # find all tap devices in use
 my $res = dbquery("SELECT tap FROM sensors WHERE keyname = '$sensor' AND status = 1");
@@ -68,17 +62,13 @@ for (my $i = 0; $i < $res->rows(); $i++) {
 	logsys(LOG_DEBUG, "SPEC", "$dev added");
 }
 
-
-
 # Update database. Clear the tap and tapip fields for all entries for this sensor.
 dbquery("UPDATE sensors SET tap = '', tapip = '0.0.0.0' WHERE keyname = '$sensor'");
-
 
 # Update database. Save the uptime for each vlan, and set the status to offline (=0).
 $date = time();
 dbquery("UPDATE sensors SET laststop = $date  WHERE keyname = '$sensor' AND status = 1");
 dbquery("UPDATE sensors SET uptime = uptime + laststop - laststart, status = 0 WHERE keyname = '$sensor' AND status = 1");
-
 
 # For all tap devices affected by the openvpn tunnel going down, clean up.
 # (this uses the array of affected devices created earlier in this script)

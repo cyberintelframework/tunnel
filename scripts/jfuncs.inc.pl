@@ -1,5 +1,18 @@
 #!/usr/bin/perl -w
 
+####################################
+# Janitor function library         #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 19-11-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
+
+#####################
+# Changelog:
+# 001 Initial release
+#####################
+
 use POSIX;
 
 # 0.01 connectdb

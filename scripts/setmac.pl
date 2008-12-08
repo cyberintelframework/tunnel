@@ -3,14 +3,14 @@
 use warnings;
 use strict 'vars';
 
-#########################################
-# Setmac script for IDS server          #
-# SURFnet IDS 2.10.00                   #
-# Changeset 002                         #
-# 15-07-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-# Auke Folkerts (changeset 003)         #
-#########################################
+####################################
+# Setmac script for tunnel server  #
+# SURFids 2.10                     #
+# Changeset 003                    #
+# 08-12-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+# Auke Folkerts (changeset 003)    #
+####################################
 
 #####################
 # Changelog:
@@ -19,7 +19,6 @@ use strict 'vars';
 # 001 version 2.10.00 release
 #####################
 
-
 ##############
 # Includes
 #############
@@ -27,13 +26,11 @@ use vars qw ($c_surfidsdir);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
-
 ##################
 # Modules used
 ##################
 use DBI;
 use Time::localtime qw(localtime);
-
 
 ####################
 # Global variables 
@@ -43,8 +40,6 @@ our $sensor = $ENV{sensor} || die ("no sensor");
 our $tap = $ENV{tap} || die ("no tap");
 our $remoteip = $ENV{remoteip} || die ("no remoteip");
 our $pid = $ENV{pid} || die ("no pid");
-
-
 
 ##################
 # Main script
@@ -56,7 +51,6 @@ if ($result eq 'false') {
 
 logsys(LOG_DEBUG, "SCRIPT_START");
 
-
 # Check for tap existance.
 my $ret = sys_exec("ifconfig $tap");
 if ($ret != 0) {
@@ -64,21 +58,17 @@ if ($ret != 0) {
 	exit(1);
 }
 
-
 # Update sensor records. 
 my $date = time();
 dbquery("UPDATE sensors SET status = 1, laststart = $date WHERE status = 0 AND keyname = '$sensor'");
-
 
 # Make sure the real tap device is stored in the database on the 
 # (inactive) non-tagged sensor-entry. This info is later used to 
 # break down the tunnel. 
 dbquery("UPDATE sensors SET tap = '$tap' WHERE keyname = '$sensor' and vlanid = '0'");
 
-
 # Get the vlans configured for this sensor (vlan = 0 means no vlans)
 my $res = dbquery("SELECT vlanid FROM sensors WHERE keyname = '$sensor' AND status = 1");
-
 
 # Iterate over all configured entries.  For normal sensors, this is one(1) entry. 
 # For VLAN-sensors, this is one entry per vlan.
@@ -128,8 +118,6 @@ for (my $i = 0; $i < $res->rows(); $i++) {
 # At this point, all vlan interfaces exist, are UP, and have a unique 
 # hardware address. Call sql.pl to obtain IP addresses for each interface.
 system("$c_surfidsdir/scripts/sql.pl $tap $sensor &");
-
-
 
 ################
 # Exit handler! 

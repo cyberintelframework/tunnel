@@ -1,16 +1,16 @@
 #!/usr/bin/perl 
 
-#########################################
-# Traffic script                        #
-# SURFnet IDS 2.10.00                   #
-# Changeset 001                         #
-# 18-03-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# Traffic script                   #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 18-03-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
-# 001 version 2.10.00 release
+# 001 Initial release
 #####################
 
 ##################
@@ -26,6 +26,7 @@ use Time::localtime qw(localtime);
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
+
 ##################
 # Main script
 ##################

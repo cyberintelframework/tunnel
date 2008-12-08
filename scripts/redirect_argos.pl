@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 
-#########################################
-# ARGOS redirect script                 #
-# SURFnet IDS 2.10.00                   #
-# Changeset 001                         #
-# 18-03-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# ARGOS redirect script            #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 18-03-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:

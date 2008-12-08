@@ -1,17 +1,17 @@
 #!/usr/bin/perl
 
-#########################################
-# Server info script                    #
-# SURFnet IDS 2.10.00                   #
-# Changeset 001                         #
-# 18-03-2008                            #
-# Hiroshi Suzuki                        #
-# Modified by Kees Trippelvitz          #
-#########################################
+####################################
+# Server info script               #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 18-03-2008                       #
+# Hiroshi Suzuki                   #
+# Modified by Kees Trippelvitz     #
+####################################
 
 #####################
 # Changelog:
-# 001 version 2.10.00 release
+# 001 Initial release
 #####################
 
 ##################

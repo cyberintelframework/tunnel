@@ -1,12 +1,12 @@
 #!/usr/bin/perl 
 
-#########################################
-# Function library for tunnel server    #
-# SURFnet IDS 2.10.00                   #
-# Changeset 001                         #
-# 18-03-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# Function library                 #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 18-03-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
@@ -43,6 +43,8 @@ use constant  {
 # 3.01		dbremoteip
 # 3.02		dbnetconf
 # 3.03		dbmacaddr
+# 3.04      dbquery
+# 3.05      dbnumrows
 # 4	ALL misc functions
 # 4.01		printlog
 # 4.02		killdhclient
@@ -409,6 +411,45 @@ sub dbmacaddr() {
     return $mac;
   }
   return "false";
+}
+
+# 3.04 dbquery
+# Performs a query to the database. If the query fails, log the query to the database
+# and return false. Otherwise, return the data.
+sub dbquery {
+    my $sql = $_[0];
+
+    if (!$dbh) {
+#        &logsys(LOG_ERROR, "DB_ERROR", "No database handler!");
+        return 'false';
+    }
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+    if (!$er) {
+#        &logsys(LOG_ERROR, "DB_QUERY_FAIL", $sql);
+        exit(1);
+    } else {
+#        &logsys(LOG_DEBUG, "DB_QUERY_OK", $sql);
+    }
+
+    return $sth;
+}
+
+# 3.05 dbnumrows
+# Performs a query to the database and return the amount of rows
+sub dbnumrows() {
+  my ($sql, $er, $sth);
+  $sql = $_[0];
+
+  if (!$dbh) {
+    return 0;
+  }
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+  if (!$er) {
+    return 0;
+  }
+  return $sth->rows;
 }
 
 # 4.01 printlog

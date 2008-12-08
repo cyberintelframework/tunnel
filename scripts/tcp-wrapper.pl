@@ -3,13 +3,13 @@
 use warnings;
 use strict 'vars';
 
-###################################
-# Startup script for IDS server   #
-# SURFids 2.00.03                 #
-# Changeset 001                   #
-# 2008-11-03                      #
-# Auke Folkerts                   #
-###################################
+####################################
+# OpenVPN wrapper                  #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 08-12-2008                       #
+# Auke Folkerts                    #
+####################################
 
 #
 # tcp-wrapper.pl is a wrapper around openvpn. It is started from xinetd. The goal 
@@ -26,7 +26,6 @@ use strict 'vars';
 # 001 version 2.10
 #####################
 
-
 ##########################
 # Includes
 #########################
@@ -34,14 +33,11 @@ use vars qw ($c_surfidsdir);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
-
 ##################
 # Modules used
 ##################
 use DBI;
 use Time::localtime qw(localtime);
-
-
 
 ########################
 # Global variables
@@ -52,18 +48,15 @@ our $tap;
 our $remoteip;
 our $pid = $$;
 
-
 ##################
 # Main script
 ##################
 $remoteip = $ENV{REMOTE_HOST} || die ("no remote host");
-
  
 my $res = connectdb();
 if ($res eq 'false') {
 	die ("No database connection");
 }
-
 
 # Get the sensorname from the database (based on the remoteip)
 $res = dbquery("SELECT keyname FROM sensors WHERE remoteip = '$remoteip'");
@@ -81,7 +74,6 @@ my $arguments = "--config /etc/openvpn/server.conf";
 
 my $command = "$openvpn $environment $arguments";
 
-
 if ($sensor eq "") {
 	$command .= " --dev tap";
 } else {
@@ -91,7 +83,6 @@ logsys(LOG_DEBUG, "NOTIFY", "Starting openvpn: '$command'");
 
 exec("$command");
 die "exec failed: $!";
-
 
 END {
 	logsys(LOG_DEBUG, "SCRIPT_END");

@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 
-#########################################
-# ARP detection module                  #
-# SURFnet IDS 2.10.00                   #
-# Changeset 004                         #
-# 25-07-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# ARP detection module             #
+# SURFids 2.10                     #
+# Changeset 004                    #
+# 25-07-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
