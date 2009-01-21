@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
-use warnings;
-use strict 'vars';
+#use warnings;
+#use strict 'vars';
 
 ####################################
 # OpenVPN wrapper                  #
@@ -53,23 +53,38 @@ our $pid = $$;
 ##################
 $remoteip = $ENV{REMOTE_HOST} || die ("no remote host");
  
-my $res = connectdb();
+my $res = dbconnect();
 if ($res eq 'false') {
 	die ("No database connection");
 }
 
 # Get the sensorname from the database (based on the remoteip)
-$res = dbquery("SELECT keyname FROM sensors WHERE remoteip = '$remoteip'");
-if ($res->rows) { 
-	my @row = $res->fetchrow_array;
-	$sensor = $row[0];
+my $sql;
+$sql = "SELECT distinct sensors.keyname FROM sensor_details, sensors ";
+$sql .= " WHERE sensors.keyname = sensor_details.keyname AND remoteip = '$remoteip' AND NOT status = 3";
+$res = dbquery($sql);
+my $numrows= $res->rows();
+if ($numrows == 1) {
+    my @row = $res->fetchrow_array;
+    $sensor = $row[0];
+    $dev = $sensor;
+    $dev =~ s/sensor/s/;
+
+    # Set the status to starting up (6)
+    $sql = "UPDATE sensors SET status = 6 WHERE keyname = '$sensor' AND NOT status = 3";
+    $res = dbquery($sql);
+    logsys(LOG_DEBUG, "STATUS_CHANGE", "Set status to 6 for $sensor");
+    logsys(LOG_INFO, "CONN_OK", "Connection accepted for $sensor with IP address $remoteip");
+} elsif ($numrows > 1) {
+    logsys(LOG_ERROR, "IP_OVERLOAD", "Multiple sensors ($numrows) for $remoteip. Refusing connection");
+    exit(1);
 } else {
-	logsys(LOG_WARN, "UNKNOWN_IP", "Connect from $remoteip refused");
-	exit(1);
+    logsys(LOG_ERROR, "UNKNOWN_IP", "Connect from $remoteip refused");
+    exit(1);
 }
 
 my $openvpn = "/usr/sbin/openvpn";
-my $environment = "--setenv sensor $sensor --setenv tap $sensor --setenv remoteip $remoteip --setenv pid $pid";
+my $environment = "--setenv sensor $sensor --setenv tap $dev --setenv remoteip $remoteip --setenv pid $pid";
 my $arguments = "--config /etc/openvpn/server.conf";
 
 my $command = "$openvpn $environment $arguments";
@@ -77,14 +92,14 @@ my $command = "$openvpn $environment $arguments";
 if ($sensor eq "") {
 	$command .= " --dev tap";
 } else {
-	$command .= " --dev $sensor --dev-type tap";
+	$command .= " --dev $dev --dev-type tap";
 }
-logsys(LOG_DEBUG, "NOTIFY", "Starting openvpn: '$command'");
+logsys(LOG_DEBUG, "NOTIFY", "Starting openvpn: $command");
 
 exec("$command");
 die "exec failed: $!";
 
 END {
 	logsys(LOG_DEBUG, "SCRIPT_END");
-	disconnectdb();
+    dbdisconnect();
 }

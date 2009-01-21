@@ -98,7 +98,7 @@ require "$c_surfidsdir/scripts/types_data.pl";
 $ts = time();
 
 # Connect to the database (dbh = DatabaseHandler or linkserver)
-$dbconn = connectdb();
+$dbconn = dbconnect();
 
 # Getting the sensor ID
 if ("$dbconn" ne "false") {
@@ -540,12 +540,13 @@ sub filter_packets {
       $udp_obj = NetPacket::UDP->decode($ip_obj->{data});
       $dst_port = $udp_obj->{dest_port};
 
-      $tijd = time();      
-      if ($dst_port == 68 || $dst_port == 67) {
-        `echo "[$tijd] $src_ip -> $dst_ip : $dst_port" >> /var/log/sensor${sensorid}.log`;
-      }
+#      $tijd = time();      
+#      if ($dst_port == 68 || $dst_port == 67) {
+#        `echo "[$tijd] $src_ip -> $dst_ip : $dst_port" >> /var/log/sensor${sensorid}.log`;
+#      }
 
       if ($dst_port == 68) {
+        # DHCP Reply
         $head = 11768;
         $dhcp_obj = Net::DHCP::Packet->new($udp_obj->{data});
         $op = $dhcp_obj->{op};
@@ -571,6 +572,7 @@ sub filter_packets {
           }
         }
       } elsif ($dst_port == 67) {
+        # DHCP Request
         $head = 11768;
         $dhcp_obj = Net::DHCP::Packet->new($udp_obj->{data});
         $op = $dhcp_obj->{op};
@@ -579,6 +581,16 @@ sub filter_packets {
           if (! exists $sniff_protos_dhcp{$dhcp_type}) {
             $check = add_proto_type($sensorid, $head, $dhcp_type);
           }
+        }
+
+        $count_dhcp_static = scalar(%dhcp_static);
+        if ($count_dhcp_static != 0) {
+            if ($dst_ip ne "255.255.255.255") {
+              $dhcp_ident = $dhcp_obj->getOptionValue(DHO_DHCP_SERVER_IDENTIFIER());
+              if (! exists $dhcp_blacklist{"$dst_ip"}) {
+                $check = chk_dhcp_server($dst_mac, $dst_ip, $dhcp_ident);
+              }
+            }
         }
 #        print "DHCP[$op]: $src_ip($src_mac) -> $dst_ip($dst_mac)\n";
       }

@@ -74,7 +74,7 @@ $scanners->{"AVAST"} = {
 printlog("Starting scanbinaries.pl");
 
 # Connect to the database (dbh = DatabaseHandler or linkserver)
-$checkdb = connectdb();
+$checkdb = dbconnect();
 
 @contents = ();
 if ($c_scan_method == 0) {
@@ -247,6 +247,16 @@ foreach $file (@contents) {
         $filesize = (stat($filepath))[7];
         $chk = dbquery("INSERT INTO binaries_detail (bin, fileinfo, filesize) VALUES ($bid, '$fileinfo', $filesize)");
         print "[Detail] Adding new detail record\n";
+    }
+
+    #############
+    # UPX
+    #############
+    # Check the UPX result and add it if necessary
+    if ($c_scan_upx == 1) {
+        $filepath = "$c_bindir/$file";
+        $status = `upx -t $filepath | grep $file | awk '{print \$3}'`;
+        
     }
 }
 

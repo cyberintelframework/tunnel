@@ -23,7 +23,7 @@ use strict 'vars';
 #####################
 # Includes
 ####################
-use vars qw ($c_surfidsdir);
+use vars qw ($c_surfidsdir $f_log_debug $f_log_info $f_log_warn $f_log_error $f_log_crit);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
@@ -45,12 +45,12 @@ our $pid = $ENV{pid} || die ("no pid");
 ####################
 # Main script
 ###################
-my $result = connectdb();
+my $result = dbconnect();
 if ($result eq 'false') {
 	die ("No database connection");
 }
 
-logsys(LOG_DEBUG, "SCRIPT_START");
+logsys($f_log_debug, "SCRIPT_START");
 
 # find all tap devices in use
 my $res = dbquery("SELECT tap FROM sensors WHERE keyname = '$sensor' AND status = 1");
@@ -59,7 +59,6 @@ for (my $i = 0; $i < $res->rows(); $i++) {
 	my @row = $res->fetchrow_array;
 	my $dev = $row[0];
 	push (@devices, $dev);
-	logsys(LOG_DEBUG, "SPEC", "$dev added");
 }
 
 # Update database. Clear the tap and tapip fields for all entries for this sensor.
@@ -82,33 +81,32 @@ foreach my $dev (@devices) {
 	# Fix routes
 	$result = deliprules($dev);
 	if ($result) {
-		logsys(LOG_WARN, "SYS_FAIL", "Deleting ip rules for $dev failed (error code $result)");
+		logsys($f_log_warn, "SYS_FAIL", "Deleting ip rules for $dev failed (error code $result)");
 	} else {
-		logsys(LOG_DEBUG, "NOTIFY", "Removed routing table for $dev");
+		logsys($f_log_debug, "NOTIFY", "Removed ip rules for $dev");
 	}
 
 
 	# Flush the routing table of the tap device just to be sure.
 	$result = flushroutes($dev);
 	if ($result) {
-		logsys(LOG_WARN, "SYS_FAIL", "Flushing routes for $dev failed. (error code ($result)");
+		logsys($f_log_warn, "SYS_FAIL", "Flushing routes for $dev failed. (error code ($result)");
 	} else {
-		logsys(LOG_DEBUG, "NOTIFY", "Flushed routes for $dev");
+		logsys($f_log_debug, "NOTIFY", "Flushed routes for $dev");
 	}
 }
-
 
 # Delete route to connecting ip address of client via local gateway.
 sys_exec("route del -host $remoteip");
 if ($?) {
-	logsys(LOG_ERROR, "NETWORK_ERROR", "Failed  to delete host route (error code $?)");
+	logsys($f_log_error, "NETWORK_ERROR", "Failed  to delete host route (error code $?)");
 	exit(1);
 } else{ 
-	logsys(LOG_DEBUG, "NOTIFY", "Deleted host route for $remoteip.");
+	logsys($f_log_debug, "NOTIFY", "Deleted host route for $remoteip.");
 }
 
 
 END {
-	logsys(LOG_DEBUG, "SCRIPT_END");
-	disconnectdb();
+	logsys($f_log_debug, "SCRIPT_END");
+	dbdisconnect();
 }

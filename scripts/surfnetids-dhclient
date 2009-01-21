@@ -16,7 +16,7 @@
 ####################
 # Variables used
 ####################
-surfnetidsdir="/opt/surfnetids/tunnel/"
+surfnetidsdir="/opt/surfnetids/tunnel/trunk"
 datumadd=`date "+%d%m%Y"`
 if [ ! -d "$surfnetidsdir/log/$datumadd" ]; then
   mkdir "$surfnetidsdir/log/$datumadd"
@@ -25,6 +25,10 @@ if [ ! -d "$surfnetidsdir/log/$datumadd/$interface" ]; then
   mkdir "$surfnetidsdir/log/$datumadd/$interface"
 fi
 logfile="$surfnetidsdir/log/$datumadd/$interface/surfnetids-dhclient.log"
+
+# AUKE
+logfile="/tmp/dhscript"
+
 
 ####################
 # Main script
@@ -146,13 +150,16 @@ case "$reason" in
         echo "[$ts - $?] ifconfig $interface inet $new_ip_address $new_subnet_arg $new_broadcast_arg $mtu_arg" >> $logfile
 
         ### Checking for ip rules
-        rulecheck=`ip rule list | grep $interface | wc -l`
+        rulecheck=`ip rule list | grep '\\b$interface\\b' | wc -l`
+        echo "ip rule list | grep '\\b$interface\\b' | wc -l" >> $logfile; # Auke - debug
+
         echo "[$ts - $?] Ip rules present: $rulecheck" >> $logfile
         if [ $rulecheck == 0 ]; then
           ip rule add from $new_ip_address table $interface
           echo "[$ts - $?] ip rule add from $new_ip_address table $interface" >> $logfile
         else
-          oldip=`ip rule list | grep $interface | awk '{print $3}'`
+          oldip=`ip rule list | grep '\\b$interfacae\\b' | awk '{print $3}'`
+          echo "ip rule list | grep '\\b$interfacae\\b' | awk '{print $3}'" >> $logfile # Auke - debug
           echo "[$ts - $?] Old ip address: $oldip" >> $logfile
           ip rule del from $oldip table $interface
           echo "[$ts - $?] ip rule del from $oldip table $interface" >> $logfile
@@ -166,7 +173,8 @@ case "$reason" in
         echo "[$ts - $?] ip route flush table $interface" >> $logfile
 
         ### Checking for routes
-        routecheck=`ip route list | grep $interface | wc -l`
+        routecheck=`ip route list | grep '\\b$interface\\b' | wc -l`
+        echo "ip route list | grep '\\b$interface\\b' | wc -l" >> $logfile # Auke - debug
         echo "[$ts - $?] Ip routes present: $routecheck" >> $logfile
 
         ### Calculate the network range.

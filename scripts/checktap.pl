@@ -58,7 +58,7 @@ $tap = $ARGV[0];
 printlog("Starting checktap.pl");
 
 # Connect to the database (dbh = DatabaseHandler or linkserver)
-$dbconn = connectdb();
+$dbconn = dbconnect();
 
 if ("$dbconn" ne "false") {
   # Prepare and execute sql query on database to retrieve tapip.

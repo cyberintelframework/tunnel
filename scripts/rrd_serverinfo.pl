@@ -444,7 +444,7 @@ sub RegistDB {
   if ($dbh) {
     $dbh = "";
   }
-  $checkdb = connectdb();
+  $checkdb = dbconnect();
   $sql_check = "SELECT id FROM serverstats WHERE label = '$label' AND type = '$type' AND interval = '$interval' AND server = '$servername'"; 
   $sth_check = $dbh->prepare($sql_check);
   $execute_result = $sth_check->execute();

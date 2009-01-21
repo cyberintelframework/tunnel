@@ -45,13 +45,14 @@ use constant  {
 # 3.03		dbmacaddr
 # 3.04      dbquery
 # 3.05      dbnumrows
+# 3.06		dbconnect
+# 3.07      dbdisconnect
 # 4	ALL misc functions
 # 4.01		printlog
 # 4.02		killdhclient
 # 4.03		deliprules
 # 4.04		flushroutes
 # 4.05		printenv
-# 4.06		connectdb
 # 4.07		startdhcp
 # 4.08		ipruleadd
 # 4.09		addroute
@@ -82,6 +83,9 @@ use constant  {
 # 4.34		in_array
 # 4.35		startstatic
 # 4.36		check_interface_ip
+# 4.38      sys_exec
+# 4.40      escape_dev
+# 4.41      getrulenumber
 ###############################################
 
 # 1.01 chkdhclient
@@ -174,6 +178,36 @@ sub chk_dhcp_server() {
     $chk = &add_arp_alert("", $mac, "", $ip, $sensorid, 11, "$ident");
   }
   return 0;
+}
+
+# 1.04 chkroute
+# Function to check for the existance of a route given an IP address
+sub chkroute() {
+    my ($remoteip, $chk);
+    $remoteip = $_[0];
+    chomp($remoteip);
+    $chk = `ip route list | grep '\\b$remoteip\\b' | wc -l`;
+    if ($chk == 0) {
+        return;
+    } else {
+        return true;
+    }
+}
+
+# 1.05 chkrule
+# Function to check for the existance of a rule given a device
+sub chkrule() {
+    my ($dev, $nr, $chk, $escdev);
+    $dev = $_[0];
+    chomp($dev);
+    $escdev = &escape_dev($dev);
+    $chk = `ip rule list | grep '\\b$escdev\\b' | wc -l`;
+    if ($chk == 0) {
+        $nr = getrulenumber($escdev);
+        $chk = `ip rule list | grep '\\b$nr\\b' | wc -l`;
+    }
+    chomp($chk);
+    return $chk;
 }
 
 # 2.01 getts
@@ -396,13 +430,11 @@ sub dbnetconf() {
 sub dbmacaddr() {
   my ($sth, $mac, $sensor, $remoteip, @row, $sql, $er, $vlan);
   $sensor = $_[0];
-  $remoteip = $_[1];
-  $vlan = $_[2];
+  $vlan = $_[1];
 
   chomp($sensor);
-  chomp($remoteip);
 
-  $res = &dbquery("SELECT mac FROM sensors WHERE keyname = '$sensor' AND remoteip = '$remoteip' AND vlanid = '$vlan'");
+  $res = &dbquery("SELECT mac FROM sensors WHERE keyname = '$sensor' AND vlanid = $vlan");
   @row = $res->fetchrow_array;
   $mac = $row[0];
   if ("$mac" eq "") {
@@ -417,22 +449,24 @@ sub dbmacaddr() {
 # Performs a query to the database. If the query fails, log the query to the database
 # and return false. Otherwise, return the data.
 sub dbquery {
-    my $sql = $_[0];
+	my $sql = $_[0];
+	
+	if (!$dbh) {
+		&logsys(LOG_ERROR, "DB_ERROR", "No database handler!");
+		return 'false';
+	}
+	$sth = $dbh->prepare($sql);
+	$er = $sth->execute();
+	if (!$er) {
+		&logsys(LOG_ERROR, "DB_QUERY_FAIL", $sql);
+        &logsys(LOG_ERROR, "DB_QUERY_FAIL", $dbh->errstr);
+        &logsys(LOG_ERROR, "DB_QUERY_FAIL", $dbh->err);
+		exit(1);
+	} else {
+		&logsys(LOG_DEBUG, "DB_QUERY_OK", $sql);
+	}
 
-    if (!$dbh) {
-#        &logsys(LOG_ERROR, "DB_ERROR", "No database handler!");
-        return 'false';
-    }
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-    if (!$er) {
-#        &logsys(LOG_ERROR, "DB_QUERY_FAIL", $sql);
-        exit(1);
-    } else {
-#        &logsys(LOG_DEBUG, "DB_QUERY_OK", $sql);
-    }
-
-    return $sth;
+	return $sth;
 }
 
 # 3.05 dbnumrows
@@ -450,6 +484,31 @@ sub dbnumrows() {
     return 0;
   }
   return $sth->rows;
+}
+
+# 3.06 dbconnect
+# Function to connect to the database
+# Returns "true" on success
+# Returns "false" on failure
+sub dbconnect() {
+  my ($ts, $pgerr);
+  our $dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass);
+  if ($dbh ne "") {
+    return "true";
+  } else {
+    return "false";
+  }
+}
+
+# 3.07 dbdisconnect
+# Closes the DB connection
+sub dbdisconnect() {
+	if ($sth) {
+		$sth->finish;
+	}
+	if ($dbh) {
+		$dbh->disconnect();
+	}
 }
 
 # 4.01 printlog
@@ -498,13 +557,11 @@ sub killdhclient() {
     `kill $pid`;
     if ($? != 0) { $e = 1; }
     $ec = getec();
-    &printlog("Killing dhclient3 $pid", "$ec");
   }
   if (-e "/var/lib/dhcp3/$tap.leases") {
     `rm -f /var/lib/dhcp3/$tap.leases`;
     if ($? != 0) { $e = 1; }
     $ec = getec();
-    &printlog(" Deleted dhcp lease file /var/lib/dhcp3/$tap.leases", "$ec");
   }
   return $e;
 }
@@ -519,13 +576,13 @@ sub deliprules() {
   chomp($tap);
 
   $e = 0;
-  @total = `ip rule list | grep -i "$tap" | awk '{print \$3}'`;
+  $esctap = &escape_dev($tap);
+  @total = `ip rule list | grep \\b$esctap\\b | awk '{print \$3}'`;
   foreach $ip (@total) {
     chomp($ip);
     `ip rule del from $ip table $tap`;
     if ($? != 0) { $e = 1; }
     $ec = getec();
-    &printlog("Deleted ip rule: ip rule del from $ip table $tap", $ec);
   }
   return $e;
 }
@@ -556,20 +613,6 @@ sub printenv() {
   close(ENVLOG);
 }
 
-# 4.06 connectdb
-# Function to connect to the database
-# Returns "true" on success
-# Returns "false" on failure
-sub connectdb() {
-  my ($ts, $pgerr);
-  our $dbh = DBI->connect($c_dsn, $c_pgsql_user, $c_pgsql_pass);
-  if ($dbh ne "") {
-    return "true";
-  } else {
-    return "false";
-  }
-}
-
 # 4.07 startdhcp
 # Function to start the dhcp client for a specific tap device
 # Returns "true" on success
@@ -589,7 +632,6 @@ sub startdhcp() {
   `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
 #  `/opt/dhcp-3.0.7/bin/dhclient -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
   $ec = getec();
-  &printlog("Starting dhclient3 for $tap!", "$ec");
   sleep 1;
   if ($? == 0) {
     return "true";
@@ -612,7 +654,6 @@ sub ipruleadd() {
 
   `ip rule add from $tapip table $tap`;
   $ec = getec();
-  &printlog("ip rule add from $tapip table $tap!", "$ec");
   if ($? == 0) {
     return "true";
   } else {
@@ -634,7 +675,6 @@ sub ipruledel() {
 
   `ip rule del from $tapip table $tap`;
   $ec = getec();
-  &printlog("ip rule del from $tapip table $tap!", "$ec");
   if ($? == 0) {
     return "true";
   } else {
@@ -1175,9 +1215,6 @@ sub sendmail() {
   MIME::Lite->send('sendmail');
   $chk = $msg->send;
   
-  # Print info to a log file
-  #&printlog("Mailed to: $email");
-
   # Delete the mail and signed mail
   if (-e "$sigmailfile") {
     system("rm $sigmailfile");
@@ -1457,18 +1494,19 @@ sub cidr() {
 
 # 4.33 logsys
 # Function to log messages to the syslog table
-
 sub logsys() {
   my ($ts, $level, $msg, $sql, $er);	# local variables
   our $source;
   our $sensor;
   our $tap;		
   our $pid;
+  our $g_vlanid;
 
-  if (!$source) { $source = "source_unknown"; }
-  if (!$sensor) { $sensor = "sensor_unknown"; }
-  if (!$tap)    { $tap    = "tap_unknown"; }
-  if (!$pid)	{ $pid 	  = "pid_unknown"; }
+  if (!$source) { $source = "unknown"; }
+  if (!$sensor) { $sensor = "unknown"; }
+  if (!$tap)    { $tap    = "unknown"; }
+  if (!$pid)	{ $pid 	  = 0; }
+  if (!$g_vlanid) { $g_vlanid = 0; }
 
   $level = $_[0];	# Loglegel (DEBUG, INFO, WARN, ERROR, CRIT)
   $msg = $_[1];		# Message (SATRT_SCRIPT, STOP_SCRIPT, etc )
@@ -1488,9 +1526,7 @@ sub logsys() {
 #  $er = $dbh->do($sql);
 
   open LOG,  ">>/tmp/logsys" || die ("cant open log: $!");
-  print LOG "$pid	$source		$sensor		$level\n";
-  print LOG "$msg	$args\n";
-  print LOG "\n";
+  print LOG "$pid $source $sensor $msg $args\n";
   close LOG;
   return "true";
 }
@@ -1518,10 +1554,9 @@ sub startstatic() {
         # Configure the interface
         `ifconfig $tap $if_ip netmask $if_nm broadcast $if_bc`;
         $ec = getec();
-        &printlog("Setting IP address: $if_ip - $if_nm - $if_bc", "$ec");
 
         # Check for existing rules.
-        $rulecheck = `ip rule list | grep $tap | wc -l`;
+        $rulecheck = `ip rule list | grep \\b$tap\\b | wc -l`;
         chomp($rulecheck);
         if ($rulecheck == 0) {
                 $result = &ipruleadd($tap, $if_ip);
@@ -1530,25 +1565,21 @@ sub startstatic() {
                 $result = &ipruleadd($tap, $if_ip);
                 $checktap = `$c_surfidsdir/scripts/checktap.pl $tap`;
                 $ec = getec();
-                &printlog("Running: $c_surfidsdir/scripts/checktap.pl $tap", "$ec");
         }
 
         # Just to be sure, flush the routing table of the tap device.
         &flushroutes($tap);
         $ec = getec();
-        &printlog("Flushing $tap routing table!", "$ec");
 
         # Calculate the network based on the if_ip and the netmask.
         $network = &getnetwork($if_ip, $if_nm);
         $ec = getec();
-        &printlog("Network: $network", "$ec");
-        ##print LOG "[$ts - $tap - $ec] Network: $network\n";
 
         # Check if there are any routes present in the main routing table.
-        $routecheck = `ip route list | grep $tap | wc -l`;
+        $esctap = &escape_dev($tap);
+        $routecheck = `ip route list | grep \\b$esctap\\b | wc -l`;
         chomp($routecheck);
         $ec = getec();
-        &printlog("IP routes present in main table: $routecheck", "$ec");
 
         # If none were present, add it. This needs to be done otherwise
         # you'll get an error when adding the default gateway
@@ -1556,25 +1587,21 @@ sub startstatic() {
         if ($routecheck == 0) {
                 $result = &addroute($network, $tap, $if_ip, "main");
                 $ec = getec();
-                &printlog("Adding route to table main", "$ec");
         }
 
         # Add default gateway to the routing table of the tap device.
         $result = &adddefault($if_gw, $tap);
         $ec = getec();
-        &printlog("Adding default route to table $tap", "$ec");
 
         # At this point we can delete the route to the network from the
         # main table as there is now a default gateway in the routing table
         # from the tap device.
         $result = &delroute($network, $tap, $if_ip, "main");
         $ec = getec();
-        &printlog("Deleting route from table main", "$ec");
 
         # Add the route to the network to the routing table of the tap device.
         $result = &addroute($network, $tap, $if_ip, $tap);
         $ec = getec();
-        &printlog("Adding route to table $tap", "$ec");
 }
 
 # 4.36 check_interface_ip
@@ -1591,7 +1618,6 @@ sub check_interface_ip() {
                 if ($? != 0) {
                         $count = 1;
                         $ec = getec();
-                        &printlog("The tap device was not present!", "$ec");
                         return -1;
                 } else {
                         $ok = `ifconfig $tap | grep "inet addr:" | wc -l`;
@@ -1599,37 +1625,12 @@ sub check_interface_ip() {
                 }
                 $i++;
                 if ($i == $timeout) {
-                        &printlog("The tap device could not get an IP address!", "Err");
                         return -1;
                 }
                 sleep 1;
         }
         return 0;
 }
-
-
-# 4.37 dbquery
-# Performs a query to the database. If the query fails, log the query to the database
-# and return false. Otherwise, return the data.
-sub dbquery {
-	my $sql = $_[0];
-	
-	if (!$dbh) {
-		&logsys(LOG_ERROR, "DB_ERROR", "No database handler!");
-		return 'false';
-	}
-	$sth = $dbh->prepare($sql);
-	$er = $sth->execute();
-	if (!$er) {
-		&logsys(LOG_ERROR, "DB_QUERY_FAIL", $sql);
-		exit(1);
-	} else {
-		&logsys(LOG_DEBUG, "DB_QUERY_OK", $sql);
-	}
-
-	return $sth;
-}
-
 
 # 4.38 sys_exec 
 # Executes the specified command. Logs nonzero return value to database.
@@ -1647,15 +1648,28 @@ sub sys_exec {
 	return $?;
 }
 
-# 4.39 disconnectdb
-# Closes the DB connection
-sub disconnectdb {
-	if ($sth) {
-		$sth->finish;
-	}
-	if ($dbh) {
-		$dbh->disconnect();
-	}
+# 4.40 escape_dev
+# Escapes the device for usage in regular expressions
+sub escape_dev() {
+    my ($dev, $escdev);
+    $dev = $_[0];
+    ($escdev = $dev) =~ s/\./\\./;
+    return $escdev;
+}
+
+# 4.41 getrulenumber
+# Retrieves the table number for a rule given a tap device
+sub getrulenumber() {
+    my ($dev, $nr, $escdev);
+    $dev = $_[0];
+    $escdev = &escape_dev($dev);
+    $nr = `grep "\\b$escdev\\b" /etc/iproute2/rt_tables | awk '{print \$1}'`;
+    chomp($nr);
+    if ("$nr" ne "") {
+        return $nr;
+    } else {
+        return "false";
+    }
 }
 
 return "true";

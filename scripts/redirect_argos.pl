@@ -58,7 +58,7 @@ printlog("################ Starting to_argos.pl ################# ");
 printlog("Resetting iptables Rules");
 `/etc/init.d/iptables.ipvs`;
 
-$dbconn = connectdb();
+$dbconn = dbconnect();
 
 $sql = "SELECT sensors.id, sensors.tapip, argos_images.serverip, argos_templates.abbr, argos.timespan FROM argos, argos_images, argos_templates, sensors   WHERE sensors.id = argos.sensorid  AND argos.imageid = argos_images.id AND argos.templateid = argos_templates.id AND sensors.status = 1 GROUP BY sensors.tapip, sensors.vlanid, argos_images.serverip, argos_templates.abbr, sensors.id, argos.timespan ORDER BY sensors.id";
 $sensor_query = $dbh->prepare($sql);

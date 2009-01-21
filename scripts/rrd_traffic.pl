@@ -30,7 +30,7 @@ require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 ##################
 # Main script
 ##################
-$checkdb = connectdb();
+$checkdb = dbconnect();
 
 @test = `cat /proc/net/dev | awk -F ":" '{print \$1}' | grep tap | awk '{print \$1}'`;
 foreach (@test) {
