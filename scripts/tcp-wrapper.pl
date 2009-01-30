@@ -29,7 +29,7 @@
 ##########################
 # Includes
 #########################
-use vars qw ($c_surfidsdir);
+#use vars qw ($c_surfidsdir);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
@@ -60,26 +60,32 @@ if ($res eq 'false') {
 
 # Get the sensorname from the database (based on the remoteip)
 my $sql;
-$sql = "SELECT distinct sensors.keyname FROM sensor_details, sensors ";
+$sql = "SELECT distinct sensors.keyname, status FROM sensor_details, sensors ";
 $sql .= " WHERE sensors.keyname = sensor_details.keyname AND remoteip = '$remoteip' AND NOT status = 3";
 $res = dbquery($sql);
 my $numrows= $res->rows();
 if ($numrows == 1) {
     my @row = $res->fetchrow_array;
     $sensor = $row[0];
+    $status = $row[1];
     $dev = $sensor;
     $dev =~ s/sensor/s/;
+
+    if ($status == 1) {
+        logsys($f_log_warning, "CONN_DUP", "Sensor was already running, additional connections ignored");
+        exit(1);
+    }
 
     # Set the status to starting up (6)
     $sql = "UPDATE sensors SET status = 6 WHERE keyname = '$sensor' AND NOT status = 3";
     $res = dbquery($sql);
-    logsys(LOG_DEBUG, "STATUS_CHANGE", "Set status to 6 for $sensor");
-    logsys(LOG_INFO, "CONN_OK", "Connection accepted for $sensor with IP address $remoteip");
+    logsys($f_log_debug, "STATUS_CHANGE", "Set status to 6 for $sensor");
+    logsys($f_log_info, "CONN_OK", "Connection accepted for $sensor with IP address $remoteip");
 } elsif ($numrows > 1) {
-    logsys(LOG_ERROR, "IP_OVERLOAD", "Multiple sensors ($numrows) for $remoteip. Refusing connection");
+    logsys($f_log_error, "IP_OVERLOAD", "Multiple sensors ($numrows) for $remoteip. Refusing connection");
     exit(1);
 } else {
-    logsys(LOG_ERROR, "UNKNOWN_IP", "Connect from $remoteip refused");
+    logsys($f_log_error, "CONN_DENIED", "Connect from $remoteip refused");
     exit(1);
 }
 
@@ -94,12 +100,12 @@ if ($sensor eq "") {
 } else {
 	$command .= " --dev $dev --dev-type tap";
 }
-logsys(LOG_DEBUG, "NOTIFY", "Starting openvpn: $command");
+logsys($f_log_debug, "NOTIFY", "Starting openvpn: $command");
 
 exec("$command");
 die "exec failed: $!";
 
 END {
-	logsys(LOG_DEBUG, "SCRIPT_END");
+	logsys($f_log_debug, "SCRIPT_END");
     dbdisconnect();
 }

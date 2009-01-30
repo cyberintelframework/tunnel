@@ -15,21 +15,28 @@
 
 use POSIX;
 
-use constant  {
-	LOG_DEBUG => 0,
-	LOG_INFO => 1,
-	LOG_WARN => 2,
-	LOG_ERROR => 3,
-	LOG_CRITICAL => 4,
-};
+#use constant  {
+#	LOG_DEBUG => 0,
+#	LOG_INFO => 1,
+#	LOG_WARN => 2,
+#	LOG_ERROR => 3,
+#	LOG_CRITICAL => 4,
+#};
+$f_log_debug = 0;
+$f_log_info = 1;
+$f_log_warn = 2;
+$f_log_error = 3;
+$f_log_crit = 4;
 
 ###############################################
 # INDEX
 ###############################################
 # 1	All CHK functions
-# 1.01      	chkdhclient
+# 1.01      chkdhclient
 # 1.02		chk_static_arp
 # 1.03		chk_dhcp_server
+# 1.04      chkroute
+# 1.05      chkrule
 # 2	All GET functions
 # 2.01		getts
 # 2.02		getec
@@ -202,9 +209,11 @@ sub chkrule() {
     chomp($dev);
     $escdev = &escape_dev($dev);
     $chk = `ip rule list | grep '\\b$escdev\\b' | wc -l`;
+    print "CHK1: $chk\n";
     if ($chk == 0) {
         $nr = getrulenumber($escdev);
         $chk = `ip rule list | grep '\\b$nr\\b' | wc -l`;
+        print "CHK2: $chk\n";
     }
     chomp($chk);
     return $chk;
@@ -452,18 +461,18 @@ sub dbquery {
 	my $sql = $_[0];
 	
 	if (!$dbh) {
-		&logsys(LOG_ERROR, "DB_ERROR", "No database handler!");
+		&logsys($f_log_error, "DB_ERROR", "No database handler!");
 		return 'false';
 	}
 	$sth = $dbh->prepare($sql);
 	$er = $sth->execute();
 	if (!$er) {
-		&logsys(LOG_ERROR, "DB_QUERY_FAIL", $sql);
-        &logsys(LOG_ERROR, "DB_QUERY_FAIL", $dbh->errstr);
-        &logsys(LOG_ERROR, "DB_QUERY_FAIL", $dbh->err);
+		&logsys($f_log_error, "DB_QUERY_FAIL", $sql);
+        &logsys($f_log_error, "DB_QUERY_FAIL", $dbh->errstr);
+        &logsys($f_log_error, "DB_QUERY_FAIL", $dbh->err);
 		exit(1);
 	} else {
-		&logsys(LOG_DEBUG, "DB_QUERY_OK", $sql);
+		&logsys($f_log_debug, "DB_QUERY_OK", $sql);
 	}
 
 	return $sth;
@@ -571,13 +580,23 @@ sub killdhclient() {
 # Returns 0 on success
 # Returns non-zero on failure
 sub deliprules() {
-  my (@total, $ip, $tap, $ec, $e);
+  my (@total, $ip, $tap, $ec, $e, $nr);
   $tap = $_[0];
   chomp($tap);
 
   $e = 0;
   $esctap = &escape_dev($tap);
-  @total = `ip rule list | grep \\b$esctap\\b | awk '{print \$3}'`;
+  @total = `ip rule list | grep '\\b$esctap\\b' | awk '{print \$3}'`;
+  print "TOTAL TAP FOUND: " .scalar(@total). "\n";
+  foreach $ip (@total) {
+    chomp($ip);
+    `ip rule del from $ip table $tap`;
+    if ($? != 0) { $e = 1; }
+    $ec = getec();
+  }
+  $nr = getrulenumber($esctap);
+  @total = `ip rule list | grep '\\b$nr\\b' | awk '{print \$3}'`;
+  print "TOTAL NR FOUND: " .scalar(@total). "\n";
   foreach $ip (@total) {
     chomp($ip);
     `ip rule del from $ip table $tap`;
@@ -1495,7 +1514,7 @@ sub cidr() {
 # 4.33 logsys
 # Function to log messages to the syslog table
 sub logsys() {
-  my ($ts, $level, $msg, $sql, $er);	# local variables
+  my ($ts, $level, $msg, $sql, $er, $tsensor);    # local variables
   our $source;
   our $sensor;
   our $tap;		
@@ -1512,22 +1531,43 @@ sub logsys() {
   $msg = $_[1];		# Message (SATRT_SCRIPT, STOP_SCRIPT, etc )
   chomp($msg);		
 
-  if ($_[2]) {
-    $args = $_[2];
-    chomp($args);
-  } else {
-    $args = "";
+  if ($level >= $c_log_level) {
+    if (!$source) { $source = "unknown"; }
+    if (!$sensor) { $sensor = "unknown"; }
+    if (!$tap)    { $tap    = "unknown"; }
+    if (!$pid)  { $pid    = 0; }
+    if (!$g_vlanid) { $g_vlanid = 0; }
+
+    if ($_[2]) {
+      $args = $_[2];
+      chomp($args);
+    } else {
+      $args = "";
+    }
+
+
+    $ts = time();
+    if ($c_log_method == 2 || $c_log_method == 3) {
+      # We need to cleanup the $args and escape all ' and " characters
+      $args =~ s/\'/\\\'/g;
+      $args =~ s/\"/\\\"/g;
+
+      $sql = "INSERT INTO syslog (source, timestamp, error, args, level, sensorid, device, pid, vlanid) VALUES ";
+      $sql .= " ('$source', $ts, '$msg', '$args', $level, '$sensor', '$tap', $pid, $g_vlanid)";
+      if ($dbh) {
+       $er = $dbh->do($sql);
+      }
+    }
+    if ($c_log_method == 1 || $c_log_method == 3) {
+      $tsensor = $sensor;
+      if ($g_vlanid != 0) {
+        $tsensor = "$sensor-$g_vlanid";
+      }
+      open LOG,  ">>/tmp/logsys" || die ("cant open log: $!");
+      print LOG "$pid $source $tsensor $msg $args\n";
+      close LOG;
+    }
   }
-
-  $ts = time();
-
-#  $sql = "INSERT INTO syslog (source, timestamp, error, args, level, sensorid, device, $pid) VALUES ";
-#  $sql .= " ('$source', '$ts', '$msg', '$args', '$level', '$sensor', '$tap', $pid)";
-#  $er = $dbh->do($sql);
-
-  open LOG,  ">>/tmp/logsys" || die ("cant open log: $!");
-  print LOG "$pid $source $sensor $msg $args\n";
-  close LOG;
   return "true";
 }
 
@@ -1556,7 +1596,7 @@ sub startstatic() {
         $ec = getec();
 
         # Check for existing rules.
-        $rulecheck = `ip rule list | grep \\b$tap\\b | wc -l`;
+        $rulecheck = `ip rule list | grep '\\b$tap\\b' | wc -l`;
         chomp($rulecheck);
         if ($rulecheck == 0) {
                 $result = &ipruleadd($tap, $if_ip);
@@ -1577,7 +1617,7 @@ sub startstatic() {
 
         # Check if there are any routes present in the main routing table.
         $esctap = &escape_dev($tap);
-        $routecheck = `ip route list | grep \\b$esctap\\b | wc -l`;
+        $routecheck = `ip route list | grep '\\b$esctap\\b' | wc -l`;
         chomp($routecheck);
         $ec = getec();
 
@@ -1653,7 +1693,12 @@ sub sys_exec {
 sub escape_dev() {
     my ($dev, $escdev);
     $dev = $_[0];
-    ($escdev = $dev) =~ s/\./\\./;
+    chomp($dev);
+    if ($dev !~ /\\\./g) {
+        ($escdev = $dev) =~ s/\./\\./;
+    } else {
+        $escdev = $dev;
+    }
     return $escdev;
 }
 

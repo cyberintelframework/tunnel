@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
-use warnings;
-use strict 'vars';
+#use warnings;
+#use strict 'vars';
 
 ####################################
 # Down script                      #
@@ -23,7 +23,7 @@ use strict 'vars';
 #####################
 # Includes
 ####################
-use vars qw ($c_surfidsdir $f_log_debug $f_log_info $f_log_warn $f_log_error $f_log_crit);
+#use vars qw ($c_surfidsdir $f_log_debug $f_log_info $f_log_warn $f_log_error $f_log_crit);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
@@ -66,8 +66,8 @@ dbquery("UPDATE sensors SET tap = '', tapip = '0.0.0.0' WHERE keyname = '$sensor
 
 # Update database. Save the uptime for each vlan, and set the status to offline (=0).
 my $date = time();
-dbquery("UPDATE sensors SET laststop = $date  WHERE keyname = '$sensor' AND status = 1");
-dbquery("UPDATE sensors SET uptime = uptime + laststop - laststart, status = 0 WHERE keyname = '$sensor' AND status = 1");
+dbquery("UPDATE sensors SET laststop = $date  WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
+dbquery("UPDATE sensors SET uptime = uptime + laststop - laststart, status = 0 WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
 
 # For all tap devices affected by the openvpn tunnel going down, clean up.
 # (this uses the array of affected devices created earlier in this script)

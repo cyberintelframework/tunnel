@@ -11,8 +11,8 @@
 # Auke Folkerts (changeset 007)    #
 ####################################
 
-use warnings;
-use strict "vars";
+#use warnings;
+#use strict "vars";
 
 ###########################
 ## NOTE NOTE NOTE NOTE ####
@@ -60,10 +60,10 @@ if ($result eq 'false') {
 ####################
 ## Global variables 
 #####################
-if (!$ENV{sensor}) { logsys(LOG_ERROR, "ENV_FAIL", "No sensor name in environment"); exit(2); }
-if (!$ENV{tap}) { logsys(LOG_ERROR, "ENV_FAIL", "No tap device name in environment"); exit(3); }
-if (!$ENV{remoteip}) { logsys(LOG_ERROR, "ENV_FAIL", "No remote IP address in environment"); exit(4); }
-if (!$ENV{pid}) { logsys(LOG_ERROR, "ENV_FAIL", "No process ID in environment"); exit(5); }
+if (!$ENV{sensor}) { logsys($f_log_error, "ENV_FAIL", "No sensor name in environment"); exit(2); }
+if (!$ENV{tap}) { logsys($f_log_error, "ENV_FAIL", "No tap device name in environment"); exit(3); }
+if (!$ENV{remoteip}) { logsys($f_log_error, "ENV_FAIL", "No remote IP address in environment"); exit(4); }
+if (!$ENV{pid}) { logsys($f_log_error, "ENV_FAIL", "No process ID in environment"); exit(5); }
 our $source = 'ipchange.pl';
 our $sensor = $ENV{sensor} || die ("no sensor");
 our $tap = $ENV{tap} || die ("no tap");
@@ -76,7 +76,7 @@ our $g_vlanid = 0;
 ##################
 my $mypid;
 if (!$mypid) {
-  logsys(LOG_DEBUG, "SCRIPT_START");
+  logsys($f_log_debug, "SCRIPT_START");
 }
 
 # Fork to the background
@@ -92,7 +92,7 @@ if ($result eq 'false') {
 my $res = dbquery("SELECT networkconfig, vlanid, arp, id FROM sensors WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
 if ($res->rows == 0) {
 	# no records
-	logsys(LOG_ERROR, "NO_SENSOR_RECORD", "No entries for $sensor are configured" );
+	logsys($f_log_error, "NO_SENSOR_RECORD", "No entries for $sensor are configured" );
 	exit(1);
 }
 
@@ -114,13 +114,13 @@ for(my $i = 0; $i < $res->rows; $i++) {
 	} else {
 		$dev = "$tap";
 	}
-	logsys(LOG_DEBUG, "NOTIFY", "Bringing up $dev: $netconf");
+	logsys($f_log_debug, "NOTIFY", "Bringing up $dev: $netconf");
 
 
-    logsys(LOG_DEBUG, "NOTIFY", "Going to kill dhclient for $dev");
+    logsys($f_log_debug, "NOTIFY", "Going to kill dhclient for $dev");
 	# Kill off any remaining dhcp daemons for this interface
 	killdhclient($dev);
-    logsys(LOG_DEBUG, "NOTIFY", "Killed dhclient for $dev");
+    logsys($f_log_debug, "NOTIFY", "Killed dhclient for $dev");
 
 
 	# Make sure the routing table exists for this device. The startstatic()
@@ -133,7 +133,7 @@ for(my $i = 0; $i < $res->rows; $i++) {
 		chomp($next_identifier);
 		$next_identifier++;
 		`echo "$next_identifier			$dev" >> /etc/iproute2/rt_tables`;
-		logsys(LOG_DEBUG, "NOTIFY", "Added entry for $dev in /etc/iproute2/rt_tables (id $next_identifier)");
+		logsys($f_log_debug, "NOTIFY", "Added entry for $dev in /etc/iproute2/rt_tables (id $next_identifier)");
 	}
 
 	if ($netconf eq "dhcp") {
@@ -157,15 +157,15 @@ for(my $i = 0; $i < $res->rows; $i++) {
 	# check wether interface obtained an IP
 	my $result = check_interface_ip($dev, $c_sql_dhcp_retries);
 	if ($result) {
-		logsys(LOG_ERROR, "NETWORK_ERROR", "Device $dev failed to come up");
+		logsys($f_log_error, "NETWORK_ERROR", "Device $dev failed to come up");
 		exit(1);
 	}
-	logsys(LOG_DEBUG, "NOTICE", "$dev device is up.");
+	logsys($f_log_debug, "NOTICE", "$dev device is up.");
 
 
 	# Get the IP address from the tap interface.
 	my $tap_ip = getifip($dev);
-	logsys(LOG_DEBUG, "NOTIFY",  "Tap device $dev obtained IP address $tap_ip");
+	logsys($f_log_debug, "NOTIFY",  "Tap device $dev obtained IP address $tap_ip");
 
 
 	# Update Tap info to the database for the current vlan.
@@ -174,12 +174,12 @@ for(my $i = 0; $i < $res->rows; $i++) {
 
 	if ($c_enable_pof == 1) {
 		system "p0f -d -i $dev -o /dev/null";
-		logsys(LOG_INFO, "NOTIFY", "Started passive TCP fingerprinting");
+		logsys($f_log_info, "NOTIFY", "Started passive TCP fingerprinting");
 	}
 
 	if ($c_enable_arp == 1 && $arp == 1) {
 		system("$c_surfidsdir/scripts/detectarp.pl $dev &");
-		logsys(LOG_INFO, "NOTIFY", "Started ARP & Rogue DHCP detection");
+		logsys($f_log_info, "NOTIFY", "Started ARP & Rogue DHCP detection");
 	}
 }
 $g_vlanid = 0;
@@ -187,10 +187,10 @@ $g_vlanid = 0;
 
 END {
   if ($mypid) {
-    logsys(LOG_DEBUG, "NOTIFY", "Daemonized");
+    logsys($f_log_debug, "NOTIFY", "Daemonized");
   } else {
-    logsys(LOG_DEBUG, "NOTIFY", "Last return code: $?");
-    logsys(LOG_DEBUG, "SCRIPT_END");
+    logsys($f_log_debug, "NOTIFY", "Last return code: $?");
+    logsys($f_log_debug, "SCRIPT_END");
     dbdisconnect();
   } 
 }
