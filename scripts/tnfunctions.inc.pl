@@ -15,13 +15,6 @@
 
 use POSIX;
 
-#use constant  {
-#	LOG_DEBUG => 0,
-#	LOG_INFO => 1,
-#	LOG_WARN => 2,
-#	LOG_ERROR => 3,
-#	LOG_CRITICAL => 4,
-#};
 $f_log_debug = 0;
 $f_log_info = 1;
 $f_log_warn = 2;
@@ -33,19 +26,16 @@ $f_log_crit = 4;
 ###############################################
 # 1	All CHK functions
 # 1.01      chkdhclient
-# 1.02		chk_static_arp
-# 1.03		chk_dhcp_server
-# 1.04      chkroute
-# 1.05      chkrule
+#
 # 2	All GET functions
 # 2.01		getts
-# 2.02		getec
 # 2.03		getlocalgw
 # 2.04		getnetwork
 # 2.05		getifip
 # 2.06		getdatetime
 # 2.07		getifmask
 # 2.08		getnetinfo
+#
 # 3	ALL DB functions
 # 3.01		dbremoteip
 # 3.02		dbnetconf
@@ -54,46 +44,61 @@ $f_log_crit = 4;
 # 3.05      dbnumrows
 # 3.06		dbconnect
 # 3.07      dbdisconnect
-# 4	ALL misc functions
-# 4.01		printlog
-# 4.02		killdhclient
-# 4.03		deliprules
-# 4.04		flushroutes
-# 4.05		printenv
-# 4.07		startdhcp
-# 4.08		ipruleadd
-# 4.09		addroute
-# 4.10		delroute
-# 4.11		adddefault
-# 4.12		add_arp_cache
-# 4.13		hextoip
-# 4.14		colonmac
-# 4.15		add_arp_alert
-# 4.16		ip2long
-# 4.17		long2ip
-# 4.18		bc
-# 4.19		network
-# 4.20		dec2bin
-# 4.21		bin2dec
-# 4.22		validip
-# 4.23		get_man
-# 4.24		sendmail
-# 4.25		gw
-# 4.26		add_host_type
-# 4.27		add_proto_type
-# 4.28		refresh_protos
-# 4.29		refresh_static
-# 4.30		refresh_cache
-# 4.31		printinfo
-# 4.32		printdblog
-# 4.33		logsys
-# 4.34		in_array
-# 4.35		startstatic
-# 4.36		check_interface_ip
-# 4.38      sys_exec
-# 4.40      escape_dev
-# 4.41      getrulenumber
+#
+# 4 ALL routing functions
+# 4.01		addroute
+# 4.02		delroute
+# 4.03		adddefault
+# 4.04      chkroute
+# 4.05		flushroutes
+#
+# 5 ALL rule functions
+# 5.01		deliprules
+# 5.02		ipruleadd
+# 5.03      ipruledel
+# 5.04      chkrule
+# 5.05      getrulenumber
+#
+# 6 ALL ARP functions
+# 6.01		add_arp_cache
+# 6.02		add_arp_alert
+# 6.03		add_host_type
+# 6.04		add_proto_type
+# 6.05		refresh_protos
+# 6.06		refresh_static
+# 6.07		refresh_cache
+# 6.08		get_man
+# 6.09		chk_static_arp
+# 6.10		chk_dhcp_server
+#
+# 7 ALL tool functions
+# 7.01		hextoip
+# 7.02		colonmac
+# 7.03		ip2long
+# 7.04		long2ip
+# 7.05		bc
+# 7.06		network
+# 7.07		dec2bin
+# 7.08		bin2dec
+# 7.09		validip
+# 7.10		gw
+# 7.11		in_array
+# 7.12      escape_dev
+#
+# 9 ALL misc functions
+# 9.01		killdhclient
+# 9.02		printenv
+# 9.03		startdhcp
+# 9.04		sendmail
+# 9.05		logsys
+# 9.06		startstatic
+# 9.07		check_interface_ip
+# 9.08      sys_exec
 ###############################################
+
+#####################################
+# 1 ALL CHK functions
+#####################################
 
 # 1.01 chkdhclient
 # Function to check if there's a dhclient running for a specific tap device
@@ -111,113 +116,9 @@ sub chkdhclient() {
   return 0;
 }
 
-# 1.02 chk_static_arp
-# Function to check an IP/MAC pair versus the static list in the database
-# Returns 0 on success
-# Returns non-zero on failure
-sub chk_static_arp() {
-  my ($mac, $ip, $sensorid, $chk, $staticmac, @row, $sql, $sth, $er, $man, $ts);
-  $mac = $_[0];
-  $ip = $_[1];
-  $sensorid = $_[2];
-  chomp($mac);
-  chomp($ip);
-  chomp($sensorid);
-  $ts = time();
-
-  if ("$sensorid" eq "") {
-    return 1;
-  }
-
-  if ("$ip" eq "") {
-    return 2;
-  }
-
-  if ("$mac" eq "") {
-    return 3;
-  } elsif ("$mac" eq "00:00:00:00:00:00") {
-    return 4;
-  } elsif ("$mac" eq "FF:FF:FF:FF:FF:FF") {
-    return 4;
-  } elsif ("$mac" eq "ff:ff:ff:ff:ff:ff") {
-    return 4;
-  }
-
-  if (! exists $arp_static{"$ip"}) {
-    return 5;
-  } else {
-    $staticmac = $arp_static{"$ip"};;
-    if ("$staticmac" eq "") {
-      return 5;
-    } else {
-      if ("$mac" ne "$staticmac") {
-        # Alert!!
-        $chk = &add_arp_alert($staticmac, $mac, $ip, $ip, $sensorid, 10);
-        # Modifying ARP cache
-        $man = get_man($mac);
-        if ("$man" eq "false") {
-          $man = "";
-        }
-        $sql = "UPDATE arp_cache SET mac = '$mac', last_seen = $ts, manufacturer = '$man' WHERE sensorid = $sensorid AND ip = '$ip'";
-        $sth = $dbh->prepare($sql);
-        $er = $sth->execute();
-
-        delete $arp_cache{"$staticmac"};
-        $arp_cache{"mac"} = $ip;
-      }
-    }
-  }
-  return 0;
-}
-
-# 1.03 chk_dhcp_server
-# Function to check if a detected dhcp server is allowed
-sub chk_dhcp_server() {
-  my ($mac, $ip, $chk, $ident);
-  $mac = $_[0];
-  $ip = $_[1];
-  $ident = $_[2];
-  chomp($mac);
-  chomp($ip);
-  chomp($ident);
-
-  if (! exists $dhcp_static{"$ip"}) {
-    $chk = &add_arp_alert("", $mac, "", $ip, $sensorid, 11, "$ident");
-  }
-  return 0;
-}
-
-# 1.04 chkroute
-# Function to check for the existance of a route given an IP address
-sub chkroute() {
-    my ($remoteip, $chk);
-    $remoteip = $_[0];
-    chomp($remoteip);
-    $chk = `ip route list | grep '\\b$remoteip\\b' | wc -l`;
-    if ($chk == 0) {
-        return;
-    } else {
-        return true;
-    }
-}
-
-# 1.05 chkrule
-# Function to check for the existance of a rule given a device
-sub chkrule() {
-    my ($dev, $nr, $chk, $escdev);
-    $dev = $_[0];
-    chomp($dev);
-    $escdev = &escape_dev($dev);
-    $chk = `ip rule list | grep '\\b$escdev\\b' | wc -l`;
-    print "CHK1: $chk\n";
-    if ($chk == 0) {
-        $nr = getrulenumber($escdev);
-        $chk = `ip rule list | grep '\\b$nr\\b' | wc -l`;
-        print "CHK2: $chk\n";
-    }
-    chomp($chk);
-    return $chk;
-}
+#####################################
+# 2 ALL GET functions
+#####################################
 
 # 2.01 getts
 # Function to get the current date in a human readable format
@@ -248,18 +149,6 @@ sub getts() {
   }
 
   $timestamp = "$day-$month-$year $hour:$min:$sec";
-}
-
-# 2.02 getec
-# Function to get the error code of the last run command
-# and translate it into something readable
-sub getec() {
-  my ($ec);
-  if ($? == 0) {
-    $ec = "Ok";
-  } else {
-    $ec = "Err - $?";
-  }
 }
 
 # 2.03 getlocalgw
@@ -390,6 +279,10 @@ sub getnetinfo() {
   }
 }
 
+#####################################
+# 3 ALL DB functions
+#####################################
+
 # 3.01 dbremoteip
 # Function that retrieves the remoteip given a tap device
 # Returns remoteip on success
@@ -466,11 +359,11 @@ sub dbquery {
 	}
 	$sth = $dbh->prepare($sql);
 	$er = $sth->execute();
+    $errstr = $sth->errstr;
 	if (!$er) {
 		&logsys($f_log_error, "DB_QUERY_FAIL", $sql);
-        &logsys($f_log_error, "DB_QUERY_FAIL", $dbh->errstr);
-        &logsys($f_log_error, "DB_QUERY_FAIL", $dbh->err);
-		exit(1);
+        &logsys($f_log_error, "DB_QUERY_FAIL", $errstr);
+        return 'false';
 	} else {
 		&logsys($f_log_debug, "DB_QUERY_OK", $sql);
 	}
@@ -520,189 +413,11 @@ sub dbdisconnect() {
 	}
 }
 
-# 4.01 printlog
-# Function to print something to a logfile
-# Returns 0 on success
-# Returns 1 on failure
-sub printlog() {
-  my ($err, $ts, $msg, $logstring);
-  $msg = $_[0];
-  $err = $_[1];
-  $ts = getts();
-  $logstring = "[$ts";
-  if ($tap) {
-    if ($tap ne "") {
-      $logstring .= " - $tap";
-    }
-  }
-  if ($err) {
-    if ("$err" ne "") {
-      $logstring .= " - $err";
-    }
-  }
-  $logstring .= "] $msg\n";
-  if ("$logfile" ne "") {
-    open(LOG, ">> $logfile");
-    print LOG $logstring;
-    close(LOG);
-  } else {
-    print "$logstring\n";
-  }
-}
+#####################################
+# 4 ALL routing functions
+#####################################
 
-# 4.02 killdhclient
-# Function to kill all dhclients for a specific tap device
-# Returns 0 on success
-# Returns non-zero on failure
-sub killdhclient() {
-  my ($pid, $tap, $e, $ec, @dhclients);
-  $tap = $_[0];
-  chomp($tap);
-
-  $e = 0;
-  @dhclients = `ps -ef | grep dhclient3 | grep -v grep | grep "^.*$tap\$" | awk '{print \$2}'`;
-  foreach $pid (@dhclients) {
-    chomp($pid);
-    `kill $pid`;
-    if ($? != 0) { $e = 1; }
-    $ec = getec();
-  }
-  if (-e "/var/lib/dhcp3/$tap.leases") {
-    `rm -f /var/lib/dhcp3/$tap.leases`;
-    if ($? != 0) { $e = 1; }
-    $ec = getec();
-  }
-  return $e;
-}
-
-# 4.03 deliprules
-# Function to delete all ip rules for a specific tap device
-# Returns 0 on success
-# Returns non-zero on failure
-sub deliprules() {
-  my (@total, $ip, $tap, $ec, $e, $nr);
-  $tap = $_[0];
-  chomp($tap);
-
-  $e = 0;
-  $esctap = &escape_dev($tap);
-  @total = `ip rule list | grep '\\b$esctap\\b' | awk '{print \$3}'`;
-  print "TOTAL TAP FOUND: " .scalar(@total). "\n";
-  foreach $ip (@total) {
-    chomp($ip);
-    `ip rule del from $ip table $tap`;
-    if ($? != 0) { $e = 1; }
-    $ec = getec();
-  }
-  $nr = getrulenumber($esctap);
-  @total = `ip rule list | grep '\\b$nr\\b' | awk '{print \$3}'`;
-  print "TOTAL NR FOUND: " .scalar(@total). "\n";
-  foreach $ip (@total) {
-    chomp($ip);
-    `ip rule del from $ip table $tap`;
-    if ($? != 0) { $e = 1; }
-    $ec = getec();
-  }
-  return $e;
-}
-
-# 4.04 flushroutes
-# Function to flush the routing table for a specific tap device
-# Returns 0 on success
-# Returns non-zero on failure
-sub flushroutes() {
-  my ($tap);
-  $tap = $_[0];
-  `ip route flush table $tap`;
-  return $?;
-}
-
-# 4.05 printenv
-# Function to print all environment variables. Used for debugging purposes.
-sub printenv() {
-  my ($envlog, $key);
-  $envlog = $_[0];
-
-  open(ENVLOG, ">> $envlog");
-  print ENVLOG "======================================================\n";
-  foreach $key (sort keys(%ENV)) {
-    print ENVLOG "$key = $ENV{$key}\n";
-  }
-  print ENVLOG "======================================================\n";
-  close(ENVLOG);
-}
-
-# 4.07 startdhcp
-# Function to start the dhcp client for a specific tap device
-# Returns "true" on success
-# Returns "false" on failure
-sub startdhcp() {
-  my ($tap, $ec);
-  $tap = $_[0];
-  chomp($tap);
-
-  # The dhclient script (surfids-dhclient) is responsible for setting up
-  # the interface and routes when an ip address is obtained. This
-  # script is heavily customized for the surfids system, as special
-  # routes need to be crafted.
-  #
-  # See startstatc() below to see the steps that are taken to set
-  # up these routes.
-  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
-#  `/opt/dhcp-3.0.7/bin/dhclient -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
-  $ec = getec();
-  sleep 1;
-  if ($? == 0) {
-    return "true";
-  } else {
-    return "false";
-  }
-  return "false";
-}
-
-# 4.08 ipruleadd
-# Function to add an ip rule for a specific tap device
-# Returns "true" on success
-# Returns "false" on failure
-sub ipruleadd() {
-  my ($tap, $tapip);
-  $tap = $_[0];
-  $tapip = $_[1];
-  chomp($tap);
-  chomp($tapip);
-
-  `ip rule add from $tapip table $tap`;
-  $ec = getec();
-  if ($? == 0) {
-    return "true";
-  } else {
-    return "false";
-  }
-  return "false";
-}
-
-# 4.08 ipruledel
-# Function to add an ip rule for a specific tap device
-# Returns "true" on success
-# Returns "false" on failure
-sub ipruledel() {
-  my ($tap, $tapip);
-  $tap = $_[0];
-  $tapip = $_[1];
-  chomp($tap);
-  chomp($tapip);
-
-  `ip rule del from $tapip table $tap`;
-  $ec = getec();
-  if ($? == 0) {
-    return "true";
-  } else {
-    return "false";
-  }
-  return "false";
-}
-
-# 4.09 addroute
+# 4.01 addroute
 # Function to add a route to a routing table
 # Returns 0 on success
 # Returns non-zero on failure
@@ -725,7 +440,7 @@ sub addroute() {
   return 1;
 }
 
-# 4.10 delroute
+# 4.02 delroute
 # Function to delete a route from a routing table
 # Returns 0 on success
 # Returns non-zero on failure
@@ -748,7 +463,7 @@ sub delroute() {
   return 1;
 }
 
-# 4.11 adddefault
+# 4.03 adddefault
 # Function to add a default route to a routing table
 # Returns 0 on success
 # Returns non-zero on failure
@@ -767,7 +482,139 @@ sub adddefault() {
   return 1;
 }
 
-# 4.12 add_arp_cache
+# 4.04 chkroute
+# Function to check for the existance of a route given an IP address
+sub chkroute() {
+    my ($remoteip, $chk);
+    $remoteip = $_[0];
+    chomp($remoteip);
+    $chk = `ip route list | grep '\\b$remoteip\\b' | wc -l`;
+    if ($chk == 0) {
+        return;
+    } else {
+        return true;
+    }
+}
+
+# 4.05 flushroutes
+# Function to flush the routing table for a specific tap device
+# Returns 0 on success
+# Returns non-zero on failure
+sub flushroutes() {
+  my ($tap);
+  $tap = $_[0];
+  chomp($tap);
+  $ec = sys_exec("ip route flush table $tap");
+  return $ec;
+}
+
+#####################################
+# 5 ALL rule functions
+#####################################
+
+# 5.01 deliprules
+# Function to delete all ip rules for a specific tap device
+# Returns 0 on success
+# Returns non-zero on failure
+sub deliprules() {
+  my (@total, $ip, $tap, $ec, $e, $nr);
+  $tap = $_[0];
+  chomp($tap);
+
+  $e = 0;
+  $esctap = &escape_dev($tap);
+  @total = `ip rule list | grep '\\b$esctap\\b' | awk '{print \$3}'`;
+  foreach $ip (@total) {
+    chomp($ip);
+    $ec = sys_exec("ip rule del from $ip table $tap");
+    if ($ec != 0) { $e = 1; }
+  }
+  $nr = getrulenumber($esctap);
+  @total = `ip rule list | grep '\\b$nr\\b' | awk '{print \$3}'`;
+  foreach $ip (@total) {
+    chomp($ip);
+    $ec = sys_exec("ip rule del from $ip table $tap");
+    if ($ec != 0) { $e = 2; }
+  }
+  return $e;
+}
+
+# 5.02 ipruleadd
+# Function to add an ip rule for a specific tap device
+# Returns "true" on success
+# Returns "false" on failure
+sub ipruleadd() {
+  my ($tap, $tapip);
+  $tap = $_[0];
+  $tapip = $_[1];
+  chomp($tap);
+  chomp($tapip);
+
+  `ip rule add from $tapip table $tap`;
+  if ($? == 0) {
+    return "true";
+  } else {
+    return "false";
+  }
+  return "false";
+}
+
+# 5.03 ipruledel
+# Function to add an ip rule for a specific tap device
+# Returns "true" on success
+# Returns "false" on failure
+sub ipruledel() {
+  my ($tap, $tapip);
+  $tap = $_[0];
+  $tapip = $_[1];
+  chomp($tap);
+  chomp($tapip);
+
+  `ip rule del from $tapip table $tap`;
+  if ($? == 0) {
+    return "true";
+  } else {
+    return "false";
+  }
+  return "false";
+}
+
+# 5.04 chkrule
+# Function to check for the existance of a rule given a device
+sub chkrule() {
+    my ($dev, $nr, $chk, $escdev);
+    $dev = $_[0];
+    chomp($dev);
+    $escdev = &escape_dev($dev);
+    $chk = `ip rule list | grep '\\b$escdev\\b' | wc -l`;
+    if ($chk == 0) {
+        $nr = getrulenumber($escdev);
+        $chk = `ip rule list | grep '\\b$nr\\b' | wc -l`;
+    }
+    chomp($chk);
+    return $chk;
+}
+
+# 5.05 getrulenumber
+# Retrieves the table number for a rule given a tap device
+sub getrulenumber() {
+    my ($dev, $nr, $escdev);
+    $dev = $_[0];
+    $escdev = &escape_dev($dev);
+    $nr = `grep "\\b$escdev\\b" /etc/iproute2/rt_tables | awk '{print \$1}'`;
+    chomp($nr);
+    if ("$nr" ne "") {
+        return $nr;
+    } else {
+        return "false";
+    }
+}
+
+#####################################
+# 6 ALL ARP functions
+#####################################
+
+# 6.01 add_arp_cache
 # Function to add an entry in the scripts ARP cache
 # Returns 0 on success
 # Returns non-zero on failure
@@ -850,35 +697,7 @@ sub add_arp_cache() {
   return 0;
 }
 
-# 4.13 hextoip
-# Function to convert a hexadecimal IP address to a regular IP address
-# Returns IP address
-sub hextoip {
-  my ($hex) = @_;
-  my $P1 = hex(substr($hex,0,2));
-  my $P2 = hex(substr($hex,2,2));
-  my $P3 = hex(substr($hex,4,2));
-  my $P4 = hex(substr($hex,6,2));
-  my $quad = "$P1.$P2.$P3.$P4";
-  return $quad;
-}
-
-# 4.14 colonmac
-# Function to convert a string to a regular MAC address
-# Returns MAC address
-sub colonmac {
-  my ($mac) = @_;
-  my $P1 = substr($mac,0,2);
-  my $P2 = substr($mac,2,2);
-  my $P3 = substr($mac,4,2);
-  my $P4 = substr($mac,6,2);
-  my $P5 = substr($mac,8,2);
-  my $P6 = substr($mac,10,2);
-  my $colmac = "$P1:$P2:$P3:$P4:$P5:$P6";
-  return $colmac;
-}
-
-# 4.15 add_arp_alert
+# 6.02 add_arp_alert
 # Function to add an ARP alert to the database
 # Returns 0 on success
 # Returns non-zero on failure
@@ -1022,19 +841,339 @@ sub add_arp_alert() {
   return 0;
 }
 
-# 4.16 ip2long
+# 6.03 add_host_type
+# Function to add a host type to an ARP cache entry
+sub add_host_type() {
+  my ($ip, $mac, $type, $sql, $sth, $er, @row, $flag, $flags, $flagstring, @flags_ar, %flags_hash);
+  $ip = $_[0];
+  $sensorid = $_[1];
+  $type = $_[2];
+  chomp($ip);
+  chomp($sensorid);
+  chomp($type);
+
+  # Get the old flags first
+  $sql = "SELECT flags FROM arp_cache WHERE ip = '$ip' AND sensorid = '$sensorid'";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+  @row = $sth->fetchrow_array;
+  $flags = $row[0];
+  if ("$flags" ne "") {
+    @flags_ar = split(/,/, $flags);
+    %flags_hash = ();
+    foreach $flag (@flags_ar) {
+      $flags_hash{"$flag"} = 0;
+    }
+    if (!exists $flags_hash{"$type"}) {
+      if ("$flags" ne "") {
+        $flagstring = $flags . ", $type";
+      } else {
+        $flagstring = "$type";
+      }
+    } else {
+      $flagstring = $flags;
+    }
+  } else {
+    $flagstring = "$type";
+  }
+
+  $sql = "UPDATE arp_cache SET flags = '$flagstring' WHERE ip = '$ip' AND sensorid = '$sensorid'";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+  return 0;
+}
+
+# 6.04 add_proto_type
+# Function to add a protocol type to the sensor sniff logs
+sub add_proto_type() {
+  my ($head, $nr, $proto, $sql, $sth, $er, @row, $id);
+  $sensorid = $_[0];
+  $head = $_[1];
+  $nr = $_[2];
+  chomp($sensorid);
+  chomp($head);
+  chomp($nr);
+
+  if ("$nr" eq "") {
+    return 1;
+  }
+
+  # Default protocol name is Unknown
+  $proto = "Unknown";
+
+  # Getting protocol name if exists
+  if ($head == 0) {
+    if (exists $ethernettypes{"$nr"}) {
+      $proto = $ethernettypes{"$nr"};
+    }
+    $sniff_protos_eth{$nr} = 0;
+  } elsif ($head == 1) {
+    if (exists $iptypes{"$nr"}) {
+      $proto = $iptypes{"$nr"};
+    }
+    $sniff_protos_ip{$nr} = 0;
+  } elsif ($head == 11) {
+    if (exists $icmptypes{"$nr"}) {
+      $proto = $icmptypes{"$nr"};
+    }
+    $sniff_protos_icmp{$nr} = 0;
+  } elsif ($head == 12) {
+    if (exists $igmptypes{"$nr"}) {
+      $proto = $igmptypes{"$nr"};
+    }
+    $sniff_protos_igmp{$nr} = 0;
+  } elsif ($head == 11768) {
+    if (exists $dhcptypes{$nr}) {
+      $proto = $dhcptypes{$nr};
+    }
+    $sniff_protos_dhcp{$nr} = 0;
+  }
+#  print "ADDPROTOTYPE: SID $sensorid - HEAD $head - NR $nr - PROTO $proto\n";
+
+  $sql = "INSERT INTO sniff_protos (sensorid, parent, number, protocol) VALUES ('$sensorid', '$head', '$nr', '$proto')";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+  return 0;
+}
+
+# 6.05 refresh_protos
+# Function to refresh the known protos hash
+sub refresh_protos() {
+  my ($head, $nr, @row, $er, $sth, $sql);
+  $head = $_[0];
+  chomp($head);
+  if ($head == 0) {
+    # Filling the local scripts protocol list (ETHERNETTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 0";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_eth = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_eth{"$nr"} = 0;
+    }
+  } elsif ($head == 1) {
+    # Filling the local scripts protocol list (IPTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 1";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_ip = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_ip{"$nr"} = 0;
+    }
+  } elsif ($head == 11) {
+    # Filling the local scripts protocol list (ICMPTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 11";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_icmp = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_icmp{"$nr"} = 0;
+    }
+  } elsif ($head == 12) {
+    # Filling the local scripts protocol list (IGMPTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 12";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_igmp = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_igmp{"$nr"} = 0;
+    }
+  } elsif ($head == 11768) {
+    # Filling the local scripts protocol list (DHCPTYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 11768";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_dhcp = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_dhcp{"$nr"} = 0;
+    }
+  }
+  return "true";
+}
+
+# 6.06 refresh_static
+# Function to refresh the detectarp static list hash
+sub refresh_static() {
+  my ($sql, $sth, $er, @row, $db_mac, $dp_ip);
+  $sql = "SELECT mac, ip FROM arp_static WHERE sensorid = $sensorid";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+  while (@row = $sth->fetchrow_array) {
+    $db_mac = $row[0];
+    $db_ip = $row[1];
+    $arp_static{"$db_ip"} = $db_mac;
+  }
+  return 0;
+}
+
+# 6.07 refresh_cache
+# Function to refresh the arp cache of the detect arp script
+sub refresh_cache() {
+  my ($sql, $sth, $er, @row, $db_mac, $db_ip);
+  $sql = "SELECT mac, ip FROM arp_cache WHERE sensorid = $sensorid";
+  $sth = $dbh->prepare($sql);
+  $er = $sth->execute();
+
+  while (@row = $sth->fetchrow_array) {
+    $db_mac = $row[0];
+    $db_ip = $row[1];
+    $arp_cache{"$db_mac"} = $db_ip;
+  } 
+  return 0;
+}
+
+# 6.08 get_man
+# Function to retrieve the manufacturer of a certain network card
+# based on the given mac address.
+# Returns manufacturer name on success
+# Returns false on failure
+sub get_man() {
+  my ($mac, $prefix, @prefix_ar, $man);
+  $mac = $_[0];
+  chomp($mac);
+  @prefix_ar = split(/:/, $mac);
+  $prefix = "$prefix_ar[0]:$prefix_ar[1]:$prefix_ar[2]";
+  $man = `grep -i "$prefix" $c_surfidsdir/scripts/oui.txt | awk '{sub(/(..):(..):(..)/,"");sub(/^[ \t]+/, "");print}'`;
+  chomp($man);
+  if ("$man" eq "") {
+    return "false";
+  } else {
+    return $man;
+  }
+}
+
+
+# 6.09 chk_static_arp
+# Function to check an IP/MAC pair versus the static list in the database
+# Returns 0 on success
+# Returns non-zero on failure
+sub chk_static_arp() {
+  my ($mac, $ip, $sensorid, $chk, $staticmac, @row, $sql, $sth, $er, $man, $ts);
+  $mac = $_[0];
+  $ip = $_[1];
+  $sensorid = $_[2];
+  chomp($mac);
+  chomp($ip);
+  chomp($sensorid);
+  $ts = time();
+
+  if ("$sensorid" eq "") {
+    return 1;
+  }
+
+  if ("$ip" eq "") {
+    return 2;
+  }
+
+  if ("$mac" eq "") {
+    return 3;
+  } elsif ("$mac" eq "00:00:00:00:00:00") {
+    return 4;
+  } elsif ("$mac" eq "FF:FF:FF:FF:FF:FF") {
+    return 4;
+  } elsif ("$mac" eq "ff:ff:ff:ff:ff:ff") {
+    return 4;
+  }
+
+  if (! exists $arp_static{"$ip"}) {
+    return 5;
+  } else {
+    $staticmac = $arp_static{"$ip"};;
+    if ("$staticmac" eq "") {
+      return 5;
+    } else {
+      if ("$mac" ne "$staticmac") {
+        # Alert!!
+        $chk = &add_arp_alert($staticmac, $mac, $ip, $ip, $sensorid, 10);
+        # Modifying ARP cache
+        $man = get_man($mac);
+        if ("$man" eq "false") {
+          $man = "";
+        }
+        $sql = "UPDATE arp_cache SET mac = '$mac', last_seen = $ts, manufacturer = '$man' WHERE sensorid = $sensorid AND ip = '$ip'";
+        $sth = $dbh->prepare($sql);
+        $er = $sth->execute();
+
+        delete $arp_cache{"$staticmac"};
+        $arp_cache{"mac"} = $ip;
+      }
+    }
+  }
+  return 0;
+}
+
+# 6.10 chk_dhcp_server
+# Function to check if a detected dhcp server is allowed
+sub chk_dhcp_server() {
+  my ($mac, $ip, $chk, $ident);
+  $mac = $_[0];
+  $ip = $_[1];
+  $ident = $_[2];
+  chomp($mac);
+  chomp($ip);
+  chomp($ident);
+
+  if (! exists $dhcp_static{"$ip"}) {
+    $chk = &add_arp_alert("", $mac, "", $ip, $sensorid, 11, "$ident");
+  }
+  return 0;
+}
+
+#####################################
+# 7 ALL tool functions
+#####################################
+
+# 7.01 hextoip
+# Function to convert a hexadecimal IP address to a regular IP address
+# Returns IP address
+sub hextoip {
+  my ($hex) = @_;
+  my $P1 = hex(substr($hex,0,2));
+  my $P2 = hex(substr($hex,2,2));
+  my $P3 = hex(substr($hex,4,2));
+  my $P4 = hex(substr($hex,6,2));
+  my $quad = "$P1.$P2.$P3.$P4";
+  return $quad;
+}
+
+# 7.02 colonmac
+# Function to convert a string to a regular MAC address
+# Returns MAC address
+sub colonmac {
+  my ($mac) = @_;
+  my $P1 = substr($mac,0,2);
+  my $P2 = substr($mac,2,2);
+  my $P3 = substr($mac,4,2);
+  my $P4 = substr($mac,6,2);
+  my $P5 = substr($mac,8,2);
+  my $P6 = substr($mac,10,2);
+  my $colmac = "$P1:$P2:$P3:$P4:$P5:$P6";
+  return $colmac;
+}
+
+# 7.03 ip2long
 # Function to convert an IP address to a long integer
 sub ip2long() {
   return unpack("l*", pack("l*", unpack("N*", inet_aton(shift))));
 }
 
-# 4.17 long2ip
+# 7.04 long2ip
 # Function to convert a long integer to an IP address
 sub long2ip() {
   return inet_ntoa(pack("N*", shift));
 }
 
-# 4.18 bc
+# 7.05 bc
 # Function to calculate the broadcast address given an IP address and subnet mask
 # Returns broadcast IP address on success
 # Returns false on failure
@@ -1062,7 +1201,7 @@ sub bc() {
   return $bc;
 }
 
-# 4.19 network
+# 7.06 network
 # Function to calculate the network given an IP address and subnet mask
 # Returns network IP address on success
 # Returns false on failure
@@ -1091,7 +1230,7 @@ sub network() {
   return $net;
 }
 
-# 4.20 dec2bin
+# 7.07 dec2bin
 # Function to convert a dotted decimal IP address to a binary string
 # Returns binary string on success
 # Returns false on failure
@@ -1124,7 +1263,7 @@ sub dec2bin() {
   return $bin;
 }
 
-# 4.21 bin2dec
+# 7.08 bin2dec
 # Function to convert a binary string to a dotted decimal IP address
 # Returns IP address on success
 sub bin2dec() {
@@ -1143,7 +1282,7 @@ sub bin2dec() {
   return $dec;
 }
 
-# 4.22 validip
+# 7.09 validip
 # Function to check if a given IP address is a valid IP address.
 # Returns 0 if the IP is a valid IP number
 # Returns 1 if not
@@ -1163,27 +1302,142 @@ sub validip() {
   return 1;
 }
 
-# 4.23 get_man()
-# Function to retrieve the manufacturer of a certain network card
-# based on the given mac address.
-# Returns manufacturer name on success
+# 7.10 gw
+# Function to calculate the gateway address given an IP address and subnetmask
+# Returns gateway IP address on success
 # Returns false on failure
-sub get_man() {
-  my ($mac, $prefix, @prefix_ar, $man);
-  $mac = $_[0];
-  chomp($mac);
-  @prefix_ar = split(/:/, $mac);
-  $prefix = "$prefix_ar[0]:$prefix_ar[1]:$prefix_ar[2]";
-  $man = `grep -i "$prefix" $c_surfidsdir/scripts/oui.txt | awk '{sub(/(..):(..):(..)/,"");sub(/^[ \t]+/, "");print}'`;
-  chomp($man);
-  if ("$man" eq "") {
+sub gw() {
+  my ($address, $chkip, $mask, $bina, $binm, $binn, $bing, $cidr, $net);
+  $address = $_[0];
+  $mask = $_[1];
+  chomp($address);
+  chomp($mask);
+  $chkip = &validip($address);
+  if ($chkip != 0) {
     return "false";
-  } else {
-    return $man;
   }
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $net = &network($address, $mask);
+  @net_ar = split(/\./, $net);
+  $old = $net_ar[3];
+  $new = $old + 1;
+  $gw = $net_ar[0] . "." . $net_ar[1] . "." . $net_ar[2] . "." . $new;
+  return $gw;
 }
 
-# 4.24 sendmail()
+# 7.11 cidr
+# # Function to convert a dotted decimal netmask to CIDR notation
+# # Returns CIDR notation on success
+# # Returns false on failure
+sub cidr() {
+  my ($mask, $chkip, $cidr, $bina, $binm);
+  $mask = $_[0];
+  chomp($mask);
+  $chkip = &validip($mask);
+  if ($chkip != 0) {
+    return "false";
+  }
+  $binm = &dec2bin($mask);
+  $cidr = ($binm =~ tr/1//);
+  return $cidr;
+}
+
+# 7.12 in_array
+# Checks to see if a certain value is in the given array
+# Usage: in_array(@array, $search_value)
+sub in_array() {
+  my ($ar, $search) = @_;
+  return grep { $search eq $_ } @$ar;
+}
+
+# 7.13 escape_dev
+# Escapes the device for usage in regular expressions
+sub escape_dev() {
+    my ($dev, $escdev);
+    $dev = $_[0];
+    chomp($dev);
+    if ($dev !~ /\\\./g) {
+        ($escdev = $dev) =~ s/\./\\./;
+    } else {
+        $escdev = $dev;
+    }
+    return $escdev;
+}
+
+#####################################
+# 9 ALL misc functions
+#####################################
+
+# 9.01 killdhclient
+# Function to kill all dhclients for a specific tap device
+# Returns 0 on success
+# Returns non-zero on failure
+sub killdhclient() {
+  my ($pid, $tap, $e, $ec, @dhclients);
+  $tap = $_[0];
+  chomp($tap);
+
+  $e = 0;
+  @dhclients = `ps -ef | grep dhclient3 | grep -v grep | grep "^.*$tap\$" | awk '{print \$2}'`;
+  foreach $pid (@dhclients) {
+    chomp($pid);
+    $ec = sys_exec("kill $pid");
+    if ($ec != 0) { $e = 1; }
+  }
+  if (-e "/var/lib/dhcp3/$tap.leases") {
+    $ec = sys_exec("rm -f /var/lib/dhcp3/$tap.leases");
+    if ($ec != 0) { $e = 2; }
+  }
+  return $e;
+}
+
+
+# 9.02 printenv
+# Function to print all environment variables. Used for debugging purposes.
+sub printenv() {
+  my ($envlog, $key);
+  $envlog = $_[0];
+
+  open(ENVLOG, ">> $envlog");
+  print ENVLOG "======================================================\n";
+  foreach $key (sort keys(%ENV)) {
+    print ENVLOG "$key = $ENV{$key}\n";
+  }
+  print ENVLOG "======================================================\n";
+  close(ENVLOG);
+}
+
+# 9.03 startdhcp
+# Function to start the dhcp client for a specific tap device
+# Returns "true" on success
+# Returns "false" on failure
+sub startdhcp() {
+  my ($tap, $ec);
+  $tap = $_[0];
+  chomp($tap);
+
+  # The dhclient script (surfids-dhclient) is responsible for setting up
+  # the interface and routes when an ip address is obtained. This
+  # script is heavily customized for the surfids system, as special
+  # routes need to be crafted.
+  #
+  # See startstatc() below to see the steps that are taken to set
+  # up these routes.
+  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
+#  `/opt/dhcp-3.0.7/bin/dhclient -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
+  sleep 1;
+  if ($? == 0) {
+    return "true";
+  } else {
+    return "false";
+  }
+  return "false";
+}
+
+# 9.04 sendmail()
 # Function to send a mail
 # Returns 0 on success
 # Dies on failure
@@ -1250,268 +1504,7 @@ sub sendmail() {
   return 0;
 }
 
-# 4.25 gw
-# Function to calculate the gateway address given an IP address and subnetmask
-# Returns gateway IP address on success
-# Returns false on failure
-sub gw() {
-  my ($address, $chkip, $mask, $bina, $binm, $binn, $bing, $cidr, $net);
-  $address = $_[0];
-  $mask = $_[1];
-  chomp($address);
-  chomp($mask);
-  $chkip = &validip($address);
-  if ($chkip != 0) {
-    return "false";
-  }
-  $chkip = &validip($mask);
-  if ($chkip != 0) {
-    return "false";
-  }
-  $net = &network($address, $mask);
-  @net_ar = split(/\./, $net);
-  $old = $net_ar[3];
-  $new = $old + 1;
-  $gw = $net_ar[0] . "." . $net_ar[1] . "." . $net_ar[2] . "." . $new;
-  return $gw;
-}
-
-# 4.26 add_host_type
-# Function to add a host type to an ARP cache entry
-sub add_host_type() {
-  my ($ip, $mac, $type, $sql, $sth, $er, @row, $flag, $flags, $flagstring, @flags_ar, %flags_hash);
-  $ip = $_[0];
-  $sensorid = $_[1];
-  $type = $_[2];
-  chomp($ip);
-  chomp($sensorid);
-  chomp($type);
-
-  # Get the old flags first
-  $sql = "SELECT flags FROM arp_cache WHERE ip = '$ip' AND sensorid = '$sensorid'";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-  @row = $sth->fetchrow_array;
-  $flags = $row[0];
-  if ("$flags" ne "") {
-    @flags_ar = split(/,/, $flags);
-    %flags_hash = ();
-    foreach $flag (@flags_ar) {
-      $flags_hash{"$flag"} = 0;
-    }
-    if (!exists $flags_hash{"$type"}) {
-      if ("$flags" ne "") {
-        $flagstring = $flags . ", $type";
-      } else {
-        $flagstring = "$type";
-      }
-    } else {
-      $flagstring = $flags;
-    }
-  } else {
-    $flagstring = "$type";
-  }
-
-  $sql = "UPDATE arp_cache SET flags = '$flagstring' WHERE ip = '$ip' AND sensorid = '$sensorid'";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-  return 0;
-}
-
-# 4.27 add_proto_type
-# Function to add a protocol type to the sensor sniff logs
-sub add_proto_type() {
-  my ($head, $nr, $proto, $sql, $sth, $er, @row, $id);
-  $sensorid = $_[0];
-  $head = $_[1];
-  $nr = $_[2];
-  chomp($sensorid);
-  chomp($head);
-  chomp($nr);
-
-  if ("$nr" eq "") {
-    return 1;
-  }
-
-  # Default protocol name is Unknown
-  $proto = "Unknown";
-
-  # Getting protocol name if exists
-  if ($head == 0) {
-    if (exists $ethernettypes{"$nr"}) {
-      $proto = $ethernettypes{"$nr"};
-    }
-    $sniff_protos_eth{$nr} = 0;
-  } elsif ($head == 1) {
-    if (exists $iptypes{"$nr"}) {
-      $proto = $iptypes{"$nr"};
-    }
-    $sniff_protos_ip{$nr} = 0;
-  } elsif ($head == 11) {
-    if (exists $icmptypes{"$nr"}) {
-      $proto = $icmptypes{"$nr"};
-    }
-    $sniff_protos_icmp{$nr} = 0;
-  } elsif ($head == 12) {
-    if (exists $igmptypes{"$nr"}) {
-      $proto = $igmptypes{"$nr"};
-    }
-    $sniff_protos_igmp{$nr} = 0;
-  } elsif ($head == 11768) {
-    if (exists $dhcptypes{$nr}) {
-      $proto = $dhcptypes{$nr};
-    }
-    $sniff_protos_dhcp{$nr} = 0;
-  }
-#  print "ADDPROTOTYPE: SID $sensorid - HEAD $head - NR $nr - PROTO $proto\n";
-
-  $sql = "INSERT INTO sniff_protos (sensorid, parent, number, protocol) VALUES ('$sensorid', '$head', '$nr', '$proto')";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-  return 0;
-}
-
-# 4.28 refresh_protos
-# Function to refresh the known protos hash
-sub refresh_protos() {
-  my ($head, $nr, @row, $er, $sth, $sql);
-  $head = $_[0];
-  chomp($head);
-  if ($head == 0) {
-    # Filling the local scripts protocol list (ETHERNETTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 0";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    %sniff_protos_eth = ();
-    while (@row = $sth->fetchrow_array) {
-      $nr = $row[0];
-      $sniff_protos_eth{"$nr"} = 0;
-    }
-  } elsif ($head == 1) {
-    # Filling the local scripts protocol list (IPTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 1";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    %sniff_protos_ip = ();
-    while (@row = $sth->fetchrow_array) {
-      $nr = $row[0];
-      $sniff_protos_ip{"$nr"} = 0;
-    }
-  } elsif ($head == 11) {
-    # Filling the local scripts protocol list (ICMPTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 11";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    %sniff_protos_icmp = ();
-    while (@row = $sth->fetchrow_array) {
-      $nr = $row[0];
-      $sniff_protos_icmp{"$nr"} = 0;
-    }
-  } elsif ($head == 12) {
-    # Filling the local scripts protocol list (IGMPTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 12";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    %sniff_protos_igmp = ();
-    while (@row = $sth->fetchrow_array) {
-      $nr = $row[0];
-      $sniff_protos_igmp{"$nr"} = 0;
-    }
-  } elsif ($head == 11768) {
-    # Filling the local scripts protocol list (DHCPTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 11768";
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    %sniff_protos_dhcp = ();
-    while (@row = $sth->fetchrow_array) {
-      $nr = $row[0];
-      $sniff_protos_dhcp{"$nr"} = 0;
-    }
-  }
-  return "true";
-}
-
-# 4.29 refresh_static
-# Function to refresh the detectarp static list hash
-sub refresh_static() {
-  my ($sql, $sth, $er, @row, $db_mac, $dp_ip);
-  $sql = "SELECT mac, ip FROM arp_static WHERE sensorid = $sensorid";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-  while (@row = $sth->fetchrow_array) {
-    $db_mac = $row[0];
-    $db_ip = $row[1];
-    $arp_static{"$db_ip"} = $db_mac;
-  }
-  return 0;
-}
-
-# 4.30 refresh_cache
-# Function to refresh the arp cache of the detect arp script
-sub refresh_cache() {
-  my ($sql, $sth, $er, @row, $db_mac, $db_ip);
-  $sql = "SELECT mac, ip FROM arp_cache WHERE sensorid = $sensorid";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-
-  while (@row = $sth->fetchrow_array) {
-    $db_mac = $row[0];
-    $db_ip = $row[1];
-    $arp_cache{"$db_mac"} = $db_ip;
-  } 
-  return 0;
-}
-
-# 4.31 printslog
-# Function to print information to STDOUT and/or file
-sub printslog() {
-  my ($printstring);
-  return 0;
-}
-
-# 4.32 printdblog
-# Function to store a log message in the database
-sub printdblog() {
-  my ($ts, $sql, $er, @row, $log, $sensorid, $date);
-  $sensorid = $_[0];
-  $log = $_[1];
-  chomp($sensorid);
-  chomp($log);
-  if ("$sensorid" ne "") {
-    $date = time();
-    $sql = "INSERT INTO sensors_log (sensorid, timestamp, logid) VALUES ('$sensorid', '$date', '$log')";
-    $er = $dbh->do($sql);
-  } else {
-    return "false";
-  }
-  return "true";
-}
-
-
-
-# 3.19 cidr
-# # Function to convert a dotted decimal netmask to CIDR notation
-# # Returns CIDR notation on success
-# # Returns false on failure
-sub cidr() {
-  my ($mask, $chkip, $cidr, $bina, $binm);
-  $mask = $_[0];
-  chomp($mask);
-  $chkip = &validip($mask);
-  if ($chkip != 0) {
-    return "false";
-  }
-  $binm = &dec2bin($mask);
-  $cidr = ($binm =~ tr/1//);
-  return $cidr;
-}
-
-# 4.33 logsys
+# 9.05 logsys
 # Function to log messages to the syslog table
 sub logsys() {
   my ($ts, $level, $msg, $sql, $er, $tsensor);    # local variables
@@ -1528,7 +1521,7 @@ sub logsys() {
   if (!$g_vlanid) { $g_vlanid = 0; }
 
   $level = $_[0];	# Loglegel (DEBUG, INFO, WARN, ERROR, CRIT)
-  $msg = $_[1];		# Message (SATRT_SCRIPT, STOP_SCRIPT, etc )
+  $msg = $_[1];		# Message (START_SCRIPT, STOP_SCRIPT, etc )
   chomp($msg);		
 
   if ($level >= $c_log_level) {
@@ -1545,15 +1538,14 @@ sub logsys() {
       $args = "";
     }
 
-
-    $ts = time();
+#    $ts = time();
     if ($c_log_method == 2 || $c_log_method == 3) {
       # We need to cleanup the $args and escape all ' and " characters
       $args =~ s/\'/\\\'/g;
       $args =~ s/\"/\\\"/g;
 
-      $sql = "INSERT INTO syslog (source, timestamp, error, args, level, sensorid, device, pid, vlanid) VALUES ";
-      $sql .= " ('$source', $ts, '$msg', '$args', $level, '$sensor', '$tap', $pid, $g_vlanid)";
+      $sql = "INSERT INTO syslog (source, error, args, level, keyname, device, pid, vlanid) VALUES ";
+      $sql .= " ('$source', '$msg', '$args', $level, '$sensor', '$tap', $pid, $g_vlanid)";
       if ($dbh) {
        $er = $dbh->do($sql);
       }
@@ -1563,24 +1555,16 @@ sub logsys() {
       if ($g_vlanid != 0) {
         $tsensor = "$sensor-$g_vlanid";
       }
+      $ts = &getts();
       open LOG,  ">>/tmp/logsys" || die ("cant open log: $!");
-      print LOG "$pid $source $tsensor $msg $args\n";
+      print LOG "[$ts] $pid $source $tsensor $msg $args\n";
       close LOG;
     }
   }
   return "true";
 }
 
-# 4.34 in_array
-# Checks to see if a certain value is in the given array
-# Usage: in_array(@array, $search_value)
-sub in_array() {
-  my ($ar, $search) = @_;
-  return grep { $search eq $_ } @$ar;
-}
-
-
-# 4.35 startstatic
+# 9.06 startstatic
 # Function to start static networking. Works like 
 # startdhcp (4.07) but takes more arguments
 sub startstatic() {
@@ -1593,7 +1577,6 @@ sub startstatic() {
 
         # Configure the interface
         `ifconfig $tap $if_ip netmask $if_nm broadcast $if_bc`;
-        $ec = getec();
 
         # Check for existing rules.
         $rulecheck = `ip rule list | grep '\\b$tap\\b' | wc -l`;
@@ -1604,47 +1587,39 @@ sub startstatic() {
                 $result = &deliprules($tap);
                 $result = &ipruleadd($tap, $if_ip);
                 $checktap = `$c_surfidsdir/scripts/checktap.pl $tap`;
-                $ec = getec();
         }
 
         # Just to be sure, flush the routing table of the tap device.
         &flushroutes($tap);
-        $ec = getec();
 
         # Calculate the network based on the if_ip and the netmask.
         $network = &getnetwork($if_ip, $if_nm);
-        $ec = getec();
 
         # Check if there are any routes present in the main routing table.
         $esctap = &escape_dev($tap);
         $routecheck = `ip route list | grep '\\b$esctap\\b' | wc -l`;
         chomp($routecheck);
-        $ec = getec();
 
         # If none were present, add it. This needs to be done otherwise
         # you'll get an error when adding the default gateway
         # for the tap device routing table.
         if ($routecheck == 0) {
                 $result = &addroute($network, $tap, $if_ip, "main");
-                $ec = getec();
         }
 
         # Add default gateway to the routing table of the tap device.
         $result = &adddefault($if_gw, $tap);
-        $ec = getec();
 
         # At this point we can delete the route to the network from the
         # main table as there is now a default gateway in the routing table
         # from the tap device.
         $result = &delroute($network, $tap, $if_ip, "main");
-        $ec = getec();
 
         # Add the route to the network to the routing table of the tap device.
         $result = &addroute($network, $tap, $if_ip, $tap);
-        $ec = getec();
 }
 
-# 4.36 check_interface_ip
+# 9.07 check_interface_ip
 # Function to check if the interface has an IP address. Wait 'timeout'
 # seconds to allow (slow) DHCP interfaces to obtain an address
 sub check_interface_ip() {
@@ -1657,7 +1632,6 @@ sub check_interface_ip() {
                 $tapcheck = `ifconfig $tap`;
                 if ($? != 0) {
                         $count = 1;
-                        $ec = getec();
                         return -1;
                 } else {
                         $ok = `ifconfig $tap | grep "inet addr:" | wc -l`;
@@ -1672,7 +1646,7 @@ sub check_interface_ip() {
         return 0;
 }
 
-# 4.38 sys_exec 
+# 9.08 sys_exec 
 # Executes the specified command. Logs nonzero return value to database.
 sub sys_exec {
 	my $cmd = $_[0];
@@ -1680,41 +1654,12 @@ sub sys_exec {
 	`$cmd`;
 
 	if ($?) {
-		&logsys(LOG_DEBUG, "SYS_EXEC_FAIL", "$cmd (errorcode $?)");
+		&logsys(LOG_DEBUG, "SYS_EXEC_FAIL", "'$cmd' returned $? ($!)");
 	} else {
 		&logsys(LOG_DEBUG, "SYS_EXEC_OK", $cmd);
 	}
 
 	return $?;
-}
-
-# 4.40 escape_dev
-# Escapes the device for usage in regular expressions
-sub escape_dev() {
-    my ($dev, $escdev);
-    $dev = $_[0];
-    chomp($dev);
-    if ($dev !~ /\\\./g) {
-        ($escdev = $dev) =~ s/\./\\./;
-    } else {
-        $escdev = $dev;
-    }
-    return $escdev;
-}
-
-# 4.41 getrulenumber
-# Retrieves the table number for a rule given a tap device
-sub getrulenumber() {
-    my ($dev, $nr, $escdev);
-    $dev = $_[0];
-    $escdev = &escape_dev($dev);
-    $nr = `grep "\\b$escdev\\b" /etc/iproute2/rt_tables | awk '{print \$1}'`;
-    chomp($nr);
-    if ("$nr" ne "") {
-        return $nr;
-    } else {
-        return "false";
-    }
 }
 
 return "true";
