@@ -41,91 +41,70 @@ $err = 0;
 # Keyname #
 ###########
 if (isset($clean['keyname'])) {
-  $keyname = $clean['keyname'];
-  $pattern = '/^sensor[0-9]+$/';
-  if (!preg_match($pattern, $keyname)) {
+    $keyname = $clean['keyname'];
+    $pattern = '/^sensor[0-9]+$/';
+    if (!preg_match($pattern, $keyname)) {
+        echo "ERRNO: 91\n";
+        echo "ERROR: Keyname not valid.\n";
+        $err = 1;
+    }
+} else {
     echo "ERRNO: 91\n";
     echo "ERROR: Keyname not valid.\n";
     $err = 1;
-  }
-} else {
-  echo "ERRNO: 91\n";
-  echo "ERROR: Keyname not valid.\n";
-  $err = 1;
 }
 
 ###########
 # localip #
 ###########
 if (isset($clean['localip'])) {
-  $localip = $clean['localip'];
+    $localip = $clean['localip'];
 } else {
-  echo "ERRNO: 92\n";
-  echo "ERROR: Localip not present.\n";
-  $err = 1;
+    echo "ERRNO: 92\n";
+    echo "ERROR: Localip not present.\n";
+    $err = 1;
 }
 
 ############
 # Database #
 ############
-$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname'";
+$sql_sensors = "SELECT remoteip, localip FROM sensor_details WHERE keyname = '$keyname'";
 $result_sensors = pg_query($pgconn, $sql_sensors);
 $numrows = pg_num_rows($result_sensors);
 if ($numrows == 0) {
-  echo "ERRNO: 94\n";
-  echo "ERROR: No record in the database for sensor: $keyname\n";
-  $err = 1;
+    echo "ERRNO: 94\n";
+    echo "ERROR: No record in the database for sensor: $keyname\n";
+    $err = 1;
 }
 
 ###############################
 # Continuing with main script #
 ###############################
 if ($err == 0) {
-  $date = time();
-  $date_string = date("d-m-Y H:i:s");
-  # Check if there is an action to be taken.
-  $row = pg_fetch_assoc($result_sensors);
-  $sensorid = $row['id'];
-  $action = $row['action'];
-  $ssh = $row['ssh'];
-  $status = $row['status'];
-  $laststart = $row['laststart'];
-  $uptime = $row['uptime'];
-  if ($laststart != "") {
-    $newuptime = 0 + $uptime + ($date - $laststart);
-  } else {
-    $newuptime = 0;
-  }
+    $row = pg_fetch_assoc($result_sensors);
+    $db_remoteip = $row['remoteip'];
+    $db_localip = $row['localip'];
 
-  echo "############-SERVER-INFO-##########\n";
-  echo "TIMESTAMP: $date_string\n";
-  echo "ACTION: $action\n";
-  echo "SSH: $ssh\n";
-  echo "STATUS: $status\n";
-  echo "NEWUPTIME: $newuptime\n";
-  echo "############-CLIENT-INFO-##########\n";
-  echo "REMOTEIP: $remoteip\n";
-  echo "KEYNAME: $keyname\n";
-  echo "CLIENTCONF: $clientconf\n";
+    # If remoteip has changed, update it to the database.
+    if ($db_remoteip != $remoteip) {
+        echo "[Database] Updated remote IP address.\n";
+        $sql_update_remote = "UPDATE sensor_details SET remoteip = '$remoteip' WHERE keyname = '$keyname'";
+        $result_update_remote = pg_query($pgconn, $sql_update_remote);
+        if ($result_update_remote > 0) {
+            logsys($f_log_debug, "STOP_CLIENT", "Remote IP changed from $db_remoteip to $remoteip");
+        }
+    }
 
-  echo "#######-Taken actions-#######\n";
-
-  # If remoteip has changed, update it to the database.
-  if ($row['remoteip'] != $remoteip) {
-    echo "Updated remote IP address.\n";
-    $sql_update_remote = "UPDATE sensors SET remoteip = '$remoteip' WHERE keyname = '$keyname'";
-    $result_update_remote = pg_query($pgconn, $sql_update_remote);
-  }
-
-  # If localip has changed, update it to the database.
-  if ($row['localip'] != $localip) {
-    echo "Updated local IP address.\n";
-    $sql_update = "UPDATE sensors SET localip = '$localip' WHERE keyname = '$keyname'";
-    $result_update = pg_query($pgconn, $sql_update);
-  }
-
-
-  logsys("STOP_CLIENT", "Client shutdown notification");
+    # If localip has changed, update it to the database.
+    if ($db_localip != $localip) {
+        echo "[Database] Updated local IP address.\n";
+        $sql_update = "UPDATE sensor_details SET localip = '$localip' WHERE keyname = '$keyname'";
+        $result_update = pg_query($pgconn, $sql_update);
+        if ($result_update > 0) {
+            logsys($f_log_debug, "STOP_CLIENT", "Local IP changed from $db_localip to $localip");
+        }
+    }
+    logsys($f_log_info, "STOP_CLIENT", "Client shutdown notification");
 }
 
 # Close the connection with the database.

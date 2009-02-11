@@ -69,50 +69,52 @@ if (isset($clean['localip'])) {
 ###############################
 # Continuing with main script #
 ###############################
-$sql_sensors = "SELECT * FROM sensors WHERE keyname = '$keyname' AND vlanid = 0";
-$result_sensors = pg_query($pgconn, $sql_sensors);
-if ($err == 0) {
-	$date = time();
-	$date_string = date("d-m-Y H:i:s");
-# Check if there is an action to be taken.
-	$row = pg_fetch_assoc($result_sensors);
-	$sensorid = $row['id'];
-	$action = $row['action'];
-	$ssh = $row['ssh'];
-	$status = $row['status'];
-	$laststart = $row['laststart'];
-	$uptime = $row['uptime'];
 
-	echo "############-SERVER-INFO-##########\n";
-	echo "TIMESTAMP: $date_string\n";
-	echo "ACTION: $action\n";
-	echo "SSH: $ssh\n";
-	echo "STATUS: $status\n";
-	echo "############-CLIENT-INFO-##########\n";
-	echo "REMOTEIP: $remoteip\n";
-	echo "KEYNAME: $keyname\n";
+if ($err == 0) {
+    logsys($f_log_info, "START_CLIENT", "Client startup notification");
+
+    $sql_sensors = "SELECT remoteip, localip FROM sensor_details WHERE keyname = '$keyname'";
+    $result_sensors = pg_query($pgconn, $sql_sensors);
+
+    # Check if there is an action to be taken.
+	$row = pg_fetch_assoc($result_sensors);
+    $db_remoteip = $row['remoteip'];
+    $db_localip = $row['localip'];
+
 	echo "#######-Taken actions-#######\n";
 
-
 	# If remoteip has changed, update it to the database.
-	if ($row['remoteip'] != $remoteip) {
-		echo "Updated remote IP address.\n";
-		$sql_update_remote = "UPDATE sensors SET remoteip = '$remoteip' WHERE keyname = '$keyname'";
-		$result_update_remote = pg_query($pgconn, $sql_update_remote);
-	}
+    if ($remoteip != $db_remoteip) {
+        $sql_update_remote = "UPDATE sensor_details SET remoteip = '$remoteip' WHERE keyname = '$keyname'";
+        $result = pg_query($pgconn, $sql_update_remote);
+        echo "[Database] Updated remote IP address!\n";
+        logsys($f_log_debug, "START_CLIENT", "Remote IP changed from $db_remoteip to $remoteip");
+    }
 
 	# If localip has changed, update it to the database.
-	$db_localip = $row['localip'];
-
-	if ($row['localip'] != $localip) {
-		echo "Updated local IP address.\n";
-		$sql_update = "UPDATE sensors SET localip = '$localip' WHERE keyname = '$keyname'" ;
-		$result_update = pg_query($pgconn, $sql_update);
+    if ($localip != $db_localip) {
+        $sql_update = "UPDATE sensor_details SET localip = '$localip' WHERE keyname = '$keyname'" ;
+        $result= pg_query($pgconn, $sql_update);
+        echo "Updated local IP address!\n";
+        logsys($f_log_debug, "START_CLIENT", "Local IP changed from $db_localip to $localip");
 	}
 
-	logsys("START_CLIENT", "Client startup notification");
-}
+    $sql_check = "SELECT distinct sensors.keyname FROM sensor_details, sensors ";
+    $sql_check .= " WHERE sensor_details.remoteip = '$remoteip' AND NOT sensors.status = 3 AND sensors.keyname = sensor_details.keyname";
+    $result = pg_query($pgconn, $sql_check);
+    $numrows = pg_num_rows($result);
 
+    if ($numrows == 1) {
+      logsys($f_log_debug, "START_CLIENT", "$keyname identified and ready to start");
+      echo "STATUS: OK\n";
+    } else if ($numrows == 0) {
+      logsys($f_log_error, "START_CLIENT", "$keyname does not have a record in database - connection refused");
+      echo "STATUS: ERROR (not found)\n";
+    } else {
+      logsys($f_log_error, "START_CLIENT", "$keyname has multiple registered IP addresses. Most recent connection from '$remoteip'");
+      echo "STATUS: ERROR (multi found)\n";
+    }
+}
 
 # Close the connection with the database.
 pg_close($pgconn);

@@ -146,7 +146,11 @@ if ($err == 0) {
   }
 
   # Update the database with Keyname, Remoteip, Localip and Organisation.
-  $sql_addsensor = "INSERT INTO sensors (keyname, remoteip, localip, organisation, vlanid) VALUES ('$keyname', '$remoteip', '$localip', $orgid, 0)";
+  $sql_addsensor = "INSERT INTO sensors (keyname, organisation, vlanid) VALUES ('$keyname', $orgid, 0)";
+  $result_addsensor = pg_query($pgconn, $sql_addsensor);
+
+  # Update the database with the remoteip and localip
+  $sql_addsensor = "INSERT INTO sensor_details (keyname, remoteip, localip) VALUES ('$keyname', '$remoteip', '$localip')";
   $result_addsensor = pg_query($pgconn, $sql_addsensor);
 
   # Start the scripts to generate and sign the certificates for the sensor.

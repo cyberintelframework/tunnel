@@ -12,17 +12,46 @@
 # 001	initial release
 #####################
 
-function logsys($msg, $args) {
-	global $keyname;
+$f_log_debug = 0;
+$f_log_info = 1;
+$f_log_warn = 2;
+$f_log_error = 3;
+$f_log_crit = 4;
+
+# 4.01 printer
+# Function to print variables in a readable format
+function printer($printvar) {
+  echo "<pre>";
+  print_r($printvar);
+  echo "</pre>\n";
+}
+
+function logsys($level, $msg, $args) {
+	global $keyname, $c_log_level, $c_log_method;
 	$source = basename($_SERVER['SCRIPT_NAME']);
-	
-	$res = fopen("/tmp/logsys", "a");
-	if ($res != "FALSE") {
-		fprintf($res, "php	$source		$keyname	\n$msg	$args\n\n");
-		fclose($res);
-	} else {
-		echo "COULD NOT OPEN /tmp/logsys\n";
-	}
+
+    if (!$source) { $source = "unknown"; }
+    if (!$sensor) { $sensor = "unknown"; }
+    if (!$tap)    { $tap    = "unknown"; }
+    if (!$pid)    { $pid    = 0; }
+    if (!$g_vlanid) { $g_vlanid = 0; }
+
+    if ($level >= $c_log_level) {
+        if ($c_log_method == 2 || $c_log_method == 3) {
+            $sql = "INSERT INTO syslog (source, error, args, level, keyname, device, pid, vlanid) VALUES ";
+            $sql .= " ('$source', '$msg', '$args', $level, '$keyname', '', 0, 0)";
+            $res = pg_query($sql);
+        }
+    	if ($c_log_method == 1 || $c_log_method == 3) {
+        	$res = fopen("/tmp/logsys", "a");
+	        if ($res != "FALSE") {
+		        fprintf($res, "php $source $keyname $msg $args\n");
+        		fclose($res);
+	        } else {
+		        echo "COULD NOT OPEN /tmp/logsys\n";
+        	}
+        }
+    }
 }
 
 function logdb($sensorid, $log, $args) {
