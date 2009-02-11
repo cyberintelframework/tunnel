@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 
-#########################################
-# Update script for oui.txt             #
-# SURFnet IDS 2.10.00                   #
-# Changeset 002                         #
-# 22-05-2007                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# Update script for oui.txt        #
+# SURFids 2.10                     #
+# Changeset 002                    #
+# 22-05-2007                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #############################################
 # Changelog:

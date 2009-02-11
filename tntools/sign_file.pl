@@ -2,17 +2,15 @@
 
 ####################################
 # Sign a file for the IDS Server   #
-# SURFnet IDS                      #
-# Version 2.00.01                  #
+# SURFids 2.10                     #
+# Changeset 001                    #
 # 14-09-2007                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
-# 2.00.01 version 2.00
-# 1.04.01 Rereleased as perl script
-# 1.02.01 Initial release
+# 001 Initial release
 #####################
 
 ####################

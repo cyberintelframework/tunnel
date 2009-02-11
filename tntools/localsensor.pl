@@ -3,13 +3,14 @@
 ####################################
 # Local sensor script              #
 # SURFids 2.10                     #
-# Changeset 003                    #
-# 12-11-2008                       #
+# Changeset 004                    #
+# 15-01-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 004 Fixed to comply with new DB structure
 # 003 Completely redone the script
 # 002 Added usage info on failure
 # 001 Initial version
@@ -138,12 +139,13 @@ if ($chk > 0) {
   exit;
 }
 
-$sth = dbquery("SELECT value FROM serverinfo WHERE name = 'updaterev'");
-@row = $sth->fetchrow_array;
-$rev = $row[0];
-if ($rev eq "") {
-  $rev = 0;
-}
+#$sth = dbquery("SELECT value FROM serverinfo WHERE name = 'updaterev'");
+#@row = $sth->fetchrow_array;
+#$rev = $row[0];
+#if ($rev eq "") {
+#  $rev = 0;
+#}
+$rev = 0;
 
 # First check if the organisation already exists in the database
 $chk = dbnumrows("SELECT id FROM organisations WHERE organisation = '$org'");
@@ -174,9 +176,14 @@ while ($chk !~ /^(n|N|y|Y)$/) {
 if ($chk =~ /^(y|Y)/) {
   print "Adding sensor to the database!\n";
   if ($orgid ne "") {
-    $sql = "INSERT INTO sensors (keyname, remoteip, localip, lastupdate, laststart, status, uptime, tap, tapip, mac, netconf, organisation, rev, sensormac) ";
-    $sql .= " VALUES ('$sensor', '$ifip', '$ifip', $ts, $ts, 1, 0, '$if', '$ifip', '$ifmac', 'dhcp', $orgid, $rev, '$ifmac')";
-    $chk = dbnumrows($sql);
+    $sql = "INSERT INTO sensor_details (keyname, remoteip, localip, lastupdate, organisation, sensormac) ";
+    $sql .= " VALUES ('$sensor', '$ifip', '$ifip', $ts, $orgid, '$ifmac')";
+    $chk1 = dbnumrows($sql);
+
+    $sql = "INSERT INTO sensors (keyname, laststart, status, uptime, tap, tapip, mac, organisation) ";
+    $sql .= " VALUES ('$sensor', $ts, 1, 0, '$if', '$ifip', '$ifmac', $orgid)";
+    $chk2 = dbnumrows($sql);
+    $chk = $chk1 + $chk2;
     if ($chk != 0) {
       print "Sensor successfully added to the database!\n";
     } else {

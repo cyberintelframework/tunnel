@@ -1,12 +1,12 @@
 #!/usr/bin/perl -w
 
-#########################################
-# Reset script for IDS database sensors #
-# SURFids 2.10                          #
-# Changeset 001                         #
-# 13-11-2008                            #
-# Kees Trippelvitz                      #
-#########################################
+####################################
+# Scan regex test script           #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 13-11-2008                       #
+# Kees Trippelvitz                 #
+####################################
 
 #####################
 # Changelog:

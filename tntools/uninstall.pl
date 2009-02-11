@@ -1,16 +1,16 @@
 #!/usr/bin/perl
 
-###################################
-# Tunnel uninstallation script    #
-# SURFnet IDS                     #
-# Version 2.00.01                 #
-# 26-09-2007                      #
-# Jan van Lith & Kees Trippelvitz #
-###################################
+####################################
+# Tunnel uninstallation script     #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 26-09-2007                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
-# 2.00.01 initial release
+# 001 Initial release
 #####################
 
 # Color codes

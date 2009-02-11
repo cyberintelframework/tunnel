@@ -1,16 +1,16 @@
 #!/usr/bin/perl
 
-#########################################
-# Reset script for IDS database sensors #
-# SURFids 2.10.00                       #
-# Changeset 001                         #
-# 29-08-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# Reset database sensors           #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 29-08-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
-# 001 version 2.10.00 release
+# 001 Initial release
 #####################
 
 ##################
@@ -23,10 +23,6 @@ use Time::localtime qw(localtime);
 # Variables used
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
-
-$c_pgsql_dbname = "blaatdb";
-$c_dsn = "DBI:Pg:dbname=$c_pgsql_dbname;host=$c_pgsql_host;port=$c_pgsql_port";
-
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
 connectdb();

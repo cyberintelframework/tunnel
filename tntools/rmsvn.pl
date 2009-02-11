@@ -1,19 +1,19 @@
 #!/usr/bin/perl
 
-###################################
-# SVN dir cleanup script          #
-# SURFnet IDS                     #
-# Version 2.10.01                 #
-# 29-10-2007                      #
-# Jan van Lith & Kees Trippelvitz #
-###################################
+####################################
+# SVN dir cleanup script           #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 29-10-2007                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 # Removes all .svn directories in the given directory
 # Usage: ./rmsvn.pl /opt/surfnetids/
 
 #####################
 # Changelog:
-# 2.10.01 Initial version
+# 001 Initial version
 #####################
 
 ##################

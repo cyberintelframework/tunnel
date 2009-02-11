@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 
-#########################################
-# Status check                          #
-# SURFids 2.10.00                       #
-# Changeset 002                         #
-# 18-06-2008                            #
-# Jan van Lith & Kees Trippelvitz       #
-#########################################
+####################################
+# Status check                     #
+# SURFids 2.10                     #
+# Changeset 002                    #
+# 18-06-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
