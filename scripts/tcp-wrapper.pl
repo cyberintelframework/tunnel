@@ -100,7 +100,7 @@ if ($sensor eq "") {
 } else {
 	$command .= " --dev $dev --dev-type tap";
 }
-logsys($f_log_debug, "NOTIFY", "Starting openvpn: $command");
+logsys($f_log_debug, "EXEC", "Starting openvpn: $command");
 
 exec("$command");
 die "exec failed: $!";

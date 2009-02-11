@@ -1,15 +1,16 @@
-#!/usr/bin/perl 
+#!/usr/bin/perl -w
 
 ####################################
 # Function library                 #
 # SURFids 2.10                     #
-# Changeset 001                    #
-# 18-03-2008                       #
+# Changeset 002                    #
+# 11-02-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 002 Added parse_upx, reordered functions
 # 001 version 2.10.00 release
 #####################
 
@@ -94,6 +95,7 @@ $f_log_crit = 4;
 # 9.06		startstatic
 # 9.07		check_interface_ip
 # 9.08      sys_exec
+# 9.10      parse_upx
 ###############################################
 
 #####################################
@@ -1096,7 +1098,7 @@ sub chk_static_arp() {
         # Alert!!
         $chk = &add_arp_alert($staticmac, $mac, $ip, $ip, $sensorid, 10);
         # Modifying ARP cache
-        $man = get_man($mac);
+        $man = &get_man($mac);
         if ("$man" eq "false") {
           $man = "";
         }
@@ -1541,8 +1543,10 @@ sub logsys() {
 #    $ts = time();
     if ($c_log_method == 2 || $c_log_method == 3) {
       # We need to cleanup the $args and escape all ' and " characters
-      $args =~ s/\'/\\\'/g;
-      $args =~ s/\"/\\\"/g;
+#      $args =~ s/\'/\\\'/g;
+#      $args =~ s/\"/\\\"/g;
+      $args =~ s/\'/\'\'/g;
+#      $args =~ s/\"/\"\"/g;
 
       $sql = "INSERT INTO syslog (source, error, args, level, keyname, device, pid, vlanid) VALUES ";
       $sql .= " ('$source', '$msg', '$args', $level, '$sensor', '$tap', $pid, $g_vlanid)";
@@ -1586,7 +1590,7 @@ sub startstatic() {
         } else {
                 $result = &deliprules($tap);
                 $result = &ipruleadd($tap, $if_ip);
-                $checktap = `$c_surfidsdir/scripts/checktap.pl $tap`;
+                #$checktap = `$c_surfidsdir/scripts/checktap.pl $tap`;
         }
 
         # Just to be sure, flush the routing table of the tap device.
@@ -1654,12 +1658,33 @@ sub sys_exec {
 	`$cmd`;
 
 	if ($?) {
-		&logsys(LOG_DEBUG, "SYS_EXEC_FAIL", "'$cmd' returned $? ($!)");
+		&logsys($f_log_debug, "SYS_EXEC_FAIL", "'$cmd' returned $? ($!)");
 	} else {
-		&logsys(LOG_DEBUG, "SYS_EXEC_OK", $cmd);
+		&logsys($f_log_debug, "SYS_EXEC_OK", $cmd);
 	}
 
 	return $?;
+}
+
+# 9.10 parse_upx
+# Parses the output of a UPX scan
+sub parse_upx() {
+    my ($input, @res, $status, $info);
+    $result = $_[0];
+    @res = split(/ /, $result);
+    $status = $res[2];
+    chomp($status);
+    if ($status ne "[OK]") {
+        shift(@res);
+        shift(@res);
+        shift(@res);
+        $info = join(" ", @res);
+        chomp($info);
+        $info =~ s/\; take care!//;
+    } else {
+        $info = "UPX packed";
+    }
+    return $info;
 }
 
 return "true";

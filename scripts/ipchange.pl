@@ -117,10 +117,13 @@ for(my $i = 0; $i < $res->rows; $i++) {
 	logsys($f_log_debug, "NOTIFY", "Bringing up $dev: $netconf");
 
 
-    logsys($f_log_debug, "NOTIFY", "Going to kill dhclient for $dev");
 	# Kill off any remaining dhcp daemons for this interface
-	killdhclient($dev);
-    logsys($f_log_debug, "NOTIFY", "Killed dhclient for $dev");
+	$ec = killdhclient($dev);
+    if ($ec == 0) {
+        logsys($f_log_debug, "DHCP_KILL", "Killed dhclient for $dev");
+    } else {
+        logsys($f_log_debug, "DHCP_FAIL", "Failed to kill dhclient for $dev");
+    }
 
 
 	# Make sure the routing table exists for this device. The startstatic()
@@ -133,7 +136,7 @@ for(my $i = 0; $i < $res->rows; $i++) {
 		chomp($next_identifier);
 		$next_identifier++;
 		`echo "$next_identifier			$dev" >> /etc/iproute2/rt_tables`;
-		logsys($f_log_debug, "NOTIFY", "Added entry for $dev in /etc/iproute2/rt_tables (id $next_identifier)");
+		logsys($f_log_debug, "IP_ROUTE", "Added entry for $dev in /etc/iproute2/rt_tables (id $next_identifier)");
 	}
 
 	if ($netconf eq "dhcp") {
@@ -183,7 +186,7 @@ for(my $i = 0; $i < $res->rows; $i++) {
 	}
 }
 $g_vlanid = 0;
-
+logsys($f_log_info, "NOTIFY", "Connection final phase - done");
 
 END {
   if ($mypid) {

@@ -64,11 +64,11 @@ my $delresult = deliprules($tap);
 
 # Check for leftover source based routing tables and delete if present.
 my $chk = chkrule($tap);
-logsys($f_log_debug, "NOTIFY", "Amount of leftover rules found: $chk");
 if ($chk > 0) {
+    logsys($f_log_warn, "IP_RULE", "Leftover rules: $chk");
     my $flushresult = flushroutes($tap);
     if ($flushresult) {
-	    logsys($f_log_warn, "SYS_FAIL", "Flushing routes for $tap failed (error code $flushresult)");
+	    logsys($f_log_warn, "SYS_FAIL", "Flushing routes for $tap failed");
     }
 }
 
@@ -76,7 +76,7 @@ if ($chk > 0) {
 # Check for tap existance.
 my $ret = sys_exec("ifconfig $tap");
 if ($ret != 0) {
-    logsys($f_log_error, "NO_DEVICE", "Tap device $tap does not exist!");
+    logsys($f_log_error, "DEV_ERROR", "Tap device $tap does not exist!");
     exit(1);
 }
 
@@ -84,7 +84,7 @@ if ($ret != 0) {
 # bring tap interface up. 
 sys_exec("ifconfig $tap up");
 if ($?) {
-	logsys($f_log_error, "NETWORK_ERROR", "Failed to bring up device $tap (error code $?)");
+	logsys($f_log_error, "DEV_ERROR", "Failed to bring up device $tap (error code $?)");
 	exit(1);
 }
 
@@ -123,7 +123,7 @@ for (my $i = 0; $i < $res->rows(); $i++) {
 
     # Create device if needed
     if ($vlan != 0) {
-        logsys($f_log_debug, "NOTIFY", "New vlan interface: $tap.$vlan...");
+        logsys($f_log_debug, "DEV_INFO", "New vlan interface: $tap.$vlan...");
         sys_exec("vconfig add $tap $vlan");
         $dev = "$tap.$vlan";
     } else{
@@ -135,7 +135,7 @@ for (my $i = 0; $i < $res->rows(); $i++) {
     if ("$mac" eq "false") {
         # If no mac address is present in the database, add the 
         # generated one from OpenVPN to the database.
-        logsys($f_log_debug, "NO_MAC_ADDR", "No MAC address in sensors table for $dev!");
+        logsys($f_log_debug, "MAC_UNKNOWN", "No MAC address in sensors table for $dev!");
         $mac = `ifconfig $dev | grep HWaddr | awk '{print \$5}'`;
         chomp($mac);
 
@@ -148,7 +148,7 @@ for (my $i = 0; $i < $res->rows(); $i++) {
         push (@macparts, ($a,$b));
         $mac = join(":", @macparts);
 
-        logsys($f_log_info, "NEW_MAC_ADDR", "Generated new MAC for $dev: $mac");
+        logsys($f_log_info, "MAC_NEW", "Generated new MAC for $dev: $mac");
         dbquery("UPDATE sensors SET mac = '$mac' WHERE keyname = '$sensor' AND vlanid = '$vlan'");
     }
 
@@ -165,23 +165,21 @@ my $local_gw = getlocalgw();
 if ($local_gw eq "false") {
 	logsys($f_log_error, "NETWORK_ERROR", "No local gateway available");
 	exit(1);
-} else {
-	logsys($f_log_debug, "NOTIFY", "Local gateway: $local_gw");
 }
 
 # Add route to remote ip address via local gateway to avoid routing loops
 if (!chkroute($remoteip)) {
     sys_exec("route add -host $remoteip gw $local_gw");
     if ($?) {
-	    logsys($f_log_error, "NETWORK_ERROR", "Failed to add host route (error code  $?)");
+	    logsys($f_log_error, "IP_ROUTE", "Failed to add host route");
     	exit(1);
     } else {
-	    logsys($f_log_debug, "NOTIFY", "Added host route for $remoteip via $local_gw");
+	    logsys($f_log_debug, "IP_ROUTE", "Added host route for $remoteip via $local_gw");
     }
 } else {
-    logsys($f_log_warn, "NETWORK_ERROR", "Host route for $remoteip already existed");
+    logsys($f_log_warn, "IP_ROUTE", "Host route for $remoteip already existed");
 }
-
+logsys($f_log_info, "NOTIFY", "Connection initial phase - done");
 END {
 	logsys($f_log_debug, "SCRIPT_END");
     dbdisconnect();

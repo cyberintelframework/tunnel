@@ -45,21 +45,8 @@ if ($c_scan_upx == 1) {
         $filepath = "$c_bindir/$file";
         if (-e $filepath) {
             $result = `upx -t $filepath 2>&1 | grep '\\b$file\\b'`;
-            @res = split(/ /, $result);
-            $status = $res[2];
-            chomp($status);
-            if ($status ne "[OK]") {
-                shift(@res);
-                shift(@res);
-                shift(@res);
-                $info = join(" ", @res);
-                chomp($info);
-                $info =~ s/\; take care!//;
-                print "$file ($binid) $info\n";
-            } else {
-                $info = "UPX packed";
-                print "$file UPX packed\n";
-            }
+            $info = parse_upx($result);
+            print "$file -> $info\n";
 
             # Get the binary ID
             $sth = dbquery("SELECT id FROM uniq_binaries WHERE name = '$file'");
