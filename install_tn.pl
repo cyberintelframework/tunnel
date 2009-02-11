@@ -1,30 +1,18 @@
 #!/usr/bin/perl
 
-###################################
-# Tunnel installation script      #
-# SURFnet IDS                     #
-# Version 2.00.02                 #
-# 11-10-2007                      #
-# Jan van Lith & Kees Trippelvitz #
-###################################
+####################################
+# Tunnel installation script       #
+# SURFids 2.10                     #
+# Changeset 003                    #
+# 16-12-2008                       #
+# Jan van Lith & Kees Trippelvitz  #
+####################################
 
 #####################
 # Changelog:
-# 2.00.02 Setting default installation type to "install"
-# 2.00.01 version 2.00
-# 1.04.13 Moved the loggin server notice to the end
-# 1.04.12 Added check on existing svn admin user
-# 1.04.11 Fixed missing semi-colon
-# 1.04.10 Reverted CAcert.pem stuff, removed dav_svn.conf stuff
-# 1.04.09 Fixed CAcert.pem stuff
-# 1.04.08 Fixed self-signed certificate generation stuff
-# 1.04.07 Fixed regular expression bug
-# 1.04.06 Fixed printdelay message
-# 1.04.05 Fixed some messages
-# 1.04.04 Added a2enmod ssl command
-# 1.04.03 Fixed certificate generation bug
-# 1.04.02 Added some more logfile stuff
-# 1.04.01 Initial release
+# 003 Renamed setmac.pl
+# 002 Added tcp-wrapper.pl to xinetd
+# 001 Initial release
 #####################
 
 ##########################
@@ -378,8 +366,8 @@ print XINETD "  protocol             = tcp\n";
 print XINETD "  wait                 = no\n";
 print XINETD "  bind                 = $xinetd\n";
 print XINETD "  user                 = root\n";
-print XINETD "  server               = $openvpn\n";
-print XINETD "  server_args          = --config /etc/openvpn/server.conf\n";
+print XINETD "  server               = $targetdir/scripts/tcp-wrappr.pl\n";
+#print XINETD "  server_args          = --config /etc/openvpn/server.conf\n";
 print XINETD "\}\n";
 close(XINETD);
 
@@ -401,7 +389,7 @@ open(OPENVPN, ">>$targetdir/openvpn-server.conf");
 print OPENVPN "status $targetdir/log/openvpn-status.log\n";
 print OPENVPN "up $targetdir/scripts/up.pl\n";
 print OPENVPN "down $targetdir/scripts/down.pl\n";
-print OPENVPN "ipchange $targetdir/scripts/setmac.pl\n";
+print OPENVPN "ipchange $targetdir/scripts/ipchange.pl\n";
 print OPENVPN "dh $targetdir/serverkeys/dh${key_size}.pem\n";
 print OPENVPN "ca $targetdir/serverkeys/ca.crt\n";
 print OPENVPN "cert $targetdir/serverkeys/tunserver.crt\n";
