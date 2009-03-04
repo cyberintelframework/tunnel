@@ -291,26 +291,6 @@ if (! -e "$targetdir/serverkeys/dh${key_size}.pem") {
   printmsg("Diffie-Hellman parameters already exist:", "info");
 }
 
-# Generate script certificate
-if (! -e "$targetdir/updates/scripts.crt") {
-  $ec = 0;
-  $ENV{"KEY_DIR"} = "$targetdir/updates/";
-  $ENV{"KEY_COMMONNAME"} = "scripts";
-  $ENV{"KEY_CERTTYPE"} = "objsign";
-
-  `$targetdir/genkeys/build-ca 2>>$logfile`;
-  if ($? != 0) { $ec++; }
-  `mv $targetdir/updates/ca.key $targetdir/scriptkeys/scripts.key 2>>$logfile`;
-  if ($? != 0) { $ec++; }
-  `mv $targetdir/updates/ca.crt $targetdir/updates/scripts.crt 2>>$logfile`;
-  if ($? != 0) { $ec++; }
-  if ($ec != 0) { $err++; }
-  printmsg("Generating scripts certificate:", $ec);
-  $ec = 0;
-} else {
-  printmsg("Scripts certificate already exists:", "info");
-}
-
 ####################
 # Setting up dhclient3
 ####################
