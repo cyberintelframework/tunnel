@@ -2,17 +2,15 @@
 
 ####################################
 # Installation script              #
-# SURFnet IDS                      #
-# Version 2.00.01                  #
-# 14-09-2007                       #
+# SURFids 2.10                     #
+# Changeset 001                    #
+# 19-11-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 ###############################################
 # Changelog:
-# 2.00.01 version 2.00
-# 1.04.02 Fixed getcrtvalue bug with localities/states containing a space
-# 1.04.01 Initial release
+# 001 Initial release
 ###############################################
 
 use POSIX;

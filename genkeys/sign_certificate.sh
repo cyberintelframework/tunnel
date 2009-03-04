@@ -21,3 +21,6 @@ $ENV{"KEY_CERTTYPE"} = "$key_certtype";
 
 # Run the signing request command.
 `$genkeys/sign-req $clientkeys/$KEY_NAME`;
+if ($? != 0) {
+  exit(1);
+}

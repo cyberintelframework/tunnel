@@ -21,3 +21,6 @@ $ENV{"KEY_CERTTYPE"} = "$key_certtype";
 
 # Run the build-key command.
 `$genkeys/build-key $clientkeys/$KEY_NAME`;
+if ($? != 0) {
+  exit(1);
+}

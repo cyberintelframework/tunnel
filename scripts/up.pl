@@ -95,11 +95,6 @@ if ($?) {
 dbquery("UPDATE sensors SET tap = '$tap' WHERE keyname = '$sensor' and vlanid = '0'");
 
 
-# Update sensor records. 
-#my $date = time();
-#dbquery("UPDATE sensors SET status = 1, laststart = $date WHERE status = 0 AND keyname = '$sensor'");
-
-
 # Get the sensor type
 my $res = dbquery("SELECT sensortype FROM sensor_details WHERE keyname = '$sensor'");
 if ($res->rows()) {

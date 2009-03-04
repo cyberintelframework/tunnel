@@ -148,10 +148,10 @@ for(my $i = 0; $i < $res->rows; $i++) {
 		# Format of netconfig: ip|netmask|gateway|broadcast
 		my @netconfig = split(/\|/, $netconf);
 
-		my $if_ip = $netconfig[0];
-		my $if_nw = $netconfig[1];
-		my $if_gw = $netconfig[2];
-		my $if_bc = $netconfig[3];
+		my $if_ip = $netconfig[1];
+		my $if_nw = $netconfig[2];
+		my $if_gw = $netconfig[3];
+		my $if_bc = $netconfig[4];
 
 		startstatic($dev, $if_ip, $if_nw, $if_gw, $if_bc);
 	}
@@ -172,7 +172,8 @@ for(my $i = 0; $i < $res->rows; $i++) {
 
 
 	# Update Tap info to the database for the current vlan.
-	dbquery("UPDATE sensors SET tap = '$dev', tapip = '$tap_ip', status = 1 WHERE keyname = '$sensor' and vlanid = '$vlanid'");
+    my $date = time();
+	dbquery("UPDATE sensors SET tap = '$dev', tapip = '$tap_ip', status = 1, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'");
 
 
 	if ($c_enable_pof == 1) {
@@ -181,7 +182,7 @@ for(my $i = 0; $i < $res->rows; $i++) {
 	}
 
 	if ($c_enable_arp == 1 && $arp == 1) {
-		system("$c_surfidsdir/scripts/detectarp.pl $dev &");
+		system("$c_surfidsdir/scripts/detectarp.pl $dev $sensorid &");
 		logsys($f_log_info, "NOTIFY", "Started ARP & Rogue DHCP detection");
 	}
 }

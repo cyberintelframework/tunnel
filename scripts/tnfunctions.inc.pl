@@ -351,7 +351,7 @@ sub dbmacaddr() {
 
 # 3.04 dbquery
 # Performs a query to the database. If the query fails, log the query to the database
-# and return false. Otherwise, return the data.
+# and return false. Otherwise, return the data handle.
 sub dbquery {
 	my $sql = $_[0];
 	
@@ -362,12 +362,15 @@ sub dbquery {
 	$sth = $dbh->prepare($sql);
 	$er = $sth->execute();
     $errstr = $sth->errstr;
+    chomp($sql);
 	if (!$er) {
 		&logsys($f_log_error, "DB_QUERY_FAIL", $sql);
         &logsys($f_log_error, "DB_QUERY_FAIL", $errstr);
         return 'false';
 	} else {
-		&logsys($f_log_debug, "DB_QUERY_OK", $sql);
+        if ($c_log_success_query == 1) {
+    		&logsys($f_log_debug, "DB_QUERY_OK", $sql);
+        }
 	}
 
 	return $sth;

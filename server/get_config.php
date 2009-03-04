@@ -8,7 +8,6 @@
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
-# Peter Arts                       #
 # Auke Folkerts                    #
 ####################################
 

@@ -72,7 +72,7 @@ if ($numrows == 1) {
     $dev =~ s/sensor/s/;
 
     if ($status == 1) {
-        logsys($f_log_warning, "CONN_DUP", "Sensor was already running, additional connections ignored");
+        logsys($f_log_warn, "CONN_DUP", "Sensor was already running, additional connections ignored");
         exit(1);
     }
 

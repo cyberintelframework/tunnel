@@ -12,6 +12,13 @@ use Time::localtime qw(localtime);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
+our $source = 'upx.pl';
+our $sensor = 'unkown';
+our $tap = 'unknown';;
+our $remoteip = '0.0.0.0';
+our $pid = $$;
+our $g_vlanid = 0;
+
 $res = dbconnect();
 if ($res eq 'false') {
     print "No database connection!\n";
@@ -33,8 +40,10 @@ if ("$ARGV[0]" ne "") {
 
 if (scalar(@notscanned) == 0) {
     print "No files to scan, exiting!\n";
+    logsys($f_log_warn, "SCAN_LOG", "No files to scan, exiting");
     exit 0;
 }
+
 #############
 # UPX
 #############
@@ -65,6 +74,7 @@ if ($c_scan_upx == 1) {
             print "$file does not exist, skipping!\n";
         }
     }
+    logsys($f_log_debug, "SCAN_RESULT", "Updated $i records");
     print "Updated $i records!\n";
 }
 

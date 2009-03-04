@@ -3,13 +3,14 @@
 ####################################
 # Tunnel installation script       #
 # SURFids 2.10                     #
-# Changeset 003                    #
-# 16-12-2008                       #
+# Changeset 004                    #
+# 04-03-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 004 Removed the SVN stuff
 # 003 Renamed setmac.pl
 # 002 Added tcp-wrapper.pl to xinetd
 # 001 Initial release
@@ -366,7 +367,7 @@ print XINETD "  protocol             = tcp\n";
 print XINETD "  wait                 = no\n";
 print XINETD "  bind                 = $xinetd\n";
 print XINETD "  user                 = root\n";
-print XINETD "  server               = $targetdir/scripts/tcp-wrappr.pl\n";
+print XINETD "  server               = $targetdir/scripts/tcp-wrapper.pl\n";
 #print XINETD "  server_args          = --config /etc/openvpn/server.conf\n";
 print XINETD "\}\n";
 close(XINETD);
@@ -503,226 +504,7 @@ if (! -e "$targetdir/.htpasswd") {
   }
 }
 
-#printdelay("Restarting the $apachev server:");
-#`/etc/init.d/$apachev restart 2>>$logfile`;
-#printresult($?);
-#if ($? != 0) { $err++; }
-
 print "\n";
-
-####################
-# Setting up SVN
-####################
-
-print "-------------------------------------------------------------------------------------------------\n";
-print "We will now setup the SVN repository used by the sensors for updating their sensor scripts.\n";
-print "When asked for the SVN admin user, this should be an existing user on this system that will be\n";
-print "administering the sensor updates.\n";
-print "-------------------------------------------------------------------------------------------------\n";
-print "\n";
-
-if (! -e "$targetdir/svnroot") {
-  printdelay("Creating SVN root directory:");
-  `mkdir $targetdir/svnroot/ 2>>$logfile`;
-  printresult($?);
-  if ($? != 0) { $err++; }
-}
-
-if (! -e "$targetdir/svnroot/updates") {
-  printdelay("Creating updates repository:");
-  `svnadmin create --fs-type fsfs $targetdir/svnroot/updates 2>>$logfile`;
-  printresult($?);
-  if ($? != 0) { $err++; }
-}
-
-$chk = `cat /etc/group | grep $subversion_group | wc -l`;
-if ($chk == 0) {
-  printdelay("Creating $subversion_group group:");
-  `groupadd $subversion_group 2>>$logfile`;
-  printresult($?);
-  if ($? != 0) { $err++; }
-}
-
-printdelay("Setting up SVN root ownership:");
-`chown -R $apache_user:$subversion_group $targetdir/svnroot/ 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
-
-printdelay("Setting up SVN root permissions:");
-`chmod -R 770 $targetdir/svnroot/ 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
-
-if ($itype eq "install") {
-  $svnuser = "";
-  while ($svnuser eq "") {
-    $svnuser = &prompt("Enter the name of the SVN admin user: ");
-    chomp($svnuser);
-  }
-
-  $chk = `cat /etc/passwd | grep $svnuser | wc -l`;
-  chomp($chk);
-  if ($chk == 0) {
-    printmsg("The SVN admin user doesn't exist!", "warning");
-
-    print "\n";
-    print "-------------------------------------------------------------------------------------------------\n";
-    print "The SVN admin user you entered doesn't seem to be existing. You will have to add it manually \n";
-    print "later:\n";
-    print "    adduser $svnuser\n";
-    print "After this you will have to add the SVN admin user to the subversion group:\n";
-    print "    addgroup $svnuser $subversion_group\n";
-    print "-------------------------------------------------------------------------------------------------\n";
-    print "\n";
-  } else {
-    printdelay("Adding $svnuser to $subversion_group group:");
-    `addgroup $svnuser $subversion_group 2>>$logfile`;
-    printresult($?);
-    if ($? != 0) { $err++; }
-  }
-
-  open(AUTHZ, ">/etc/apache2/dav_svn.authz");
-  print AUTHZ "[/]\n";
-  print AUTHZ "$svnuser = rw\n";
-  print AUTHZ "idssensor = r\n";
-  close(AUTHZ);
-
-  printmsg("Setting up authentication for $svnuser:", "info");
-  `htpasswd -c /etc/apache2/dav_svn.passwd $svnuser 2>>$logfile`;
-
-  printmsg("Setting up authentication for idssensor:", "info");
-  `htpasswd /etc/apache2/dav_svn.passwd idssensor 2>>$logfile`;
-}
-
-printdelay("Activating apache2 dav module:");
-`a2enmod dav 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
-
-printdelay("Activating apache2 dav_svn module:");
-`a2enmod dav_svn 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
-
-if (-e "/etc/apache2/ssl/") {
-  printdelay("Moving SSL certificates to new SSL dir:");
-  `cp /etc/apache2/ssl/* $ssldir 2>>$logfile`;
-  printresult($?);
-}
-
-if (! -e "$ssldir/ca.crt") {
-  print "\n";
-  print "-------------------------------------------------------------------------------------------------\n";
-  print "The SVN repository needs to be run under apache2 with an SSL certificate. We can create a \n";
-  print "self-signed one right now, but the preferred method is ofcourse getting a valid certificate \n";
-  print "signed by a trusted certificate authority.\n";
-  print "Don't worry about any mistakes made within this process, you will have the option to redo it again\n";
-  print "at the end.\n";
-  print "-------------------------------------------------------------------------------------------------\n";
-  print "\n";
-
-  $confirm = "none";
-  while ($confirm !~ /^(n|N|y|Y)$/) {
-    $confirm = &prompt("Do you want to generate a self-signed certificate for SVN? [Y/n]: ");
-  }
-  if ($confirm =~ /^(y|Y)$/) {
-    $confirm = "y";
-    while ($confirm =~ /^(y|Y)$/) {
-      print "\n";
-      if (! -d "$ssldir") {
-        printdelay("Creating apache2 ssl directory:");
-        `mkdir $ssldir 2>>$logfile`;
-        printresult($?);
-      }
-
-      if (! -e "$ssldir/ca.key") {
-        print "##########################################\n";
-        print "########## Generating ROOT CA ############\n";
-        print "##########################################\n";
-        printmsg("Generating root CA certificate key:", "info");
-        `openssl genrsa -des3 -out $ssldir/ca.key $key_size`;
-        if ($? != 0) { $err++; }
-
-        print "\n";
-        printmsg("Generating root CA certificate:", "info");
-        print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
-        printmsg("    The Common Name should be:", "$server CA");
-        print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
-        `openssl req -new -x509 -days 365 -key $ssldir/ca.key -out $ssldir/ca.crt`;
-        if ($? != 0) { $err++; }
-      } else {
-        print "$ssldir/ca.key already exists!\n";
-      }
-
-      if (! -e "$ssldir/key.pem") {
-        print "\n";
-        print "##########################################\n";
-        print "######## Generating Server Certs #########\n";
-        print "##########################################\n";
-        printmsg("Generating server key:", "info");
-        `openssl genrsa -des3 -out $ssldir/key.pem $key_size`;
-        if ($? != 0) { $err++; }
-
-        print "\n";
-        printmsg("Generating signing request:", "info");
-        print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
-        printmsg("    The Common Name should be:", "$server");
-        print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
-        `openssl req -new -key $ssldir/key.pem -out $ssldir/request.pem`;
-        if ($? != 0) { $err++; }
-
-        print "\n";
-        printmsg("Generating server certificate:", "info");
-        `openssl x509 -req -days 365 -in $ssldir/request.pem -CA $ssldir/ca.crt -CAkey $ssldir/ca.key -set_serial 01 -out $ssldir/cert.pem`;
-        if ($? != 0) { $err++; }
-
-        $ec = 0;
-        printmsg("Finishing certificate generation:", "info");
-        `openssl rsa -in $ssldir/key.pem -out $ssldir/key.pem.insecure 2>>$logfile`;
-        if ($? != 0) { $ec++; }
-        `mv $ssldir/key.pem $ssldir/key.pem.secure 2>>$logfile`;
-        if ($? != 0) { $ec++; }
-        `mv $ssldir/key.pem.insecure $ssldir/key.pem 2>>$logfile`;
-        if ($? != 0) { $ec++; }
-        if ($ec != 0) { $err++; }
-        $ec = 0;
-      } else {
-        print "$ssldir/key.pem already exists!\n";
-      }
-
-      if (! -e "$targetdir/updates/CAcert.pem") {
-        printdelay("Creating CAcert.pem for SVN:");
-        `cp $ssldir/ca.crt $targetdir/updates/CAcert.pem 2>>$logfile`;
-        printresult($?);
-        if ($? != 0) { $err++; }
-      } else {
-        printmsg("Skipping CAcert.pem. Already exists!:", "info");
-      }
-
-      print "\n";
-      print "-------------------------------------------------------------------------------------------------\n";
-      print "You now have the option to redo the certificate generation process if you have made any mistakes.\n";
-      print "This will remove any certificates present in the $ssldir!\n";
-      print "-------------------------------------------------------------------------------------------------\n";
-      print "\n";
-
-      $confirm = &prompt("Do you want to regenerate a self-signed certificate for SVN? [y/N]: ");
-      if ($confirm =~ /^(y|Y)$/) {
-        $ts = time();
-        `rm $ssldir/* 2>>$logfile`;
-        if ($? != 0) { $err++; }
-        `rm $targetdir/updates/CAcert.pem 2>>$logfile`;
-        if ($? != 0) { $err++; }
-      }
-      print "\n";
-    }
-
-    printdelay("Enabling SSL for $apachev:");
-    `a2enmod ssl 2>>$logfile`;
-    printresult($?);
-    if ($? != 0) { $err++; }
-  }
-}
 
 printdelay("Restarting the $apachev server:");
 `/etc/init.d/$apachev restart 2>>$logfile`;

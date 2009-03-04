@@ -32,15 +32,16 @@ function logsys($level, $msg, $args) {
 
     if (!$source) { $source = "unknown"; }
     if (!$sensor) { $sensor = "unknown"; }
-    if (!$tap)    { $tap    = "unknown"; }
+    if (!$device) { $device = "unknown"; }
     if (!$pid)    { $pid    = 0; }
     if (!$g_vlanid) { $g_vlanid = 0; }
 
     if ($level >= $c_log_level) {
         if ($c_log_method == 2 || $c_log_method == 3) {
+            $esc_args = pg_escape_string($args);
             $sql = "INSERT INTO syslog (source, error, args, level, keyname, device, pid, vlanid) VALUES ";
-            $sql .= " ('$source', '$msg', '$args', $level, '$keyname', '', 0, 0)";
-            $res = pg_query($sql);
+            $sql .= " ('$source', '$msg', '$esc_args', $level, '$keyname', '', 0, 0)";
+            $result = pg_query($sql);
         }
     	if ($c_log_method == 1 || $c_log_method == 3) {
         	$res = fopen("/tmp/logsys", "a");
@@ -270,23 +271,17 @@ function getdomain($host) {
 
 # Function to get the organisation of a connecting sensor.
 function getorg($ip, $soapurl, $soapuser, $soappass) {
-  require_once('include/nusoap.php');
-  $soap_client = new soapclient($soapurl, true);
-  $soap_client->setCredentials($soapuser, $soappass); 
-  $soap_err = $soap_client->getError();
-  if ($soap_err) {
-#    $remotehost = $_SERVER['REMOTE_HOST'];
-#    $soap_org = getDomain($remotehost);
-    $soap_org = "false";
+  $cred = array('login'     => $soapuser,
+                'password'  => $soappass);
+  $soap_client = new SoapClient($soapurl, $cred);
+  $remoteip = $ip;
+  $soap_klanten = array("var_type" => "ip", "var_value" => "$remoteip", "version" => "1.0");
+  $soap_result = $soap_client->__soapCall('getKlantSingle', array('invoer' => $soap_klanten));
+  if (is_soap_fault($soap_result)) {
+    trigger_error("SOAP Fault: (faultcode: {$soap_result->faultcode}, faultstring: {$soap_result->faultstring})", E_USER_ERROR);
+    $soap_org = "";
   } else {
-    $remoteip = $ip;
-    $soap_klanten = array("var_type" => "ip", "var_value" => "$remoteip", "version" => "1.0");
-    $soap_result = $soap_client->call('getKlantSingle', array('invoer' => $soap_klanten));
-    $soap_org = $soap_result[klantafkorting];
-    if ($soap_org == "") {
-      $remotehost = $_SERVER['REMOTE_HOST'];
-      $soap_org = getDomain($remotehost);
-    }
+    $soap_org = $soap_result->klantafkorting;
   }
   return $soap_org;
 }

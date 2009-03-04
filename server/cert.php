@@ -3,8 +3,8 @@
 ####################################
 # Certificate Generation Handler   #
 # SURFids 2.10                     #
-# Changeset 001                    #
-# 01-04-2008                       #
+# Changeset 002                    #
+# 18-02-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
@@ -18,6 +18,7 @@
 
 ####################################
 # Changelog:
+# 002 Added extensive logging via logsys
 # 001 Changed the order of organisation checks
 ####################################
 
@@ -30,7 +31,7 @@ $err =0;
 
 $allowed_get = array(
                 "ip_localip",
-        		"md5_ris"
+        		"md5_oid"
 );
 $check = extractvars($_GET, $allowed_get);
 #debug_input();
@@ -39,12 +40,15 @@ $check = extractvars($_GET, $allowed_get);
 $remoteip = $_SERVER['REMOTE_ADDR'];
 $remotehost = $_SERVER['REMOTE_HOST'];
 
+logsys($f_log_warn, "CERT_NEW", "Host ($remoteip) is requesting a new certificate");
+
 # Check if localip is set.
 if (isset($clean['localip'])) {
   $localip = $clean['localip'];
 } else {
   $err = 1;
-  echo "ERROR: Localip was empty.<br />\n";
+  echo "ERROR: Localip was empty.\n";
+  logsys($f_log_error, "CERT_FAIL", "Localip was empty");
 }
 
 if ($err == 0) {
@@ -74,16 +78,35 @@ if ($err == 0) {
   # Starting organisation identifier stuff
   $orgname = "false";
   $orgid = 0;
+  $soap_org = "";
+  $domain_org = "";
+  $whois_org = "";
 
   # Random Identifier String check
-  if ($orgid == 0 && isset($clean['ris'])) {
-    $ident = $clean['ris'];
+  if ($orgid == 0 && isset($clean['oid'])) {
+    $ident = $clean['oid'];
     $orgid = checkident($ident, 1);
   }
 
+  if ($orgid == 0) {
+    if ($c_certsoapconn == 1) {
+      # SURFnet SOAP identifier check
+      $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappass);
+      $soap_org = $ident;
+      if ($ident != "false") {
+        $orgid = checkident($ident, 4);
+        $orgname = $ident;
+        $oidtype = 4;
+      } else {
+        $orgid = 0;
+      }
+    }
+  }
+
   # Domain identifier check
-  if ($remoteip != $remotehost && $orgid == 0) {
+  if ($remoteip != $remotehost && $orgid == 0 && $remotehost != "") {
     $ident = getdomain($remotehost);
+    $domain_org = $ident;
     if ($ident != "false") {
       $orgid = checkident($ident, 3);
       $orgname = $ident;
@@ -96,6 +119,7 @@ if ($err == 0) {
   # WHOIS identifier check
   if ($orgid == 0) {
     $ident = chkwhois($remoteip);
+    $whois_org = $ident;
     if ($ident != "false") {
       $orgid = checkident($ident, 2);
       $orgname = $ident;
@@ -106,31 +130,30 @@ if ($err == 0) {
   }
 
   if ($orgid == 0) {
-    if ($c_certsoapconn == 1) {
-      # SURFnet SOAP identifier check
-      $ident = getorg($remoteip, $c_soapurl, $c_soapuser, $c_soappass);
-      if ($ident != "false") {
-        $orgid = checkident($ident, 4);
-        $orgname = $ident;
-        $oidtype = 4;
-      } else {
-        $orgid = 0;
-      }
-    }
-  }
-
-  if ($orgid == 0) {
     # Organisation did not exist yet.
-    if ($orgname == "false" || $orgname == "") {
+
+    if ($soap_org != "" && $soap_org != "false") {
+      $orgname = $soap_org;
+      $oidtype = 4;
+    } elseif ($domain_org != "" && $domain_org != "false") {
+      $orgname = $domain_org;
+      $oidtype = 3;
+    } elseif ($whois_org != "" && $whois_org != "false") {
+      $orgname = $whois_org;
+      $oidtype = 2;
+    } else {  
       $orgname = $remoteip;
       $oidtype = 0;
     }
     $ranges = "";
-     
+
     $sql_chkorg = "SELECT id FROM organisations WHERE organisation = '$orgname'";
     $result_chkorg = pg_query($pgconn, $sql_chkorg);
     $numchk = pg_num_rows($result_chkorg);
     if ($numchk == 0) {
+
+      logsys($f_log_debug, "CERT_INFO", "Adding new organisation ($orgname)");
+
       $sql_addorg = "INSERT INTO organisations (organisation, ranges) VALUES ('$orgname', '$ranges')";
       $result_addorg = pg_query($pgconn, $sql_addorg);
 
@@ -145,7 +168,7 @@ if ($err == 0) {
     $result_addoid = pg_query($pgconn, $sql_addoid);
   }
 
-  # Update the database with Keyname, Remoteip, Localip and Organisation.
+  # Update the database with Keyname, Organisation and vlanid.
   $sql_addsensor = "INSERT INTO sensors (keyname, organisation, vlanid) VALUES ('$keyname', $orgid, 0)";
   $result_addsensor = pg_query($pgconn, $sql_addsensor);
 
@@ -154,8 +177,22 @@ if ($err == 0) {
   $result_addsensor = pg_query($pgconn, $sql_addsensor);
 
   # Start the scripts to generate and sign the certificates for the sensor.
-  shell_exec("$c_genkeysdir/generate_certificate.sh $keyname");
-  shell_exec("$c_genkeysdir/sign_certificate.sh $keyname");
+  exec("$c_genkeysdir/generate_certificate.sh $keyname 2>&1", $output, $rv);
+  if ($rv != 0) {
+    foreach ($output as $key => $val) {
+      if (stripos($val, "error")) {
+        logsys($f_log_error, "EXEC_FAIL", "[$key] $val");
+      }
+    }
+  }
+  $output = "";
+  $rv = "";
+  exec("$c_genkeysdir/sign_certificate.sh $keyname 2>&1", $output, $rv);
+  if ($rv != 0) {
+    foreach ($output as $key => $val) {
+      logsys($f_log_error, "EXEC_FAIL", "[$key] $val");
+    }
+  }
 
   ##########################
   #  Print the .key file   #
@@ -164,12 +201,16 @@ if ($err == 0) {
   # The .key file is created by earlier shellscripts. Open it and print it.
   $key="$c_keysdir/$keyname" . ".key";
 
-  $keyfile = fopen("$key","r");
-  if (filesize("$key")>0) {
-    # Print the .key file.
-    readfile($key);
+  if (file_exists($key)) {
+      $keyfile = fopen("$key","r");
+      if (filesize("$key")>0) {
+          # Print the .key file.
+          readfile($key);
+      }
+      fclose($keyfile);
+  } else {
+    logsys($f_log_error, "EXEC_FAIL", "Key file did not exist ($key)");
   }
-  fclose($keyfile);
   # Print an EOF. This helps the sensor to parse cert.php and extract the .key file.
   echo "EOF\n";
 
@@ -180,12 +221,16 @@ if ($err == 0) {
   # The .crt file is created by earlier shellscripts. Open it and print it.
   $crt="$c_keysdir/$keyname" . ".crt";
 
-  $crtfile = fopen("$crt","r");
-  if (filesize("$crt")>0) {
-    # Print the .crt file.
-    readfile($crt);
+  if (file_exists($crt)) {
+      $crtfile = fopen("$crt","r");
+      if (filesize("$crt")>0) {
+          # Print the .crt file.
+          readfile($crt);
+      }
+      fclose($crtfile);
+  } else {
+    logsys($f_log_error, "EXEC_FAIL", "Cert file did not exist ($crt)");
   }
-  fclose($crtfile);
   # Print the keyname. The sensor will need this to save the .crt and .key file correctly.
   echo "EOF\n";
   echo "$keyname\n";

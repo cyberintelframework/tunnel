@@ -46,36 +46,9 @@ use GnuPG qw( :algo );
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
-$tap = $ARGV[0];
+our $tap = $ARGV[0];
 $sensorid = $ARGV[1];
-
-$logfile = $c_logfile;
-$logfile =~ s|.*/||;
-if ($c_logstamp == 1) {
-  $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  $year = localtime->year() + 1900;
-  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
-    mkdir("$c_surfidsdir/log/$day$month$year");
-  }
-  if ( ! -d "$c_surfidsdir/log/$day$month$year/$tap" ) {
-    mkdir("$c_surfidsdir/log/$day$month$year/$tap");
-  }
-  $logfile = "$c_surfidsdir/log/$day$month$year/$tap/$logfile";
-} else {
-  $logfile = "$c_surfidsdir/log/$logfile";
-}
-
-$argcount = @ARGV;
-if ($argcount == 0) {
-  exit 1;
-}
+our $source = 'detectarp.pl';
 
 #################
 # Blacklists
@@ -84,6 +57,7 @@ if ($argcount == 0) {
 $arp_blacklist{"01:00:0c:cd:cd:cd"} = 1;
 $arp_blacklist{"01:00:0C:CD:CD:CD"} = 1;
 
+# Used by ActiveSync, hence classified as a false positive
 $dhcp_blacklist{"169.254.2.1"} = 1;
 
 ##################
@@ -100,23 +74,47 @@ $ts = time();
 # Connect to the database (dbh = DatabaseHandler or linkserver)
 $dbconn = dbconnect();
 
+if ("$sensorid" eq "") {
+  logsys($f_log_error, "SCRIPT_FAIL", "Missing sensor ID.");
+  exit 1;
+}
+if ("$tap" eq "") {
+  logsys($f_log_error, "SCRIPT_FAIL", "Missing tap interface.");
+  exit 1;
+}
+
+# Check for existance of the tap interface
+`ifconfig $tap 2>/dev/null`;
+if ($? != 0) {
+  logsys($f_log_error, "SCRIPT_FAIL", "Could not find interface ($tap).");
+  exit 1;
+}
+
 # Getting the sensor ID
 if ("$dbconn" ne "false") {
-  $sql = "SELECT organisation, netconf, netconfdetail FROM sensors WHERE id = '$sensorid'";
+  $sql = "SELECT organisation, networkconfig, vlanid, sensors.keyname FROM sensors ";
+  $sql .= " LEFT JOIN sensor_details ON sensors.keyname = sensor_details.keyname ";
+  $sql .= " WHERE sensors.id = '$sensorid' ";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
+
+  $count = $sth->rows;
+  if ($count == 0) {
+    logsys($f_log_error, "SCRIPT_FAIL", "Could not find a sensor record.");
+    exit 1;
+  }
 
   @row = $sth->fetchrow_array;
   $org = $row[0];
   $netconf = $row[1];
-  $netconfdet = $row[2];
-  if ("$sensorid" eq "") {
-    exit 1;
-  }
+  our $g_vlanid = $row[2];
+  our $sensor = $row[3];
   if ("$org" eq "") {
+    logsys($f_log_error, "SCRIPT_FAIL", "Missing organisation ID.");
     exit 1;
   }
 } else {
+  logsys($f_log_error, "DB_FAIL", "Missing database connection.");
   exit 1;
 }
 
@@ -233,19 +231,21 @@ $ifip = getifip($tap);
 $ifmask = getifmask($tap);
 $ifmin = ip2long(network($ifip, $ifmask));
 $ifmax = ip2long(bc($ifip, $ifmask));
-if ("$netconf" eq "dhcp" || "$netconf" eq "vland") {
+if ("$netconf" eq "dhcp") {
   $gw = `cat /var/lib/dhcp3/$tap.leases | grep routers | tail -n1 | awk '{print \$3}' | awk -F\\; '{print \$1}'`;
   chomp($gw);
   if ("$gw" eq "") {
     $gw = gw($ifip, $ifmask);
   }
-} elsif ("$netconf" eq "static" || "$netconf" eq "vlans") {
-  @netconf_ar = split(/\|/, $netconfdet);
+} else {
+  @netconf_ar = split(/\|/, $netconf);
   $gw = $netconf_ar[1];
 }
 if ("$gw" eq "") {
   $gw = gw($ifip, $ifmask);
 }
+
+logsys($f_log_debug, "NOTIFY", "Detected gateway: $gw");
 
 #print "GW: $gw\n";
 
