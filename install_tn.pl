@@ -3,14 +3,13 @@
 ####################################
 # Tunnel installation script       #
 # SURFids 2.10                     #
-# Changeset 004                    #
-# 04-03-2009                       #
+# Changeset 003                    #
+# 16-12-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
-# 004 Removed the SVN stuff
 # 003 Renamed setmac.pl
 # 002 Added tcp-wrapper.pl to xinetd
 # 001 Initial release
@@ -367,7 +366,7 @@ print XINETD "  protocol             = tcp\n";
 print XINETD "  wait                 = no\n";
 print XINETD "  bind                 = $xinetd\n";
 print XINETD "  user                 = root\n";
-print XINETD "  server               = $targetdir/scripts/tcp-wrapper.pl\n";
+print XINETD "  server               = $targetdir/scripts/tcp-wrappr.pl\n";
 #print XINETD "  server_args          = --config /etc/openvpn/server.conf\n";
 print XINETD "\}\n";
 close(XINETD);
@@ -504,7 +503,123 @@ if (! -e "$targetdir/.htpasswd") {
   }
 }
 
+#printdelay("Restarting the $apachev server:");
+#`/etc/init.d/$apachev restart 2>>$logfile`;
+#printresult($?);
+#if ($? != 0) { $err++; }
+
 print "\n";
+
+if (-e "/etc/apache2/ssl/") {
+  printdelay("Moving SSL certificates to new SSL dir:");
+  `cp /etc/apache2/ssl/* $ssldir 2>>$logfile`;
+  printresult($?);
+}
+
+if (! -e "$ssldir/ca.crt") {
+  print "\n";
+  print "-------------------------------------------------------------------------------------------------\n";
+  print "The Tunnel server needs to run an apache2 with a SSL certificate. We can create a \n";
+  print "self-signed one right now, but the preferred method is ofcourse getting a valid certificate \n";
+  print "signed by a trusted certificate authority.\n";
+  print "Don't worry about any mistakes made within this process, you will have the option to redo it again\n";
+  print "at the end.\n";
+  print "-------------------------------------------------------------------------------------------------\n";
+  print "\n";
+
+  $confirm = "none";
+  while ($confirm !~ /^(n|N|y|Y)$/) {
+    $confirm = &prompt("Do you want to generate a self-signed certificate for SVN? [Y/n]: ");
+  }
+  if ($confirm =~ /^(y|Y)$/) {
+    $confirm = "y";
+    while ($confirm =~ /^(y|Y)$/) {
+      print "\n";
+      if (! -d "$ssldir") {
+        printdelay("Creating apache2 ssl directory:");
+        `mkdir $ssldir 2>>$logfile`;
+        printresult($?);
+      }
+
+      if (! -e "$ssldir/ca.key") {
+        print "##########################################\n";
+        print "########## Generating ROOT CA ############\n";
+        print "##########################################\n";
+        printmsg("Generating root CA certificate key:", "info");
+        `openssl genrsa -des3 -out $ssldir/ca.key $key_size`;
+        if ($? != 0) { $err++; }
+
+        print "\n";
+        printmsg("Generating root CA certificate:", "info");
+        print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
+        printmsg("    The Common Name should be:", "$server CA");
+        print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
+        `openssl req -new -x509 -days 365 -key $ssldir/ca.key -out $ssldir/ca.crt`;
+        if ($? != 0) { $err++; }
+      } else {
+        print "$ssldir/ca.key already exists!\n";
+      }
+
+      if (! -e "$ssldir/key.pem") {
+        print "\n";
+        print "##########################################\n";
+        print "######## Generating Server Certs #########\n";
+        print "##########################################\n";
+        printmsg("Generating server key:", "info");
+        `openssl genrsa -des3 -out $ssldir/key.pem $key_size`;
+        if ($? != 0) { $err++; }
+
+        print "\n";
+        printmsg("Generating signing request:", "info");
+        print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
+        printmsg("    The Common Name should be:", "$server");
+        print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
+        `openssl req -new -key $ssldir/key.pem -out $ssldir/request.pem`;
+        if ($? != 0) { $err++; }
+
+        print "\n";
+        printmsg("Generating server certificate:", "info");
+        `openssl x509 -req -days 365 -in $ssldir/request.pem -CA $ssldir/ca.crt -CAkey $ssldir/ca.key -set_serial 01 -out $ssldir/cert.pem`;
+        if ($? != 0) { $err++; }
+
+        $ec = 0;
+        printmsg("Finishing certificate generation:", "info");
+        `openssl rsa -in $ssldir/key.pem -out $ssldir/key.pem.insecure 2>>$logfile`;
+        if ($? != 0) { $ec++; }
+        `mv $ssldir/key.pem $ssldir/key.pem.secure 2>>$logfile`;
+        if ($? != 0) { $ec++; }
+        `mv $ssldir/key.pem.insecure $ssldir/key.pem 2>>$logfile`;
+        if ($? != 0) { $ec++; }
+        if ($ec != 0) { $err++; }
+        $ec = 0;
+      } else {
+        print "$ssldir/key.pem already exists!\n";
+      }
+
+      print "\n";
+      print "-------------------------------------------------------------------------------------------------\n";
+      print "You now have the option to redo the certificate generation process if you have made any mistakes.\n";
+      print "This will remove any certificates present in the $ssldir!\n";
+      print "-------------------------------------------------------------------------------------------------\n";
+      print "\n";
+
+      $confirm = &prompt("Do you want to regenerate a self-signed certificate for SVN? [y/N]: ");
+      if ($confirm =~ /^(y|Y)$/) {
+        $ts = time();
+        `rm $ssldir/* 2>>$logfile`;
+        if ($? != 0) { $err++; }
+        `rm $targetdir/updates/CAcert.pem 2>>$logfile`;
+        if ($? != 0) { $err++; }
+      }
+      print "\n";
+    }
+
+    printdelay("Enabling SSL for $apachev:");
+    `a2enmod ssl 2>>$logfile`;
+    printresult($?);
+    if ($? != 0) { $err++; }
+  }
+}
 
 printdelay("Restarting the $apachev server:");
 `/etc/init.d/$apachev restart 2>>$logfile`;
@@ -563,33 +678,6 @@ if (-e "/etc/iproute2/rt_tables") {
 # Setting up sensor config
 ####################
 
-$ec = 0;
-`sed 's/^remote.*\$/remote $server/' ./updates/client.conf > $targetdir/updates/client.conf 2>>$logfile`;
-if ($? != 0) { $ec = 1; }
-`cp $targetdir/updates/client.conf ./updates/client.conf 2>>$logfile`;
-if ($? != 0) { $ec = 2; }
-`sed 's/^tls-remote.*\$/tls-remote $server/' ./updates/client.conf > $targetdir/updates/client.conf 2>>$logfile`;
-if ($? != 0) { $ec = 3; }
-printmsg("Configuring client.conf:", $ec);
-if ($ec != 0) { $err++; }
-$ec = 0;
-
-$ec = 0;
-`sed 's/^remote.*\$/remote $server/' ./updates/client.conf.temp > $targetdir/updates/client.conf.temp 2>>$logfile`;
-if ($? != 0) { $ec = 1; }
-`cp $targetdir/updates/client.conf.temp ./updates/client.conf.temp 2>>$logfile`;
-if ($? != 0) { $ec = 2; }
-`sed 's/^tls-remote.*\$/tls-remote $server/' ./updates/client.conf.temp > $targetdir/updates/client.conf.temp 2>>$logfile`;
-if ($? != 0) { $ec = 3; }
-printmsg("Configuring client.conf.temp:", $ec);
-if ($ec != 0) { $err++; }
-$ec = 0;
-
-printdelay("Configuring sensor.conf:");
-`sed 's/^\\\$server = \"enter_server_here\";\$/\\\$server = \"$server\";/' ./updates/sensor.conf > $targetdir/updates/sensor.conf 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
-
 open(SERVERVARS, ">>$targetdir/genkeys/servervars");
 print SERVERVARS "export KEY_COMMONNAME=\"$server\"\n";
 close(SERVERVARS);
@@ -601,10 +689,6 @@ if ($chk == 0) {
 } else {
   printmsg("Configuring servervars:", 0);
 }
-
-`$targetdir/tntools/makeversion.pl >/dev/null 2>>$logfile`;
-printmsg("Signing sensor scripts:", $?);
-if ($? != 0) { $err++; }
 
 ####################
 # IPVS support
