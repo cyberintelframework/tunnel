@@ -509,7 +509,7 @@ if (! -e "$ssldir/ca.crt") {
 
   $confirm = "none";
   while ($confirm !~ /^(n|N|y|Y)$/) {
-    $confirm = &prompt("Do you want to generate a self-signed certificate for SVN? [Y/n]: ");
+    $confirm = &prompt("Do you want to generate a self-signed certificate? [Y/n]: ");
   }
   if ($confirm =~ /^(y|Y)$/) {
     $confirm = "y";
@@ -583,7 +583,7 @@ if (! -e "$ssldir/ca.crt") {
       print "-------------------------------------------------------------------------------------------------\n";
       print "\n";
 
-      $confirm = &prompt("Do you want to regenerate a self-signed certificate for SVN? [y/N]: ");
+      $confirm = &prompt("Do you want to regenerate a self-signed certificate? [y/N]: ");
       if ($confirm =~ /^(y|Y)$/) {
         $ts = time();
         `rm $ssldir/* 2>>$logfile`;
@@ -667,7 +667,7 @@ if ($? != 0) { $err++; }
 if ($chk == 0) {
   printmsg("Configuring servervars:", "false");
 } else {
-  printmsg("Configuring servervars:", 0);
+  printmsg("Configuring servervars:", "0");
 }
 
 ####################
