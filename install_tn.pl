@@ -346,7 +346,7 @@ print XINETD "  protocol             = tcp\n";
 print XINETD "  wait                 = no\n";
 print XINETD "  bind                 = $xinetd\n";
 print XINETD "  user                 = root\n";
-print XINETD "  server               = $targetdir/scripts/tcp-wrappr.pl\n";
+print XINETD "  server               = $targetdir/scripts/tcp-wrapper.pl\n";
 #print XINETD "  server_args          = --config /etc/openvpn/server.conf\n";
 print XINETD "\}\n";
 close(XINETD);
