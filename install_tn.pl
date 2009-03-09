@@ -622,53 +622,6 @@ if ($ec != 0) { $err++; }
 $ec = 0;
 
 ####################
-# Setting up iproute2
-####################
-
-if (-e "/etc/iproute2/rt_tables") {
-  if (-w "/etc/iproute2/rt_tables") {
-    $iprcheck = `cat /etc/iproute2/rt_tables | wc -l 2>>$logfile`;
-    chomp($iprcheck);
-    if ($? != 0) { $err++; }
-    if ($iprcheck > 200) {
-      printmsg("No need to modify /etc/iproute2/rt_tables:", "info");
-    } else {
-      $ts = time();
-      `cp /etc/iproute2/rt_tables /etc/iproute2/rt_tables.old-$ts 2>>$logfile`;
-      printmsg("Creating backup of rt_tables:", $?);
-      if ($? != 0) { $err++; }
-
-      open(RT, ">>/etc/iproute2/rt_tables");
-      $n = 0;
-      for ($i=20; $i<221; $i++) {
-        print RT "$i              tap$n\n";
-        $n++;
-      }
-    }
-  } else {
-    printmsg("Setting up iproute2 tables:", 1);
-  }
-} else {
-  printmsg("Setting up iproute2 tables:", 2);
-}
-
-####################
-# Setting up sensor config
-####################
-
-#open(SERVERVARS, ">>$targetdir/genkeys/servervars");
-#print SERVERVARS "export KEY_COMMONNAME=\"$server\"\n";
-#close(SERVERVARS);
-#$chk = `cat $targetdir/genkeys/servervars | grep -i $server | wc -l 2>>$logfile`;
-#chomp($chk);
-#if ($? != 0) { $err++; }
-#if ($chk == 0) {
-#  printmsg("Configuring servervars:", "false");
-#} else {
-#  printmsg("Configuring servervars:", "0");
-#}
-
-####################
 # IPVS support
 ####################
 
