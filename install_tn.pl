@@ -190,6 +190,8 @@ if ($itype eq "install") {
     $confirm = &prompt("Is this information correct? [y/n]: ");
   }
 
+  `cp $targetdir/genkeys/vars.conf.dist $targetdir/genkeys/vars.conf`;
+
   open(VARS, ">$targetdir/genkeys/vars.conf");
   print VARS "\n";
   print VARS "\$key_config = \"\$genkeys/openssl.cnf\";\n";
