@@ -10,6 +10,7 @@
 
 #####################
 # Changelog:
+# 004 Fixed vars.conf generation
 # 003 Renamed setmac.pl
 # 002 Added tcp-wrapper.pl to xinetd
 # 001 Initial release
@@ -190,23 +191,18 @@ if ($itype eq "install") {
   }
 
   open(VARS, ">$targetdir/genkeys/vars.conf");
-  print VARS "D=$targetdir\n";
-  print VARS "genkeys=\$D/genkeys\n";
-  print VARS "serverkeys=\$D/serverkeys\n";
-  print VARS "clientkeys=\$D/clientkeys\n";
   print VARS "\n";
-  print VARS "export D=$targetdir\n";
-  print VARS "export KEY_CONFIG=\$genkeys/openssl.cnf\n";
-  print VARS "export KEY_DIR=\$serverkeys\n";
-  print VARS "export KEY_SIZE=\"$key_size\"\n";
-  print VARS "export KEY_COUNTRY=\"$key_country\"\n";
-  print VARS "export KEY_PROVINCE=\"$key_prov\"\n";
-  print VARS "export KEY_CITY=\"$key_city\"\n";
-  print VARS "export KEY_ORG=\"$key_org\"\n";
-  print VARS "export KEY_EMAIL=\"$key_email\"\n";
-  print VARS "export KEY_UNITNAME=\"SURFnet IDS\"\n";
-  print VARS "export KEY_COMMONNAME=\"server\"\n";
-  print VARS "export KEY_CERTTYPE=\"client\"\n";
+  print VARS "\$key_config = \"\$genkeys/openssl.cnf\";\n";
+  print VARS "\$key_dir = \"\$serverkeys\";\n";
+  print VARS "\$key_size = \"$key_size\";\n";
+  print VARS "\$key_country = \"$key_country\";\n";
+  print VARS "\$key_province = \"$key_prov\";\n";
+  print VARS "\$key_city = \"$key_city\";\n";
+  print VARS "\$key_org = \"$key_org\";\n";
+  print VARS "\$key_email = \"$key_email\";\n";
+  print VARS "\$key_unitname = \"SURFnet IDS\";\n";
+  print VARS "\$key_commonname = \"server\";\n";
+  print VARS "\$key_certtype = \"client\";\n";
   close(VARS);
 
   # Exporting variables to the environment
@@ -658,17 +654,17 @@ if (-e "/etc/iproute2/rt_tables") {
 # Setting up sensor config
 ####################
 
-open(SERVERVARS, ">>$targetdir/genkeys/servervars");
-print SERVERVARS "export KEY_COMMONNAME=\"$server\"\n";
-close(SERVERVARS);
-$chk = `cat $targetdir/genkeys/servervars | grep -i $server | wc -l 2>>$logfile`;
-chomp($chk);
-if ($? != 0) { $err++; }
-if ($chk == 0) {
-  printmsg("Configuring servervars:", "false");
-} else {
-  printmsg("Configuring servervars:", "0");
-}
+#open(SERVERVARS, ">>$targetdir/genkeys/servervars");
+#print SERVERVARS "export KEY_COMMONNAME=\"$server\"\n";
+#close(SERVERVARS);
+#$chk = `cat $targetdir/genkeys/servervars | grep -i $server | wc -l 2>>$logfile`;
+#chomp($chk);
+#if ($? != 0) { $err++; }
+#if ($chk == 0) {
+#  printmsg("Configuring servervars:", "false");
+#} else {
+#  printmsg("Configuring servervars:", "0");
+#}
 
 ####################
 # IPVS support
