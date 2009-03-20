@@ -45,48 +45,14 @@ $err = 0;
 ##########################
 
 require "functions_tn.pl";
-
+$itype = "install";
 ##########################
-# Dependency checks
+# Main script
 ##########################
-
-if (! -e "/etc/xinetd.d/") {
-  printmsg("Checking for xinetd.d:", "false");
-}
-
-if (! -e "/etc/dhcp3/") {
-  printmsg("Checking for dhclient3:", "false");
-}
-
-if (-e "$targetdir/server/") {
-  printmsg("SURFnet IDS tunnel server already installed:", "info");
-  $itype = "none";
-  while ($itype !~ /^(upgrade|install|exit)$/) {
-    $itype = &prompt("Do you want to upgrade or do a complete new installation? [upgrade/install/exit]: ");
-  }
-  if ($itype =~ /^(exit)$/) {
-    exit;
-  } elsif ($itype =~ /^(install)$/) {
-    printmsg("Cleaning up old files:", "info");
-    `$installdir/tntools/uninstall.pl 1 2>>$logfile`;
-  } elsif ($itype =~ /^(upgrade)$/) {
-    if (-e "$targetdir/genkeys/vars.conf") {
-      $ts = time();
-      `cp $targetdir/genkeys/vars.conf $targetdir/genkeys/vars.conf-$ts 2>>$logfile`;
-    }
-  } else {
-    print "Unkown error!\n";
-    exit;
-  }
-}
 
 if (-e "./install_tn.pl.log") {
   `rm -f ./install_tn.pl.log 2>/dev/null`;
 }
-
-##########################
-# Main script
-##########################
 
 if (! -e "$configdir/") {
   `mkdir -p $configdir/ 2>>$logfile`;
