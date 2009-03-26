@@ -1431,7 +1431,7 @@ sub startdhcp() {
   #
   # See startstatc() below to see the steps that are taken to set
   # up these routes.
-  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
+  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -cf /etc/surfnetids/dhclient.conf -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
 #  `/opt/dhcp-3.0.7/bin/dhclient -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
   sleep 1;
   if ($? == 0) {
