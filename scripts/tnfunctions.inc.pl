@@ -1575,82 +1575,82 @@ sub logsys() {
 # Function to start static networking. Works like 
 # startdhcp (4.07) but takes more arguments
 sub startstatic() {
-        my ($tap, $if_ip, $if_nm, $if_gw, $if_bc);
-        $tap = $_[0];
-        $if_ip = $_[1];
-        $if_nm = $_[2];
-        $if_gw = $_[3];
-        $if_bc = $_[4];
+    my ($tap, $if_ip, $if_nm, $if_gw, $if_bc);
+    $tap = $_[0];
+    $if_ip = $_[1];
+    $if_nm = $_[2];
+    $if_bc = $_[3];
+    $if_gw = $_[4];
 
-        # Configure the interface
-        `ifconfig $tap $if_ip netmask $if_nm broadcast $if_bc`;
+    # Configure the interface
+    `ifconfig $tap $if_ip netmask $if_nm broadcast $if_bc`;
 
-        # Check for existing rules.
-        $rulecheck = `ip rule list | grep '\\b$tap\\b' | wc -l`;
-        chomp($rulecheck);
-        if ($rulecheck == 0) {
-                $result = &ipruleadd($tap, $if_ip);
-        } else {
-                $result = &deliprules($tap);
-                $result = &ipruleadd($tap, $if_ip);
-                #$checktap = `$c_surfidsdir/scripts/checktap.pl $tap`;
-        }
+    # Check for existing rules.
+    $rulecheck = `ip rule list | grep '\\b$tap\\b' | wc -l`;
+    chomp($rulecheck);
+    if ($rulecheck == 0) {
+        $result = &ipruleadd($tap, $if_ip);
+    } else {
+        $result = &deliprules($tap);
+        $result = &ipruleadd($tap, $if_ip);
+        #$checktap = `$c_surfidsdir/scripts/checktap.pl $tap`;
+    }
 
-        # Just to be sure, flush the routing table of the tap device.
-        &flushroutes($tap);
+    # Just to be sure, flush the routing table of the tap device.
+    &flushroutes($tap);
 
-        # Calculate the network based on the if_ip and the netmask.
-        $network = &getnetwork($if_ip, $if_nm);
+    # Calculate the network based on the if_ip and the netmask.
+    $network = &getnetwork($if_ip, $if_nm);
 
-        # Check if there are any routes present in the main routing table.
-        $esctap = &escape_dev($tap);
-        $routecheck = `ip route list | grep '\\b$esctap\\b' | wc -l`;
-        chomp($routecheck);
+    # Check if there are any routes present in the main routing table.
+    $esctap = &escape_dev($tap);
+    $routecheck = `ip route list | grep '\\b$esctap\\b' | wc -l`;
+    chomp($routecheck);
 
-        # If none were present, add it. This needs to be done otherwise
-        # you'll get an error when adding the default gateway
-        # for the tap device routing table.
-        if ($routecheck == 0) {
-                $result = &addroute($network, $tap, $if_ip, "main");
-        }
+    # If none were present, add it. This needs to be done otherwise
+    # you'll get an error when adding the default gateway
+    # for the tap device routing table.
+    if ($routecheck == 0) {
+        $result = &addroute($network, $tap, $if_ip, "main");
+    }
 
-        # Add default gateway to the routing table of the tap device.
-        $result = &adddefault($if_gw, $tap);
+    # Add default gateway to the routing table of the tap device.
+    $result = &adddefault($if_gw, $tap);
 
-        # At this point we can delete the route to the network from the
-        # main table as there is now a default gateway in the routing table
-        # from the tap device.
-        $result = &delroute($network, $tap, $if_ip, "main");
+    # At this point we can delete the route to the network from the
+    # main table as there is now a default gateway in the routing table
+    # from the tap device.
+    $result = &delroute($network, $tap, $if_ip, "main");
 
-        # Add the route to the network to the routing table of the tap device.
-        $result = &addroute($network, $tap, $if_ip, $tap);
+    # Add the route to the network to the routing table of the tap device.
+    $result = &addroute($network, $tap, $if_ip, $tap);
 }
 
 # 9.07 check_interface_ip
 # Function to check if the interface has an IP address. Wait 'timeout'
 # seconds to allow (slow) DHCP interfaces to obtain an address
 sub check_interface_ip() {
-        my ($tap, $timeout, $count, $i);
-        $tap = $_[0];
-        $timeout = $_[1];
+    my ($tap, $timeout, $count, $i);
+    $tap = $_[0];
+    $timeout = $_[1];
 
-        $ok = 0; $i = 0;
-        while ($ok != 1 && $i < $timeout) {
-                $tapcheck = `ifconfig $tap`;
-                if ($? != 0) {
-                        $count = 1;
-                        return -1;
-                } else {
-                        $ok = `ifconfig $tap | grep "inet addr:" | wc -l`;
-                        chomp($ok);
-                }
-                $i++;
-                if ($i == $timeout) {
-                        return -1;
-                }
-                sleep 1;
+    $ok = 0; $i = 0;
+    while ($ok != 1 && $i < $timeout) {
+        $tapcheck = `ifconfig $tap`;
+        if ($? != 0) {
+            $count = 1;
+            return -1;
+        } else {
+            $ok = `ifconfig $tap | grep "inet addr:" | wc -l`;
+            chomp($ok);
         }
-        return 0;
+        $i++;
+        if ($i == $timeout) {
+           return -1;
+        }
+        sleep 1;
+    }
+    return 0;
 }
 
 # 9.08 sys_exec 

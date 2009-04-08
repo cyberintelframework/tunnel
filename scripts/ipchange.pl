@@ -150,10 +150,10 @@ for(my $i = 0; $i < $res->rows; $i++) {
 
 		my $if_ip = $netconfig[1];
 		my $if_nw = $netconfig[2];
-		my $if_gw = $netconfig[3];
-		my $if_bc = $netconfig[4];
+		my $if_bc = $netconfig[3];
+		my $if_gw = $netconfig[4];
 
-		startstatic($dev, $if_ip, $if_nw, $if_gw, $if_bc);
+		startstatic($dev, $if_ip, $if_nw, $if_bc, $if_gw);
 	}
 
 
@@ -163,7 +163,7 @@ for(my $i = 0; $i < $res->rows; $i++) {
 		logsys($f_log_error, "NETWORK_ERROR", "Device $dev failed to come up");
 		exit(1);
 	}
-	logsys($f_log_debug, "NOTICE", "$dev device is up.");
+	logsys($f_log_debug, "NOTIFY", "$dev device is up.");
 
 
 	# Get the IP address from the tap interface.

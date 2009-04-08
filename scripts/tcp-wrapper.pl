@@ -91,7 +91,7 @@ if ($numrows == 1) {
 
 my $openvpn = "/usr/sbin/openvpn";
 my $environment = "--setenv sensor $sensor --setenv tap $dev --setenv remoteip $remoteip --setenv pid $pid";
-my $arguments = "--config /etc/openvpn/server.conf";
+my $arguments = "--config /etc/surfnetids/openvpn.conf";
 
 my $command = "$openvpn $environment $arguments";
 
