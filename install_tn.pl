@@ -73,16 +73,25 @@ if ( -e "$configdir/surfnetids-tn.conf") {
   if ($? != 0) { $err++; }
 }
 
-printdelay("Copying configuration file:");
-`cp surfnetids-tn.conf $configdir/ 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
+if (! -e "$targetdir/serverkeys/index.txt") {
+  `touch $targetdir/serverkeys/index.txt 2>>$logfile`;
+}
+if (! -e "$targetdir/serverkeys/index.txt.old") {
+  `touch $targetdir/serverkeys/index.txt.old 2>>$logfile`;
+}
+if (! -e "$targetdir/serverkeys/index.txt.attr") {
+  `echo "unique_subject = no" > $targetdir/serverkeys/index.txt.attr 2>>$logfile`;
+}
+if (! -e "$targetdir/serverkeys/index.txt.attr.old") {
+  `echo "unique_subject = no" > $targetdir/serverkeys/index.txt.attr.old 2>>$logfile`;
+}
+if (! -e "$targetdir/serverkeys/serial") {
+  `echo "01" > $targetdir/serverkeys/serial 2>>$logfile`;
+}
+if (! -e "$targetdir/serverkeys/serial.old") {
+  `echo "00" > $targetdir/serverkeys/serial.old 2>>$logfile`;
+}
 
-printdelay("Copying SURFnet IDS files:");
-`cp -r ./* $targetdir/ 2>>$logfile`;
-printresult($?);
-if ($? != 0) { $err++; }
-`rm $targetdir/surfnetids-tn.conf 2>>$logfile`;
 
 if ($itype eq "install") {
   $confirm = "n";
@@ -426,12 +435,8 @@ $apachesiteadir = "/etc/$apachev/sites-available/";
     if ($? != 0) { $err++; }
   }
 
-  `cp $targetdir/surfnetids-tn-apache.conf $apachesiteadir 2>>$logfile`;
-  printmsg("Setting up $apachev configuration:", $?);
-  if ($? != 0) { $err++; }
-
   printdelay("Activating SURFids tunnel server scripts:");
-  `a2ensite surfnetids-tn-apache.conf 2>>$logfile`;
+  `ln -s $configdir/surfnetids-tn-apache.conf $apachesiteadir/surfnetids-tn-apache.conf 2>>$logfile`;
   printresult($?);
   if ($? != 0) { $err++; }
 #}
@@ -663,8 +668,8 @@ if ($? != 0) { $ec++; }
 if ($? != 0) { $ec++; }
 `rm -f $targetdir/functions_tn.pl 2>/dev/null`;
 if ($? != 0) { $ec++; }
-`rm -f $targetdir/install_tn.pl.log 2>/dev/null`;
-if ($? != 0) { $ec++; }
+#`rm -f $targetdir/install_tn.pl.log 2>/dev/null`;
+#if ($? != 0) { $ec++; }
 `rm -f $targetdir/tunnel_remove.txt 2>/dev/null`;
 if ($? != 0) { $ec++; }
 printmsg("Cleaning up the temporary files:", $ec);
