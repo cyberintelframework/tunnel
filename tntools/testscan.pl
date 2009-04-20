@@ -55,8 +55,12 @@ if ($ARGV[0] && $ARGV[0] eq "-h") {
     exit;
 }
 
-
-@contents = `cat source.txt`;
+if (! -e "source.txt") {
+    print "Could not find source.txt\n";
+    exit 1;
+} else {
+    @contents = `cat source.txt`;
+}
 
 # Example regexp for F-prot
 # F-PROT Antivirus version 6.2.1.4252 (built: 2008-04-28T16-44-10)
