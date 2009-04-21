@@ -108,6 +108,8 @@ while ($server eq "") {
     $server = &prompt("Enter the hostname or IP address of the server that this certificate is for: ");
 }
 
+$ENV{"SURFIDS_COMMONNAME"} = "$server CA";
+
 if (! -d "$ssldir") {
     printdelay("Creating apache2 ssl directory:");
     `mkdir $ssldir`;
@@ -115,40 +117,24 @@ if (! -d "$ssldir") {
 }
 
 if (! -e "$ssldir/ca.key") {
-    print "##########################################\n";
-    print "########## Generating ROOT CA ############\n";
-    print "##########################################\n";
     printmsg("Generating root CA certificate key:", "info");
-    `openssl genrsa -des3 -out $ssldir/ca.key $key_size`;
-    print "\n";
+    `openssl genrsa -out $ssldir/ca.key $key_size`;
     printmsg("Generating root CA certificate:", "info");
-    print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
-    printmsg("    The Common Name should be:", "$server CA");
-    print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
-    `openssl req -new -x509 -days 365 -key $ssldir/ca.key -out $ssldir/ca.crt`;
+    `openssl req -new -x509 -config selfsigned.cnf -days 365 -key $ssldir/ca.key -out $ssldir/ca.crt`;
 } else {
     print "$ssldir/ca.key already exists!\n";
 }
+$ENV{"SURFIDS_COMMONNAME"} = $server;
 if (! -e "$ssldir/key.pem") {
-    print "\n";
-    print "##########################################\n";
-    print "######## Generating Server Certs #########\n";
-    print "##########################################\n";
     printmsg("Generating server key:", "info");
-    `openssl genrsa -des3 -out $ssldir/key.pem $key_size`;
+    `openssl genrsa -out $ssldir/key.pem $key_size`;
 
-    print "\n";
     printmsg("Generating signing request:", "info");
-    print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
-    printmsg("    The Common Name should be:", "$server");
-    print "${r}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${n}\n";
-    print "You should use the same information you have used for the CA certificate except\n";
-    print "for the common name as stated above.\n\n";
-    `openssl req -new -key $ssldir/key.pem -out $ssldir/request.pem`;
+    `openssl req -new -config selfsigned.cnf -key $ssldir/key.pem -out $ssldir/request.pem`;
 
-    print "\n";
     printmsg("Generating server certificate:", "info");
     `openssl x509 -req -days 365 -in $ssldir/request.pem -CA $ssldir/ca.crt -CAkey $ssldir/ca.key -set_serial 01 -out $ssldir/cert.pem`;
+
     printmsg("Finishing certificate generation:", "info");
     `openssl rsa -in $ssldir/key.pem -out $ssldir/key.pem.insecure`;
     `mv $ssldir/key.pem $ssldir/key.pem.secure`;
