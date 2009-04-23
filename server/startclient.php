@@ -2,7 +2,7 @@
 
 ####################################
 # Startclient info update          #
-# SURFids 2.10                     #
+# SURFids 3.00                     #
 # Changeset 002                    #
 # 18-07-2008                       #
 # Jan van Lith & Kees Trippelvitz  #

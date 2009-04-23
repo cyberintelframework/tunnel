@@ -2,7 +2,7 @@
 
 ####################################
 # Stopclient info update           #
-# SURFids 2.10                     #
+# SURFids 3.00                     #
 # Changeset 002                    #
 # 05-08-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
