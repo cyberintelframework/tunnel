@@ -2,7 +2,7 @@
 
 ####################################
 # Update script for oui.txt        #
-# SURFids 2.10                     #
+# SURFids 3.00                     #
 # Changeset 002                    #
 # 22-05-2007                       #
 # Jan van Lith & Kees Trippelvitz  #

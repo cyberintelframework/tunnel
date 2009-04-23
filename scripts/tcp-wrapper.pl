@@ -5,7 +5,7 @@
 
 ####################################
 # OpenVPN wrapper                  #
-# SURFids 2.10                     #
+# SURFids 3.00                     #
 # Changeset 001                    #
 # 08-12-2008                       #
 # Auke Folkerts                    #

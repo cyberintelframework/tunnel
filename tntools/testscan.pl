@@ -2,7 +2,7 @@
 
 ####################################
 # Scan regex test script           #
-# SURFids 2.10                     #
+# SURFids 3.00                     #
 # Changeset 001                    #
 # 13-11-2008                       #
 # Kees Trippelvitz                 #

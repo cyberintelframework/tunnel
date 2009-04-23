@@ -2,7 +2,7 @@
 
 ####################################
 # Reset database sensors           #
-# SURFids 2.10                     #
+# SURFids 3.00                     #
 # Changeset 001                    #
 # 29-08-2008                       #
 # Jan van Lith & Kees Trippelvitz  #

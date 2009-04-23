@@ -2,7 +2,7 @@
 
 ####################################
 # Types library for detectarp.pl   #
-# SURFids 2.10                     #
+# SURFids 3.00                     #
 # Changeset 001                    #
 # 18-03-2008                       #
 # Jan van Lith & Kees Trippelvitz  #
