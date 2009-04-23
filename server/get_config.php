@@ -2,9 +2,9 @@
 
 ####################################
 # Retrieve sensor config           #
-# SURFids 2.10                     #
-# Changeset 001                    #
-# 12-12-2008                       #
+# SURFids 3.00                     #
+# Changeset 002                    #
+# 23-04-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
@@ -13,6 +13,7 @@
 
 ####################################
 # Changelog:
+# 002 Fixed new db layout
 # 001 Initial release
 ####################################
 
@@ -55,7 +56,7 @@ if (isset($clean['keyname'])) {
 # Sensor type #
 ############
 if ($err == 0) {
-	$sql_sensors = "SELECT netconf, netconfdetail, iface_main, iface_trunk, dns1, dns2, rev FROM sensors WHERE keyname = '$keyname' AND vlanid = 0";
+	$sql_sensors = "SELECT sensortype, mainconf, mainif, trunkif, dns1, dns2, rev FROM sensor_details WHERE keyname = '$keyname'";
 	$result_sensors = pg_query($pgconn, $sql_sensors);
 	$numrows = pg_num_rows($result_sensors);
 	if ($numrows == 0) {
@@ -64,21 +65,21 @@ if ($err == 0) {
 		echo "ERROR: Could not find database record!\n";
 	}
 	$sensor_status = pg_fetch_assoc($result_sensors);
-	$sensor_type = $sensor_status['netconf']; 
+	$sensor_type = $sensor_status['sensortype']; 
 }
 
 ###########################
 # Fetch all sensor config #
 ###########################
 
-$config_main = $sensor_status['netconfdetail'];
-$iface_main = $sensor_status['iface_main'];
+$config_main = $sensor_status['mainconf'];
+$iface_main = $sensor_status['mainif'];
 $iface_trunk = "\"\"";
 if ($sensor_type == "vlan") {
 	$trunk_config = array();
-	$iface_trunk = $sensor_status['iface_trunk'];
+	$iface_trunk = $sensor_status['trunkif'];
 
-	$sql = "SELECT netconfdetail, vlanid, label FROM sensors WHERE keyname = '$keyname' AND NOT vlanid = 0 AND (status = 0 OR status = 1)";
+	$sql = "SELECT networkconfig, vlanid, label FROM sensors WHERE keyname = '$keyname' AND NOT status = 3";
 
 	$result = pg_query($pgconn, $sql);
 	if (pg_num_rows($result) == 0) {
@@ -91,7 +92,7 @@ if ($sensor_type == "vlan") {
 	while ($row = pg_fetch_assoc($result)) {
 		$trunk_config[] = array(
 			'vlan' => $row['vlanid'],
-			'netconfdetail' => $row['netconfdetail'],
+			'networkconfig' => $row['networkconfig'],
 			'description' => $row['label'],
 		);
 	}
@@ -102,7 +103,7 @@ if ($sensor_type == "vlan") {
 ###############################
 if ($err == 0) {
 	$db_rev = $sensor_status['rev'];
-	$db_conf = $sensor_status['netconf'];
+	$db_conf = $sensor_status['mainconf'];
 	$db_confdetail = $sensor_status['netconfdetail'];
 	$db_dns1 = ($sensor_status['dns1']) ? $sensor_status['dns1'] : "\"\"";
 	$db_dns2 = ($sensor_status['dns2']) ? $sensor_status['dns2'] : "\"\"";
@@ -152,18 +153,18 @@ if ($err == 0) {
 
 			echo "[vlans]\n";
 			foreach ( $trunk_config as $num => $config) {
-				$vlan= $config['vlan'];
-				$ncd= $config['netconfdetail'];
-				$desc= $config['description'];
+				$vlan = $config['vlan'];
+				$ncd = $config['networkconfig'];
+				$desc = $config['description'];
 				if (!$desc) $desc = "\"\"";
 
 				echo "[[$num]\n";
 				if ($ncd == "dhcp") {
-					$ip="\"\""; $tapip="\"\""; $bc="\"\""; $nm="\"\""; $gw="\"\"";
-					$type="dhcp";
+					$ip = "\"\""; $tapip="\"\""; $bc="\"\""; $nm="\"\""; $gw="\"\"";
+					$type = "dhcp";
 				} else {
 					list($ip,$tapip,$nm,$bc,$gw) = split("|", $ncd);
-					$type="static";
+					$type = "static";
 				}
 				echo "description = $desc\n";
 				echo "address = $ip\n";
