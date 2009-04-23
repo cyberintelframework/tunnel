@@ -27,6 +27,8 @@ use Time::localtime qw(localtime);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
+$ifconfig = "/sbin/ifconfig";
+
 ##################
 # Main script
 ##################
@@ -105,8 +107,8 @@ sub ProcessInterface {
   #	  $_[2]: Organisation
 
   # get network interface info
-  my $in = `ifconfig $_[0] | grep bytes | cut -d":" -f2 | cut -d" " -f1`;
-  my $out = `ifconfig $_[0] | grep bytes | cut -d":" -f3 | cut -d" " -f1`;
+  my $in = `$ifconfig $_[0] | grep bytes | cut -d":" -f2 | cut -d" " -f1`;
+  my $out = `$ifconfig $_[0] | grep bytes | cut -d":" -f3 | cut -d" " -f1`;
 
   $totalin = $totalin += $in;
   $totalout = $totalout += $out;
