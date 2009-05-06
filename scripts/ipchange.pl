@@ -141,7 +141,8 @@ for(my $i = 0; $i < $res->rows; $i++) {
 
 	if ($netconf eq "dhcp") {
 		# Start the dhcp client
-		startdhcp($dev);
+		$result_dhcp = startdhcp($dev);
+        logsys($f_log_debug, "DHCP_INFO", "DHCP result: $result_dhcp");
 
 	} else { 
 		# Set static network configuration without gateway, dns and resolv.conf
