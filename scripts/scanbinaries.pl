@@ -27,31 +27,11 @@ use Time::localtime qw(localtime);
 ##################
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
-
-$logfile = $c_logfile;
-$logfile =~ s|.*/||;
-if ($c_logstamp == 1) {
-  $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  $year = localtime->year() + 1900;
-  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
-    mkdir("$c_surfidsdir/log/$day$month$year");
-  }
-  $logfile = "$c_surfidsdir/log/$day$month$year/$logfile";
-} else {
-  $logfile = "$c_surfidsdir/log/$logfile";
-}
+%scanners = ();
 
 ####################
 # Define scanners
 ####################
-%scanners = ();
 $scanners->{"F-Prot"} = {
             'cmd' => "/opt/f-prot/fpscan -v 2 --report --adware",
             'update' => "/opt/f-prot/fpupdate",
@@ -70,8 +50,6 @@ $scanners->{"AVAST"} = {
 ##################
 # Main script
 ##################
-
-printlog("Starting scanbinaries.pl");
 
 # Connect to the database (dbh = DatabaseHandler or linkserver)
 $checkdb = dbconnect();
@@ -217,7 +195,6 @@ foreach $file (@contents) {
     # Check if the binary was already in the uniq_binaries table.
     $chk = dbnumrows("SELECT id FROM uniq_binaries WHERE name = '$file'");
     if ($chk == 0) {
-#        printlog("[binary] Adding new binary: $file");
         print "[Binary] Adding new binary\n";
 
         $chk = dbquery("INSERT INTO uniq_binaries (name) VALUES ('$file')");
@@ -234,7 +211,6 @@ foreach $file (@contents) {
     # Check if the binary was already in the binaries_detail table.
     $chk = dbnumrows("SELECT bin FROM binaries_detail WHERE bin = $bid");
     if ($chk == 0) {
-#        printlog("[detail] Adding new binary_detail info for binary ID: $bin_id");
 
         # Getting the info from linux file command.
         $filepath = "$c_bindir/$file";
@@ -377,12 +353,10 @@ while ( my ($name, $config) = each(%$scanners) ) {
 }
 
 # Print a total overview of the scan results.
-#printlog("Scanned files: $total_files");
 print "Scanned files: $total_files\n";
 
 while ( my ($name, $config) = each(%$scanners) ) {
     $count = $scanners->{$name}->{count};
-#    printlog("$name new: $count");
     print "$name new: $count\n";
 }
 
@@ -414,7 +388,6 @@ foreach $file ( @contents ) {
         $sth_virus = $dbh->prepare($sql_virus);
         $result_virus = $sth_virus->execute();
         if ($result_virus == 0) {
-            printlog("[virus] Adding new virus: $virus");
             # The virus was not yet in the stats_virus table. Insert it.
             $sql_insert = "INSERT INTO stats_virus (name) VALUES ('$virus')";
             $sth_insert = $dbh->prepare($sql_insert);
@@ -444,17 +417,13 @@ foreach $file ( @contents ) {
 }
 
 # Print a total overview of the scan results.
-printlog("Scanned files: $total_files");
 print "Scanned files: $total_files\n";
 
 for $key ( keys %scanners ) {
     $name = $scanners{$key}{name};
     $count = $scanners{$key}{count};
-    printlog("$name new: $count");
     print "$name new: $count\n";
 }
-
-printlog("-------------finished scanbinaries.pl-----------");
 
 closedir BINDIR;
 $dbh = "";
