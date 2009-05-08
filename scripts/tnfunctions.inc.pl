@@ -1563,7 +1563,7 @@ sub logsys() {
         $tsensor = "$sensor-$g_vlanid";
       }
       $ts = &getts();
-      open LOG,  ">>/tmp/logsys" || die ("cant open log: $!");
+      open LOG,  ">>/var/log/surfids.log" || die ("cant open log: $!");
       print LOG "[$ts] $pid $source $tsensor $msg $args\n";
       close LOG;
     }
