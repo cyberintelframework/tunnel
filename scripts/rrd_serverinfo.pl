@@ -42,26 +42,6 @@ if ( -e "/etc/surfnetids/surfnetids-tn.conf" ) {
 }
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
-$logfile = $c_logfile;
-$logfile =~ s|.*/||;
-if ($c_logstamp == 1) {
-  $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  $year = localtime->year() + 1900;
-  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
-    mkdir("$c_surfidsdir/log/$day$month$year");
-  }
-  $logfile = "$c_surfidsdir/log/$day$month$year/$logfile";
-} else {
-  $logfile = "$c_surfidsdir/log/$logfile";
-}
-
 ##################
 # Main script
 ##################

@@ -62,14 +62,16 @@ if (! -e "source.txt") {
     @contents = `cat source.txt`;
 }
 
-# Example regexp for F-prot
-# F-PROT Antivirus version 6.2.1.4252 (built: 2008-04-28T16-44-10)
-# Engine version: 4.4.4.56
+########################################################################
+# Regular expressions
+########################################################################
 
-$getvirus = '.*\[Found .*\].*<(.*)> {1,}.*';
-$matchvirus = '.*\[Found .*\].*';
-$getbin = '.*\[.*\] {1,}.*([a-zA-Z0-9]{32}).*';
-$matchclean = '.*\[Clean\].*';
+$getvirus = '';
+$matchvirus = '';
+$getbin = '';
+$matchclean = '';
+
+########################################################################
 
 foreach $line (@contents) {
     chomp($line);

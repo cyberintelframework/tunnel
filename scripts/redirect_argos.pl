@@ -26,36 +26,10 @@ use DBI;
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
-$logfile = $c_logfile;
-$logfile =~ s|.*/||;
-if ($c_logstamp == 1) {
-  $day = localtime->mday();
-  if ($day < 10) {
-    $day = "0" . $day;
-  }
-  $month = localtime->mon() + 1;
-  if ($month < 10) {
-    $month = "0" . $month;
-  }
-  $year = localtime->year() + 1900;
-  if ( ! -d "$c_surfidsdir/log/$day$month$year" ) {
-    mkdir("$c_surfidsdir/log/$day$month$year");
-  }
-  $logfile = "$c_surfidsdir/log/$day$month$year/$logfile";
-} else {
-  $logfile = "$c_surfidsdir/log/$logfile";
-}
-
 ##################
 # Main script
 ##################
 
-# Opening log file
-open(LOG, ">> $logfile");
-
-printlog("################ Starting to_argos.pl ################# ");
-
-printlog("Resetting iptables Rules");
 `/etc/init.d/iptables.ipvs`;
 
 $dbconn = dbconnect();
@@ -104,10 +78,8 @@ while (@row = $sensor_query->fetchrow_array) {
     # END QUERY
 
     $top100_query = $dbh->prepare($sqltop100);
-    printlog("Prepared query: $sqltop100");
     $er = $top100_query->execute();
 
-    printlog("Redirecting top100 IPs from possible malicious attacks to sensorid: $sensorid with timespan: $timespan");
     while (@rowtop100 = $top100_query->fetchrow_array) {
       $source = $rowtop100[0];
       `iptables -t mangle -A PREROUTING -s $source -d $tapip -j MARK --set-mark $ipfwm`; 
@@ -126,10 +98,8 @@ while (@row = $sensor_query->fetchrow_array) {
     # END QUERY
 
     $top100_query = $dbh->prepare($sqltop100);
-    printlog ("Prepared query: $sqltop100");
     $er = $top100_query->execute();
 
-    printlog("Redirecting top100 IPs from possible malicious attacks from the same organisation as sensorid: $sensorid with timespan: $timespan");
     while (@rowtop100 = $top100_query->fetchrow_array) {
       $source = $rowtop100[0];
       `iptables -t mangle -A PREROUTING -s $source -d $tapip -j MARK --set-mark $ipfwm`; 
@@ -147,16 +117,13 @@ while (@row = $sensor_query->fetchrow_array) {
     # END QUERY
 
     $top100_query = $dbh->prepare($sqltop100);
-    printlog ("Prepared query: $sqltop100");
     $er = $top100_query->execute();
 
-    printlog("Redirecting top100 IPs from possible malicious attacks from all sensors with timespan: $timespan");
     while (@rowtop100 = $top100_query->fetchrow_array) {
       $source = $rowtop100[0];
       `iptables -t mangle -A PREROUTING -s $source -d $tapip -j MARK --set-mark $ipfwm`; 
     }
   } elsif ($template eq "all") {
-    printlog("Redirecting all traffic to argos for sensorid: $sensorid");
     $source = "0/0";
     `iptables -t mangle -A PREROUTING -s $source -d $tapip -j MARK --set-mark $ipfwm`; 
   }
@@ -167,9 +134,6 @@ while (@row = $sensor_query->fetchrow_array) {
 
   while (@rowrange = $range_query->fetchrow_array) {
     $source = $rowrange[0];
-    printlog("Redirecting range: $source to argos for sensorid: $sensorid");
     `iptables -t mangle -A PREROUTING -s $source -d $tapip -j MARK --set-mark $ipfwm`; 
   }
 }
-printlog("################ Finished to_argos.pl ################# ");
-close(LOG);
