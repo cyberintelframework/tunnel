@@ -44,9 +44,10 @@ function logsys($level, $msg, $args) {
             $result = pg_query($sql);
         }
     	if ($c_log_method == 1 || $c_log_method == 3) {
-        	$res = fopen("/tmp/logsys", "a");
+            $ts = date("d-m-Y H:i:s");
+        	$res = fopen("/var/log/surfids.log", "a");
 	        if ($res != "FALSE") {
-		        fprintf($res, "php $source $keyname $msg $args\n");
+		        fprintf($res, "[$ts] php $source $keyname $msg $args\n");
         		fclose($res);
 	        } else {
 		        echo "COULD NOT OPEN /tmp/logsys\n";
