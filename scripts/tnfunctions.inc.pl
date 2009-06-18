@@ -1,15 +1,16 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 ####################################
 # Function library                 #
 # SURFids 3.00                     #
-# Changeset 002                    #
-# 11-02-2009                       #
+# Changeset 003                    #
+# 18-06-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 003 Added in_network, updated INDEX
 # 002 Added parse_upx, reordered functions
 # 001 version 2.10.00 release
 #####################
@@ -83,8 +84,10 @@ $f_log_crit = 4;
 # 7.08		bin2dec
 # 7.09		validip
 # 7.10		gw
-# 7.11		in_array
-# 7.12      escape_dev
+# 7.11      cidr
+# 7.12		in_array
+# 7.13      escape_dev
+# 7.14      in_network
 #
 # 9 ALL misc functions
 # 9.01		killdhclient
@@ -1370,6 +1373,32 @@ sub escape_dev() {
         $escdev = $dev;
     }
     return $escdev;
+}
+
+# 7.14 in_network
+# Compares 2 IP addresses with submask and checks to 
+# see if they are in the same network
+sub in_network() {
+    my ($ip, $chk, $mask, $cidr, $sub_ip, $sub_chk);
+    $ip = $_[0];
+    $chk = $_[1];
+    $mask = $_[2];
+    chomp($ip);
+    chomp($chk);
+    chomp($mask);
+
+    $cidr = &cidr($mask);
+    $b_ip = &dec2bin($ip);
+    $b_chk = &dec2bin($chk);
+
+    $sub_ip = substr($b_ip, 0, $cidr);
+    $sub_chk = substr($b_chk, 0, $cidr);
+
+    if ($sub_ip eq $sub_chk) {
+        return "True";
+    } else {
+        return "False";
+    }
 }
 
 #####################################

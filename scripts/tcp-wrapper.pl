@@ -6,8 +6,8 @@
 ####################################
 # OpenVPN wrapper                  #
 # SURFids 3.00                     #
-# Changeset 001                    #
-# 08-12-2008                       #
+# Changeset 002                    #
+# 17-06-2008                       #
 # Auke Folkerts                    #
 ####################################
 
@@ -23,6 +23,7 @@
 
 #####################
 # Changelog:
+# 002 Added check for sensors in tunnel server network
 # 001 version 2.10
 #####################
 
@@ -58,6 +59,18 @@ if ($res eq 'false') {
 	die ("No database connection");
 }
 
+if ($ARGV[0]) {
+  if ($ARGV[1]) {
+    $chk = in_network($remoteip, $ARGV[0], $ARGV[1]);
+    if ($chk eq "True") {
+        logsys($f_log_error, "CONN_DENIED", "Remote sensors cannot be run in the same network as the server. See FAQ T27.");
+        exit(1);
+    } else {
+        logsys($f_log_debug, "DEBUG", "in_network: $chk");
+    }
+  }
+}
+
 # Get the sensorname from the database (based on the remoteip)
 my $sql;
 $sql = "SELECT distinct sensors.keyname, status FROM sensor_details, sensors ";
@@ -82,7 +95,7 @@ if ($numrows == 1) {
     logsys($f_log_debug, "STATUS_CHANGE", "Set status to 6 for $sensor");
     logsys($f_log_info, "CONN_OK", "Connection accepted for $sensor with IP address $remoteip");
 } elsif ($numrows > 1) {
-    logsys($f_log_error, "IP_OVERLOAD", "Multiple sensors ($numrows) for $remoteip. Refusing connection");
+    logsys($f_log_error, "CONN_DENIED", "Multiple sensors ($numrows) for $remoteip. Refusing connection");
     exit(1);
 } else {
     logsys($f_log_error, "CONN_DENIED", "Connect from $remoteip refused");
