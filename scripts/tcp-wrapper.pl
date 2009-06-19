@@ -63,6 +63,7 @@ if ($ARGV[0]) {
   if ($ARGV[1]) {
     $chk = in_network($remoteip, $ARGV[0], $ARGV[1]);
     if ($chk eq "True") {
+        # FIXME in docs
         logsys($f_log_error, "CONN_DENIED", "Remote sensors cannot be run in the same network as the server. See FAQ T27.");
         exit(1);
     } else {
