@@ -3,8 +3,8 @@
 ####################################
 # Retrieve sensor config           #
 # SURFids 3.00                     #
-# Changeset 002                    #
-# 23-04-2009                       #
+# Changeset 003                    #
+# 17-06-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
@@ -13,6 +13,7 @@
 
 ####################################
 # Changelog:
+# 003 Fixed a few syntax errors and added error checking for headers
 # 002 Fixed new db layout
 # 001 Initial release
 ####################################
@@ -133,23 +134,27 @@ if ($err == 0) {
 			list($ip,$tapip,$nm,$bc,$gw) = explode("|", $config_main);
 			$type="static";
 		}
-		echo "[[$iface_main]]\n";
-		echo "address = $ip\n";
-		echo "tunnel = $tapip\n";
-		echo "netmask = $nm\n";
-		echo "broadcast = $bc\n";
-		echo "gateway = $gw\n";
-		echo "type = $type\n";
+        if ($iface_main != "") {
+    		echo "[[$iface_main]]\n";
+	    	echo "address = $ip\n";
+		    echo "tunnel = $tapip\n";
+    		echo "netmask = $nm\n";
+	    	echo "broadcast = $bc\n";
+		    echo "gateway = $gw\n";
+    		echo "type = $type\n";
+        }
 
 		if ($sensor_type == "vlan") {
 			$ip="\"\""; $tapip="\"\""; $nm="\"\""; $bc="\"\""; $gw="\"\"";
-			echo "[[$iface_trunk]]\n";
-			echo "address = $ip\n";
-			echo "tunnel = $tapip\n";
-			echo "netmask = $nm\n";
-			echo "broadcast = $bc\n";
-			echo "gateway = $gw\n";
-			echo "type = trunk\n";
+            if ($iface_trunk != "") {
+    			echo "[[$iface_trunk]]\n";
+	    		echo "address = $ip\n";
+		    	echo "tunnel = $tapip\n";
+			    echo "netmask = $nm\n";
+    			echo "broadcast = $bc\n";
+	    		echo "gateway = $gw\n";
+		    	echo "type = trunk\n";
+            }
 
 			echo "[vlans]\n";
 			foreach ( $trunk_config as $num => $config) {
@@ -158,27 +163,29 @@ if ($err == 0) {
 				$desc = $config['description'];
 				if (!$desc) $desc = "\"\"";
 
-				echo "[[$num]\n";
-				if ($ncd == "dhcp") {
-					$ip = "\"\""; $tapip="\"\""; $bc="\"\""; $nm="\"\""; $gw="\"\"";
-					$type = "dhcp";
-				} else {
-					list($ip,$tapip,$nm,$bc,$gw) = split("|", $ncd);
-					$type = "static";
-				}
-				echo "description = $desc\n";
-				echo "address = $ip\n";
-				echo "tunnel = $tapip\n";
-				echo "vlanid = $vlan\n";
-				echo "netmask = $nm\n";
-				echo "broadcast = $bc\n";
-				echo "gateway = $gw\n";
-				echo "type = $type\n";
+                if ($num != "") {
+    				echo "[[$num]]\n";
+	    			if ($ncd == "dhcp") {
+		    			$ip = "\"\""; $tapip="\"\""; $bc="\"\""; $nm="\"\""; $gw="\"\"";
+			    		$type = "dhcp";
+				    } else {
+					    list($ip,$tapip,$nm,$bc,$gw) = split("|", $ncd);
+    					$type = "static";
+	    			}
+		    		echo "description = $desc\n";
+			    	echo "address = $ip\n";
+				    echo "tunnel = $tapip\n";
+    				echo "vlanid = $vlan\n";
+	    			echo "netmask = $nm\n";
+		    		echo "broadcast = $bc\n";
+			    	echo "gateway = $gw\n";
+				    echo "type = $type\n";
+                }
 			}
 		}
 #	}
 
-	# Sensor has newer configuration?
+#   # Sensor has newer configuration?
 #	else if ($db_rev < $rev) {
 #		$err = 97;
 #		echo "ERRNO: $err\n";
