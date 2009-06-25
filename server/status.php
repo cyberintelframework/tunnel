@@ -158,6 +158,7 @@ if ($err == 0) {
 	    }
     	# Reset action flag
 	    if ($action != 'NONE') {
+            logsys($f_log_info, "ACTION_CLIENT", "Client processing action: $action");
     		$sql_action = "UPDATE sensor_details SET action = 'NONE' WHERE keyname = '$keyname'";
 		    $result_action = pg_query($pgconn, $sql_action);
 	    	echo "[Database] Action command reset!\n";
