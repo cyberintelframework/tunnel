@@ -3,13 +3,14 @@
 ####################################
 # Local sensor script              #
 # SURFids 3.00                     #
-# Changeset 004                    #
-# 15-01-2009                       #
+# Changeset 005                    #
+# 26-06-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 005 Added -h switch
 # 004 Fixed to comply with new DB structure
 # 003 Completely redone the script
 # 002 Added usage info on failure
@@ -35,19 +36,24 @@ sub usage() {
     print "   -m <mac address>                      MAC address of the sensor, defaults to 00:00:00:00:00:00\n";
     print "   -s <sensor name>                      Name of the sensor, defaults to Nepenthes\n";
     print "   -o <organisation name>                Organisation name, defaults to LOCAL\n";
+    print "   -h                                    This help message\n";
     print "\n";
     print "Example: ./localsensor.pl -i eth0 -s mySensor -o SURFnet\n";
     print "Example: ./localsensor.pl -p 192.168.10.12 -m 00:11:22:33:44:55 -s mySensor -o SURFnet\n";
     print "\n";
 }
 
-getopt('ipmso', \%opts);
+getopts('i:p:m:s:o:h', \%opts);
 
 $sensor = $opts{"s"};
 $if = $opts{"i"};
 $org = $opts{"o"};
 $ip = $opts{"p"};
 $mac = $opts{"m"};
+if ($opts{"h"}) {
+  usage();
+  exit 0;
+}
 
 ##################
 # Configuration
