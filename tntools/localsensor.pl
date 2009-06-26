@@ -176,8 +176,8 @@ while ($chk !~ /^(n|N|y|Y)$/) {
 if ($chk =~ /^(y|Y)/) {
   print "Adding sensor to the database!\n";
   if ($orgid ne "") {
-    $sql = "INSERT INTO sensor_details (keyname, remoteip, localip, lastupdate, organisation, sensormac) ";
-    $sql .= " VALUES ('$sensor', '$ifip', '$ifip', $ts, $orgid, '$ifmac')";
+    $sql = "INSERT INTO sensor_details (keyname, remoteip, localip, lastupdate, sensormac, permanent) ";
+    $sql .= " VALUES ('$sensor', '$ifip', '$ifip', $ts, '$ifmac', 1)";
     $chk1 = dbnumrows($sql);
 
     $sql = "INSERT INTO sensors (keyname, laststart, status, uptime, tap, tapip, mac, organisation) ";
