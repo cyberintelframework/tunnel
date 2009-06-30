@@ -8,6 +8,9 @@
 # Kees Trippelvitz                 #
 ####################################
 
+# NOTE: This script is still considered beta and thus not actively called 
+# from the scanbinaries script or anywhere else.
+
 #####################
 # Changelog:
 # 001 version 3.00 release
