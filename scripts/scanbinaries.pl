@@ -3,13 +3,14 @@
 ####################################
 # Scanbinaries script              #
 # SURFids 3.00                     #
-# Changeset 004                    #
-# 14-11-2008                       #
+# Changeset 005                    #
+# 29-06-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 005 Added ClamAV and fixed version commands
 # 004 Revised the logic, should perform better now
 # 003 Added more scan methods
 # 002 Added scan method support
@@ -35,12 +36,17 @@ require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 $scanners->{"F-Prot"} = {
             'cmd' => "/opt/f-prot/fpscan -v 2 --report --adware",
             'update' => "/opt/f-prot/fpupdate",
-            'version' => "/opt/f-prot/fpscan --version | grep \"F-PROT Antivirus version\" | awk -F'(' '{print $1}' | awk '{print $NF}'",
+            'version' => "/opt/f-prot/fpscan --version | grep \"F-PROT Antivirus version\" | awk -F'(' '{print \$1}' | awk '{print \$NF}'",
 };
 $scanners->{"AVAST"} = {
             'cmd' => "/opt/avast4workstation-1.0.8/bin/avast -n",
             'update' => "/opt/avast4workstation-1.0.8/bin/avast-update",
-            'version' => "/opt/avast4workstation-1.0.8/bin/avast --version | head -n1 | awk -F\"avast \" '{print $2}'"
+            'version' => "/opt/avast4workstation-1.0.8/bin/avast --version | head -n1 | awk -F\"avast \" '{print \$2}'"
+};
+$scanners->{"ClamAV"} = {
+            'cmd' => "clamscan --no-summary",
+            'update' => "freshclam",
+            'version' => "clamscan --version | awk '{print \$2}' | awk -F\"/\" '{print \$1}'"
 };
 
 ##################
