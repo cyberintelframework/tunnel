@@ -4,12 +4,13 @@
 # Function library                 #
 # SURFids 3.00                     #
 # Changeset 003                    #
-# 18-06-2009                       #
+# 26-06-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 004 Fixed get_man with proper escaping
 # 003 Added in_network, updated INDEX
 # 002 Added parse_upx, reordered functions
 # 001 version 2.10.00 release
@@ -1053,6 +1054,7 @@ sub get_man() {
   $prefix = "$prefix_ar[0]:$prefix_ar[1]:$prefix_ar[2]";
   $man = `grep -i "$prefix" $c_surfidsdir/scripts/oui.txt | awk '{sub(/(..):(..):(..)/,"");sub(/^[ \t]+/, "");print}'`;
   chomp($man);
+  $man =~ s/'/\\'/;
   if ("$man" eq "") {
     return "false";
   } else {
