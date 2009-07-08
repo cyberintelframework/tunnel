@@ -40,7 +40,7 @@ $check = extractvars($_GET, $allowed_get);
 $remoteip = $_SERVER['REMOTE_ADDR'];
 $remotehost = $_SERVER['REMOTE_HOST'];
 
-logsys($f_log_warn, "CERT_NEW", "Host ($remoteip) is requesting a new certificate");
+logsys($f_log_warn, "CERT_INFO", "Host ($remoteip) is requesting a new certificate");
 
 # Check if localip is set.
 if (isset($clean['localip'])) {
@@ -48,7 +48,7 @@ if (isset($clean['localip'])) {
 } else {
   $err = 1;
   echo "ERROR: Localip was empty.\n";
-  logsys($f_log_error, "CERT_FAIL", "Localip was empty");
+  logsys($f_log_error, "CERT_INFO", "Localip was empty");
 }
 
 if ($err == 0) {
