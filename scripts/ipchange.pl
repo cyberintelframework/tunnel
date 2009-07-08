@@ -114,7 +114,7 @@ for(my $i = 0; $i < $res->rows; $i++) {
 	} else {
 		$dev = "$tap";
 	}
-	logsys($f_log_debug, "NOTIFY", "Bringing up $dev: $netconf");
+	logsys($f_log_debug, "DEV_INFO", "Bringing up $dev: $netconf");
 
 
 	# Kill off any remaining dhcp daemons for this interface
@@ -161,15 +161,15 @@ for(my $i = 0; $i < $res->rows; $i++) {
 	# check wether interface obtained an IP
 	my $result = check_interface_ip($dev, $c_sql_dhcp_retries);
 	if ($result) {
-		logsys($f_log_error, "NETWORK_ERROR", "Device $dev failed to come up");
+		logsys($f_log_error, "DEV_INFO", "Device $dev failed to come up");
 		exit(1);
 	}
-	logsys($f_log_debug, "NOTIFY", "$dev device is up.");
+	logsys($f_log_debug, "DEV_INFO", "$dev device is up.");
 
 
 	# Get the IP address from the tap interface.
 	my $tap_ip = getifip($dev);
-	logsys($f_log_debug, "NOTIFY",  "Tap device $dev obtained IP address $tap_ip");
+	logsys($f_log_debug, "DEV_INFO",  "Tap device $dev obtained IP address $tap_ip");
 
 
 	# Update Tap info to the database for the current vlan.

@@ -76,7 +76,7 @@ if ($chk > 0) {
 # Check for tap existance.
 my $ret = sys_exec("ifconfig $tap");
 if ($ret != 0) {
-    logsys($f_log_error, "DEV_ERROR", "Tap device $tap does not exist!");
+    logsys($f_log_error, "DEV_INFO", "Tap device $tap does not exist!");
     exit(1);
 }
 
@@ -84,7 +84,7 @@ if ($ret != 0) {
 # bring tap interface up. 
 sys_exec("ifconfig $tap up");
 if ($?) {
-	logsys($f_log_error, "DEV_ERROR", "Failed to bring up device $tap (error code $?)");
+	logsys($f_log_error, "DEV_INFO", "Failed to bring up device $tap (error code $?)");
 	exit(1);
 }
 
@@ -100,9 +100,9 @@ my $res = dbquery("SELECT sensortype FROM sensor_details WHERE keyname = '$senso
 if ($res->rows()) {
     my @row = $res->fetchrow_array;
     my $sensortype = $row[0];
-    logsys($f_log_debug, "NOTIFY", "Detected sensor type: $sensortype");
+    logsys($f_log_debug, "SENSOR_INFO", "Detected sensor type: $sensortype");
 } else {
-    logsys($f_log_error, "SENSORTYPE_ERROR", "Missing sensor type in the database");
+    logsys($f_log_error, "SENSOR_INFO", "Missing sensor type in the database");
     exit(1);
 }
 
@@ -130,7 +130,7 @@ for (my $i = 0; $i < $res->rows(); $i++) {
     if ("$mac" eq "false") {
         # If no mac address is present in the database, add the 
         # generated one from OpenVPN to the database.
-        logsys($f_log_debug, "MAC_UNKNOWN", "No MAC address in sensors table for $dev!");
+        logsys($f_log_debug, "MAC_INFO", "No MAC address in sensors table for $dev!");
         $mac = `ifconfig $dev | grep HWaddr | awk '{print \$5}'`;
         chomp($mac);
 
@@ -143,7 +143,7 @@ for (my $i = 0; $i < $res->rows(); $i++) {
         push (@macparts, ($a,$b));
         $mac = join(":", @macparts);
 
-        logsys($f_log_info, "MAC_NEW", "Generated new MAC for $dev: $mac");
+        logsys($f_log_info, "MAC_INFO", "Generated new MAC for $dev: $mac");
         dbquery("UPDATE sensors SET mac = '$mac' WHERE keyname = '$sensor' AND vlanid = '$vlan'");
     }
 
@@ -158,7 +158,7 @@ $g_vlanid = 0;
 # Get local gateway.
 my $local_gw = getlocalgw();
 if ($local_gw eq "false") {
-	logsys($f_log_error, "NETWORK_ERROR", "No local gateway available");
+	logsys($f_log_error, "NETWORK_INFO", "No local gateway available");
 	exit(1);
 }
 

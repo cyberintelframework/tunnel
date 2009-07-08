@@ -83,7 +83,7 @@ foreach my $dev (@devices) {
 	if ($result) {
 		logsys($f_log_warn, "SYS_FAIL", "Deleting ip rules for $dev failed (error code $result)");
 	} else {
-		logsys($f_log_debug, "IP_RULE_INFO", "Removed ip rules for $dev");
+		logsys($f_log_debug, "IP_RULE", "Removed ip rules for $dev");
 	}
 
 
@@ -92,17 +92,17 @@ foreach my $dev (@devices) {
 	if ($result) {
 		logsys($f_log_warn, "SYS_FAIL", "Flushing routes for $dev failed. (error code ($result)");
 	} else {
-		logsys($f_log_debug, "IP_ROUTE_INFO", "Flushed routes for $dev");
+		logsys($f_log_debug, "IP_ROUTE", "Flushed routes for $dev");
 	}
 }
 
 # Delete route to connecting ip address of client via local gateway.
 sys_exec("route del -host $remoteip");
 if ($?) {
-	logsys($f_log_error, "IP_ROUTE_FAIL", "Failed  to delete host route (error code $?)");
+	logsys($f_log_error, "IP_ROUTE", "Failed  to delete host route (error code $?)");
 	exit(1);
 } else{ 
-	logsys($f_log_debug, "IP_ROUTE_INFO", "Deleted host route for $remoteip.");
+	logsys($f_log_debug, "IP_ROUTE", "Deleted host route for $remoteip.");
 }
 logsys($f_log_info, "NOTIFY", "Sensor disconnected");
 
