@@ -3,13 +3,14 @@
 ####################################
 # Function library                 #
 # SURFids 3.00                     #
-# Changeset 003                    #
-# 26-06-2009                       #
+# Changeset 005                    #
+# 10-07-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 005 Fixed bug #153
 # 004 Fixed get_man with proper escaping
 # 003 Added in_network, updated INDEX
 # 002 Added parse_upx, reordered functions
@@ -670,7 +671,7 @@ sub add_arp_cache() {
     }
   } else {
     if ("$dbconn" ne "false") {
-      # Update Tap info to the database for the current $sensor.
+      # MAC doesn't exist in local ARP cache
       $sql = "SELECT id FROM arp_cache WHERE sensorid = $sensorid AND ip = '$ip'";
       $sth = $dbh->prepare($sql);
       $er = $sth->execute();
@@ -680,12 +681,12 @@ sub add_arp_cache() {
         $man = "";
       }
 
-      # Get the tap ip address of tap device ($tap) from the query result.
+      # Check if we can find a cache ID for the sensorid - ip combination
       @row = $sth->fetchrow_array;
       $cacheid = $row[0];
       if ("$cacheid" ne "") {
         # Modifying ARP cache
-        $sql = "UPDATE arp_cache SET mac = '$mac', last_seen = $ts, manufacturer = '$man' WHERE sensorid = $sensorid AND ip = '$ip'";
+        $sql = "UPDATE arp_cache SET mac = '$mac', last_seen = $ts, manufacturer = E'$man' WHERE sensorid = $sensorid AND ip = '$ip'";
         $sth = $dbh->prepare($sql);
         $er = $sth->execute();
 
@@ -698,7 +699,14 @@ sub add_arp_cache() {
         }
         return 0;
       }
-      $sql = "INSERT INTO arp_cache (mac, ip, sensorid, last_seen, manufacturer) VALUES ('$mac', '$ip', $sensorid, $ts, '$man')";
+      # FIXME
+      # This might actually be wrong. Do we really want to insert this record if we have possible just updated a similar
+      # record?
+      # Possible solution: add an "} else {" around this, which will make it "Update if exists, else insert", which 
+      # sounds more logical.
+      # 
+      # Added as bug #151
+      $sql = "INSERT INTO arp_cache (mac, ip, sensorid, last_seen, manufacturer) VALUES ('$mac', '$ip', $sensorid, $ts, E'$man')";
       $er = $dbh->do($sql);
     }
     $arp_cache{"$mac"} = $ip;
