@@ -3,13 +3,14 @@
 ####################################
 # Scanbinaries script              #
 # SURFids 3.00                     #
-# Changeset 005                    #
-# 29-06-2009                       #
+# Changeset 006                    #
+# 10-07-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 006 Fixed bugs #149 and #150
 # 005 Added ClamAV and fixed version commands
 # 004 Revised the logic, should perform better now
 # 003 Added more scan methods
@@ -37,16 +38,19 @@ $scanners->{"F-Prot"} = {
             'cmd' => "/opt/f-prot/fpscan -v 2 --report --adware",
             'update' => "/opt/f-prot/fpupdate",
             'version' => "/opt/f-prot/fpscan --version | grep \"F-PROT Antivirus version\" | awk -F'(' '{print \$1}' | awk '{print \$NF}'",
+            'batchmode' => 0,
 };
 $scanners->{"AVAST"} = {
             'cmd' => "/opt/avast4workstation-1.0.8/bin/avast -n",
             'update' => "/opt/avast4workstation-1.0.8/bin/avast-update",
-            'version' => "/opt/avast4workstation-1.0.8/bin/avast --version | head -n1 | awk -F\"avast \" '{print \$2}'"
+            'version' => "/opt/avast4workstation-1.0.8/bin/avast --version | head -n1 | awk -F\"avast \" '{print \$2}'",
+            'batchmode' => 1,
 };
 $scanners->{"ClamAV"} = {
             'cmd' => "clamscan --no-summary",
             'update' => "freshclam",
-            'version' => "clamscan --version | awk '{print \$2}' | awk -F\"/\" '{print \$1}'"
+            'version' => "clamscan --version | awk '{print \$2}' | awk -F\"/\" '{print \$1}'",
+            'batchmode' => 0,
 };
 
 ##################
@@ -181,14 +185,21 @@ if (@ARGV) {
     @contents = @ARGV;
 }
 
-#print "COUNT:" . scalar(@contents) . "\n";
-
 # Serialize the contents array
 $files = "";
 $total_files = 0;
+@sep_files = ();
+$a = 0;
 foreach $file (@contents) {
+    if ($a == $c_scan_batch_max) {
+      push(@sep_files, $files);
+      $files = "";
+      $a = 0;
+    }
+    $a++;
     # Serialize it
     $files .= " $file";
+    $allfiles .= " $file";
     $total_files++;
     
     # Now take care of the uniq_binaries and binaries_detail tables
@@ -235,11 +246,10 @@ foreach $file (@contents) {
     # UPX
     #############
     # Check the UPX result and add it if necessary
-    if ($c_scan_upx == 1) {
-        $filepath = "$c_bindir/$file";
-        $status = `upx -t $filepath | grep $file | awk '{print \$3}'`;
-        
-    }
+#    if ($c_scan_upx == 1) {
+#        $filepath = "$c_bindir/$file";
+#        $status = `upx -t $filepath | grep $file | awk '{print \$3}'`;
+#    }
 }
 
 # Before scanning check if the virusname Suspicious is in the database
@@ -257,6 +267,7 @@ if ($sth ne "false") {
   $suspicious = $row[0];
 }
 
+%results = ();
 while ( my ($name, $config) = each(%$scanners) ) {
     if (!$scanners->{$name}->{count}) {
         $scanners->{$name}->{count} = 0;
@@ -265,21 +276,30 @@ while ( my ($name, $config) = each(%$scanners) ) {
     $cmd =~ s/!bindir!/$c_bindir/g;
     $cmd =~ s/!file!/$file/g;
 
-    $sth = dbquery("SELECT id, matchvirus, matchclean, getvirus, getbin FROM scanners WHERE name = '$name'");
+    $sth = dbquery("SELECT id, matchvirus, matchclean, getvirus, getbin, status FROM scanners WHERE name = '$name'");
     @row = $sth->fetchrow_array;
     $vid = $row[0];
     $matchvirus = $row[1];
     $matchclean = $row[2];
     $getvirus = $row[3];
     $getbin = $row[4];
+    $status = $row[5];
 
-    if ($matchvirus ne "" && $getvirus ne "" && $getbin ne "" && $matchclean ne "" && $vid ne "") {
+    if ($matchvirus ne "" && $getvirus ne "" && $getbin ne "" && $matchclean ne "" && $vid ne "" && $status == 1) {
         chdir($c_bindir);
-        @scanner_output = `$cmd $files`;
-        print "DONE scanning\n";
+        if ($scanners->{$name}->{'batchmode'} == 1) {
+            print "$name scanning in batch mode!\n";
+            foreach $file_set (@sep_files) {
+                @cmd_output = `$cmd $file_set`;
+                push(@scanner_output, @cmd_output);
+            }
+        } else {
+            print "$name scanning all at once!\n";
+            @scanner_output = `$cmd $allfiles`;
+        }
+
         foreach $line (@scanner_output) {
             chomp($line);
-            print "LINE: $line\n";
             if ($line =~ m/$matchvirus/) {
                 # Extract the virus from the line
                 $temp = $line;
@@ -290,6 +310,13 @@ while ( my ($name, $config) = each(%$scanners) ) {
                 $temp = $line;
                 $temp =~ s/$getbin/$1/;
                 $binary = $temp;
+
+                if (exists $results{$binary}) {
+                    print "Skipping $binary - OLD: ". $results{$binary} ." - NEW: $virus\n";
+                    next;
+                }
+
+                $results{$binary} = $virus;
                 
                 # Get the virus ID
                 $chk = dbnumrows("SELECT id FROM stats_virus WHERE name = '$virus'");
@@ -325,14 +352,19 @@ while ( my ($name, $config) = each(%$scanners) ) {
 
                 # Update the last scanned timestamp
                 $ts = time();
-                print "C\n";
-                print "BID: $bid\n";
                 $chk = dbquery("UPDATE binaries_detail SET last_scanned = $ts WHERE bin = $bid");
             } elsif ($line =~ m/$matchclean/) {
                 # Extract the binary from the line
                 $temp = $line;
                 $temp =~ s/$getbin/$1/;
                 $binary = $temp;
+
+                if (exists $results{$binary}) {
+                    print "Skipping $binary - OLD: ". $results{$binary} ." - NEW: OK\n";
+                    next;
+                }
+
+                $results{$binary} = "OK";
 
                 # Get the binary ID
                 $sth = dbquery("SELECT id FROM uniq_binaries WHERE name = '$binary'");
