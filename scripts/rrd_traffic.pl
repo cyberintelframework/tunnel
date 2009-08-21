@@ -3,13 +3,14 @@
 ####################################
 # Traffic script                   #
 # SURFids 3.00                     #
-# Changeset 001                    #
-# 18-03-2008                       #
+# Changeset 002                    #
+# 21-08-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 002 Fixed bug #167
 # 001 Initial release
 #####################
 
@@ -34,7 +35,7 @@ $ifconfig = "/sbin/ifconfig";
 ##################
 $checkdb = dbconnect();
 
-@test = `cat /proc/net/dev | awk -F ":" '{print \$1}' | grep tap | awk '{print \$1}'`;
+@test = `cat /proc/net/dev | grep ":" | awk -F: '{print \$1}' | awk '{print \$1}' | grep -v '^lo.*\$'`;
 foreach (@test) {
   $tap = $_;
   chomp($tap);
@@ -44,16 +45,18 @@ foreach (@test) {
   $sql .= "WHERE sensors.tap = '$tap' AND organisations.id = sensors.organisation";
   $sth = $dbh->prepare($sql);
   $exe = $sth->execute();
-  @data = $sth->fetchrow_array;
-  $keyname = $data[0];
-  $org = $data[1];
-  $vlanid = $data[2];
-  print "Processing interface $tap [$vlanid]: $keyname - $org\n";
-  if ($vlanid != 0){
-   &ProcessInterface("$tap", "$keyname-$vlanid", "$org");
-  } else {
-    &ProcessInterface("$tap", "$keyname", "$org");
-  } 
+  if ($sth->rows != 0) {
+    @data = $sth->fetchrow_array;
+    $keyname = $data[0];
+    $org = $data[1];
+    $vlanid = $data[2];
+    print "Processing interface $tap [$vlanid]: $keyname - $org\n";
+    if ($vlanid != 0){
+      &ProcessInterface("$tap", "$keyname-$vlanid", "$org");
+    } else {
+      &ProcessInterface("$tap", "$keyname", "$org");
+    } 
+  }
 }
 
 &ProcessInterfaceALL("$totalin", "$totalout", "alltaps", "allsensors", "ADMIN");
