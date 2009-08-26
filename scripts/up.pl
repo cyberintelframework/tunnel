@@ -131,7 +131,10 @@ for (my $i = 0; $i < $res->rows(); $i++) {
         # If no mac address is present in the database, add the 
         # generated one from OpenVPN to the database.
         logsys($f_log_debug, "MAC_INFO", "No MAC address in sensors table for $dev!");
-        $mac = `ifconfig $dev | grep HWaddr | awk '{print \$5}'`;
+
+        #$mac = `ifconfig $dev | grep HWaddr | awk '{print \$5}'`;
+        # We needed to change this to work with non-english OS's
+        $mac = `ifconfig $dev | head -n1 | awk '{print \$NF}'`;
         chomp($mac);
 
         # Generate a new mac address where the last 2 bytes indicate the vlan.

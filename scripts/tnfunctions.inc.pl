@@ -3,13 +3,14 @@
 ####################################
 # Function library                 #
 # SURFids 3.00                     #
-# Changeset 005                    #
-# 10-07-2009                       #
+# Changeset 006                    #
+# 26-08-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 006 Fixed bug #175
 # 005 Fixed bug #153
 # 004 Fixed get_man with proper escaping
 # 003 Added in_network, updated INDEX
@@ -38,7 +39,6 @@ $f_log_crit = 4;
 # 2.05		getifip
 # 2.06		getdatetime
 # 2.07		getifmask
-# 2.08		getnetinfo
 #
 # 3	ALL DB functions
 # 3.01		dbremoteip
@@ -197,7 +197,8 @@ sub getnetwork() {
 sub getifip() {
   my ($if, $ip);
   $if = $_[0];
-  $ip = `ifconfig $if | grep "inet addr" | awk '{print \$2}' | awk -F: '{print \$2}'`;
+  #$ip = `ifconfig $if | grep "inet addr" | awk '{print \$2}' | awk -F: '{print \$2}'`;
+  $ip = `ifconfig $if | head -n2 | tail -n1 | grep -v MTU | awk '{print \$2}' | awk -F: '{print \$2}'`;
   chomp($ip);
   if ("$ip" ne "") {
     return $ip;
@@ -235,7 +236,8 @@ sub getdatetime {
 sub getifmask() {
   my ($if, $ip);
   $if = $_[0];
-  $ip = `ifconfig $if | grep "Mask:" | awk -F":" '{print \$4}'`;
+  #$ip = `ifconfig $if | grep "Mask:" | awk -F":" '{print \$4}'`;
+  $ip = `ifconfig $if | head -n2 | tail -n1 | grep -v MTU | awk -F":" '{print \$4}'`;
   chomp($ip);
   if ("$ip" ne "") {
     return $ip;
@@ -243,47 +245,6 @@ sub getifmask() {
     return "false";
   }
   return "false";
-}
-
-# 2.08 getnetinfo
-# Function to retrieve network info for a given interface
-# Attr: inet, nm, gw, bc, ns
-# Returns attribute on success
-# Returns 1 when given attribute is unknown
-# Returns 2 if the given interface was not found
-sub getnetinfo() {
-  my ($method, $attr, $if, $domain, $name, $i);
-  $attr = $_[0];
-  $if = $_[1];
-
-  # Check if the correct attribute was asked
-  if ($attr !~ /^(inet|nm|gw|bc|ns)$/) {
-    return 1;
-  }
-  if ($attr ne "ns") {
-    `ifconfig $if 2>/dev/null`;
-    if ($? != 0) {
-      return 2;
-    }
-  }
-  # Check which method
-  if ($attr eq "ns") {
-    $attr = `cat /etc/resolv.conf | grep nameserver | grep -v "#" | head -n1 | awk '{print \$2}'`;
-  } elsif ($attr eq "inet") {
-    $attr = `ifconfig $if | grep "inet addr:" | cut -d":" -f2 | cut -d" " -f1`;
-  } elsif ($attr eq "bc") {
-    $attr = `ifconfig $if | grep "Bcast:" | cut -d":" -f3 | cut -d" " -f1`;
-  } elsif ($attr eq "nm") {
-    $attr = `ifconfig $if | grep "Mask:" | cut -d":" -f4`;
-  } elsif ($attr eq "gw") {
-    $attr = `route -n | grep UG | grep $if | awk '{print \$2}'`;
-  }
-  chomp($attr);
-  if ($attr eq "") {
-    return 3;
-  } else {
-    return $attr;
-  }
 }
 
 #####################################
@@ -1680,7 +1641,7 @@ sub check_interface_ip() {
             $count = 1;
             return -1;
         } else {
-            $ok = `ifconfig $tap | grep "inet addr:" | wc -l`;
+            $ok = `ifconfig $tap | head -n2 | tail -n1 | grep -v MTU | wc -l`;
             chomp($ok);
         }
         $i++;
