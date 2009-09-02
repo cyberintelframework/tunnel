@@ -1,0 +1,12 @@
+scripts/sign_file.pl
+scripts/makeversion.pl
+updates/server_version.txt
+updates/network_config
+updates/update_remove
+updates/scripts.conf
+updates/start_bridge
+updates/network_config.sig
+updates/update_remove.sig
+updates/scripts.conf.sig
+updates/start_bridge.sig
+server/update.php
