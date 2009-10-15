@@ -3,7 +3,7 @@
 ####################################
 # Server info script               #
 # SURFids 3.00                     #
-# Changeset 002                    #
+# Changeset 003                    #
 # 15-10-2009                       #
 # Hiroshi Suzuki                   #
 # Modified by Kees Trippelvitz     #
@@ -11,6 +11,7 @@
 
 #####################
 # Changelog:
+# 003 Fixed layout of traffic graph
 # 002 Fixed layout of memory graph
 # 001 Initial release
 #####################
@@ -378,13 +379,13 @@ sub CreateGraph {
 		"CDEF:unknown_out=out,UN,INF,UNKN,IF",
 		"AREA:in#32CD32:Incoming",
 		"LINE1:in#336600",
-		"GPRINT:in:MAX:  Max\\: %5.1lf %s",
+		"GPRINT:in:MAX: Max\\: %5.1lf %S",
 		"GPRINT:in:AVERAGE: Avg\\: %5.1lf %S",
 		"GPRINT:in:LAST: Current\\: %5.1lf %Sbytes/sec",
 		"AREA:unknown#777777:unknown\\n",
 		"AREA:out_neg#4169E1:Outgoing",
 		"LINE1:out_neg#0033CC",
-		"GPRINT:out:MAX:  Max\\: %5.1lf %S",
+		"GPRINT:out:MAX: Max\\: %5.1lf %S",
 		"GPRINT:out:AVERAGE: Avg\\: %5.1lf %S",
 		"GPRINT:out:LAST: Current\\: %5.1lf %Sbytes/sec",
 		"AREA:unknown_out#777777:unknown",
