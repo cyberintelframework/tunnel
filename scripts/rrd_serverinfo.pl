@@ -3,14 +3,15 @@
 ####################################
 # Server info script               #
 # SURFids 3.00                     #
-# Changeset 001                    #
-# 18-03-2008                       #
+# Changeset 002                    #
+# 15-10-2009                       #
 # Hiroshi Suzuki                   #
 # Modified by Kees Trippelvitz     #
 ####################################
 
 #####################
 # Changelog:
+# 002 Fixed layout of memory graph
 # 001 Initial release
 #####################
 
@@ -350,12 +351,12 @@ sub CreateGraph {
 		"GPRINT:b:LAST:\\: %4.2lf%sB ",
 		"STACK:c#ff99ff:memory used",
 		"GPRINT:c:LAST:\\: %4.2lf%sB ",
-		"GPRINT:a:LAST: memory usage rate \\: %3.0lf%%\\n",
+		"GPRINT:a:LAST: memory usage \\: %3.0lf%%\\n",
 		"STACK:e#99ffff:swap available",
 		"GPRINT:e:LAST:\\: %4.2lf%sB ",
 		"STACK:f#ff9999:swap used",
 		"GPRINT:f:LAST:\\: %4.2lf%sB ",
-		"GPRINT:d:LAST: swap usage rate \\: %3.0lf%%  ",
+		"GPRINT:d:LAST: swap usage \\: %3.0lf%%  ",
 		"AREA:unknown#777777:unknown";
   }
 
