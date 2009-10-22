@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 #use warnings;
 #use strict "vars";
@@ -6,14 +6,15 @@
 ####################################
 # Startup script for tunnel server #
 # SURFids 3.00                     #
-# Changeset 003                    #
-# 08-12-2008                       #
+# Changeset 004                    #
+# 21-10-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Auke Folkerts (changeset 003)    #
 ####################################
 
 #####################
 # Changelog:
+# 004 Removed -w switch
 # 003 support multiple vlans per tunnel
 # 002 Added logsys stuff
 # 001 version 2.10.00 release
