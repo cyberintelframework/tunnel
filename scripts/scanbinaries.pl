@@ -383,7 +383,6 @@ while ( my ($name, $config) = each(%$scanners) ) {
                 if ($bid ne "" && $sid ne "" && $vid != 0) {
                     # We check if this binary and the scan result were already in the database. The unique key here is $file, $scanner, $virus.
                     $chk = dbnumrows("SELECT bin FROM binaries WHERE bin = $bid AND info = $vid AND scanner = $sid");
-                    print "CHK: $chk\n";
                     if ($chk == 0) {
                         # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
                         $scanners->{$name}->{count}++;
