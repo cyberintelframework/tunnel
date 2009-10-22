@@ -3,14 +3,15 @@
 ####################################
 # Types library for detectarp.pl   #
 # SURFids 3.00                     #
-# Changeset 001                    #
-# 18-03-2008                       #
+# Changeset 002                    #
+# 15-10-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
-# 001 version 2.10.00 release
+# 002 Added Mobility Header and Shim6
+# 001 Initial release
 #####################
 
 %dhcptypes = (
@@ -346,8 +347,10 @@
 	"132" => "SCTP",
 	"133" => "FC",
 	"134" => "RSVP-E2E-IGNORE",
+    "135" => "Mobility Header",
 	"136" => "UDPLite",
 	"137" => "MPLS-in-IP",
 	"138" => "MANET",
-        "139" => "HIP",
+    "139" => "HIP",
+    "140" => "Shim6",
 );
