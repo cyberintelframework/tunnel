@@ -3,13 +3,14 @@
 ####################################
 # Scanbinaries script              #
 # SURFids 3.00                     #
-# Changeset 006                    #
-# 10-07-2009                       #
+# Changeset 007                    #
+# 22-10-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 007 Fixed bug #190
 # 006 Fixed bugs #149 and #150
 # 005 Added ClamAV and fixed version commands
 # 004 Revised the logic, should perform better now
@@ -252,6 +253,12 @@ foreach $file (@contents) {
 #    }
 }
 
+# Adding remaining files to the sep_files array
+# This is to ensure the remainder of the files that didn't 
+# meet the $c_scan_batch_max amount still make the sep_files array
+push(@sep_files, $files);
+$files = "";
+
 # Before scanning check if the virusname Suspicious is in the database
 # If not, add it. No need to do this every time a file is scanned
 $chk = dbnumrows("SELECT id FROM stats_virus WHERE name = 'Suspicious'");
@@ -269,6 +276,8 @@ if ($sth ne "false") {
 
 %results = ();
 while ( my ($name, $config) = each(%$scanners) ) {
+    @cmd_output = ();
+    @scanner_output = ();
     if (!$scanners->{$name}->{count}) {
         $scanners->{$name}->{count} = 0;
     }
@@ -278,18 +287,19 @@ while ( my ($name, $config) = each(%$scanners) ) {
 
     $sth = dbquery("SELECT id, matchvirus, matchclean, getvirus, getbin, status FROM scanners WHERE name = '$name'");
     @row = $sth->fetchrow_array;
-    $vid = $row[0];
+    $sid = $row[0];
     $matchvirus = $row[1];
     $matchclean = $row[2];
     $getvirus = $row[3];
     $getbin = $row[4];
     $status = $row[5];
 
-    if ($matchvirus ne "" && $getvirus ne "" && $getbin ne "" && $matchclean ne "" && $vid ne "" && $status == 1) {
+    if ($matchvirus ne "" && $getvirus ne "" && $getbin ne "" && $matchclean ne "" && $sid ne "" && $status == 1) {
         chdir($c_bindir);
         if ($scanners->{$name}->{'batchmode'} == 1) {
             print "$name scanning in batch mode!\n";
             foreach $file_set (@sep_files) {
+                #print "FILESET: $file_set \n";
                 @cmd_output = `$cmd $file_set`;
                 push(@scanner_output, @cmd_output);
             }
@@ -298,6 +308,7 @@ while ( my ($name, $config) = each(%$scanners) ) {
             @scanner_output = `$cmd $allfiles`;
         }
 
+        %results = ();
         foreach $line (@scanner_output) {
             chomp($line);
             if ($line =~ m/$matchvirus/) {
@@ -330,7 +341,6 @@ while ( my ($name, $config) = each(%$scanners) ) {
                 $vid = $row[0];
 
                 # Get the binary ID
-                print "BINARY: $binary\n";
                 $sth = dbquery("SELECT id FROM uniq_binaries WHERE name = '$binary'");
                 @row = $sth->fetchrow_array;
                 $bid = $row[0];
@@ -339,13 +349,12 @@ while ( my ($name, $config) = each(%$scanners) ) {
 
                 if ($bid ne "" && $vid ne "" && $sid ne "") {
                     # We check if this binary and the scan result were already in the database. The unique key here is $file, $scanner, $virus.
-                    print "A\n";
                     $chk = dbnumrows("SELECT bin FROM binaries WHERE bin = $bid AND info = $vid AND scanner = $sid");
                     if ($chk == 0) {
                         # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
                         $scanners->{$name}->{count}++;
-                        print "B\n";
-                        $chk = dbquery("INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, $bin_id, $virus_id, $key)");
+                        $ts = time();
+                        $chk = dbquery("INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($ts, $bid, $vid, $sid)");
                         print "[Scan] Adding new scan record\n";
                     }
                 }
@@ -374,10 +383,12 @@ while ( my ($name, $config) = each(%$scanners) ) {
                 if ($bid ne "" && $sid ne "" && $vid != 0) {
                     # We check if this binary and the scan result were already in the database. The unique key here is $file, $scanner, $virus.
                     $chk = dbnumrows("SELECT bin FROM binaries WHERE bin = $bid AND info = $vid AND scanner = $sid");
+                    print "CHK: $chk\n";
                     if ($chk == 0) {
                         # The combination of $file, $scanner and $virus was not yet in the database. Insert it.
                         $scanners->{$name}->{count}++;
-                        $chk = dbquery("INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($time, $bin_id, $virus_id, $key)");
+                        $ts = time();
+                        $chk = dbquery("INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($ts, $bid, $vid, $sid)");
                         print "[Scan] Adding new scan record\n";
                     }
                 }
