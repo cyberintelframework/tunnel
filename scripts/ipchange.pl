@@ -2,8 +2,8 @@
 
 ####################################
 # SURFids 3.00                     #
-# Changeset 007                    #
-# 08-12-2008                       #
+# Changeset 008                    #
+# 21-10-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
@@ -28,6 +28,7 @@
 
 #####################
 # Changelog:
+# 008 Added logsys for status change
 # 007 Support multiple vlans per tunnel
 # 006 Error check on duplicate tap's
 # 005 Passing along sensorid to detectarp.pl
@@ -111,8 +112,10 @@ for(my $i = 0; $i < $res->rows; $i++) {
 	# depending on wether we're using vlans (latter) or not (former).
 	if ($vlanid != 0) {
 		$dev = "$tap.$vlanid";
+        $keyname = "$sensor.$vlanid";
 	} else {
 		$dev = "$tap";
+        $keyname = $sensor;
 	}
 	logsys($f_log_debug, "DEV_INFO", "Bringing up $dev: $netconf");
 
@@ -141,6 +144,7 @@ for(my $i = 0; $i < $res->rows; $i++) {
 
 	if ($netconf eq "dhcp") {
 		# Start the dhcp client
+        logsys($f_log_debug, "DHCP_INFO", "Starting DHCP client");
 		$result_dhcp = startdhcp($dev);
         logsys($f_log_debug, "DHCP_INFO", "DHCP result: $result_dhcp");
 
@@ -174,7 +178,10 @@ for(my $i = 0; $i < $res->rows; $i++) {
 
 	# Update Tap info to the database for the current vlan.
     my $date = time();
-	dbquery("UPDATE sensors SET tap = '$dev', tapip = '$tap_ip', status = 1, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'");
+    $ret_stat = dbquery("UPDATE sensors SET tap = '$dev', tapip = '$tap_ip', status = 1, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'");
+    if ("$ret_stat" ne "false") {
+        logsys($f_log_debug, "STATUS_CHANGE", "Set status to 1 for $keyname");
+    }
 
 
 	if ($c_enable_pof == 1) {

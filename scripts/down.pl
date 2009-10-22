@@ -6,14 +6,15 @@
 ####################################
 # Down script                      #
 # SURFids 3.00                     #
-# Changeset 003                    #
-# 08-12-2008                       #
+# Changeset 004                    #
+# 21-10-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 # Auke Folkerts (changeset 003)    #
 ####################################
 
 #####################
 # Changelog:
+# 004 Added logsys for status change
 # 003 - Support for multiple vlans per tunnel
 #     - various cleanups
 # 002 Added logsys stuff
@@ -67,7 +68,10 @@ dbquery("UPDATE sensors SET tap = '', tapip = '0.0.0.0' WHERE keyname = '$sensor
 # Update database. Save the uptime for each vlan, and set the status to offline (=0).
 my $date = time();
 dbquery("UPDATE sensors SET laststop = $date  WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
-dbquery("UPDATE sensors SET uptime = uptime + laststop - laststart, status = 0 WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
+$ret_stat = dbquery("UPDATE sensors SET uptime = uptime + laststop - laststart, status = 0 WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
+if ("$ret_stat" ne "false") {
+    logsys($f_log_debug, "STATUS_CHANGE", "Set status to 0 for $sensor");
+}
 
 # For all tap devices affected by the openvpn tunnel going down, clean up.
 # (this uses the array of affected devices created earlier in this script)
