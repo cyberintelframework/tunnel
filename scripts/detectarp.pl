@@ -63,7 +63,7 @@ $dhcp_blacklist{"169.254.2.1"} = 1;
 ##################
 # Data sets
 ##################
-require "$c_surfidsdir/scripts/types_data.pl";
+#require "$c_surfidsdir/scripts/types_data.pl";
 
 ##################
 # Main script
@@ -528,8 +528,10 @@ sub filter_packets {
       # IGMP protocol detected
       my $igmp_obj = NetPacket::IGMP->decode($ip_obj->{data});
       $igmp_type = $igmp_obj->{type};
-      if (! exists $sniff_protos_igmp{$igmp_type}) {
-        $check = add_proto_type($sensorid, $head, $igmp_type);
+      $igmp_subtype = $igmp_obj->{subtype};
+      $igmp_version = $igmp_obj->{version};
+      if (! exists $sniff_protos_igmp{"$igmp_type-$igmp_subtype"}) {
+        $check = add_proto_type($sensorid, $head, $igmp_type, $igmp_subtype, $igmp_version);
       }  
     } elsif ($proto == 6) {
       # TCP protocol detected

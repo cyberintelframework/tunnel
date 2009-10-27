@@ -872,6 +872,17 @@ sub add_proto_type() {
   chomp($head);
   chomp($nr);
 
+  if ($_[3]) {
+    $subtype = $_[3];
+  } else {
+    $subtype = "";
+  }
+  if ($_[4]) {
+    $version = $_[4];
+  } else {
+    $version = "";
+  }
+
   if ("$nr" eq "") {
     return 1;
   }
@@ -881,34 +892,23 @@ sub add_proto_type() {
 
   # Getting protocol name if exists
   if ($head == 0) {
-    if (exists $ethernettypes{"$nr"}) {
-      $proto = $ethernettypes{"$nr"};
-    }
     $sniff_protos_eth{$nr} = 0;
   } elsif ($head == 1) {
-    if (exists $iptypes{"$nr"}) {
-      $proto = $iptypes{"$nr"};
-    }
     $sniff_protos_ip{$nr} = 0;
   } elsif ($head == 11) {
-    if (exists $icmptypes{"$nr"}) {
-      $proto = $icmptypes{"$nr"};
-    }
     $sniff_protos_icmp{$nr} = 0;
   } elsif ($head == 12) {
-    if (exists $igmptypes{"$nr"}) {
-      $proto = $igmptypes{"$nr"};
-    }
-    $sniff_protos_igmp{$nr} = 0;
+    $sniff_protos_igmp{"$version-$nr-$subtype"} = 0;
   } elsif ($head == 11768) {
-    if (exists $dhcptypes{$nr}) {
-      $proto = $dhcptypes{$nr};
-    }
     $sniff_protos_dhcp{$nr} = 0;
   }
 #  print "ADDPROTOTYPE: SID $sensorid - HEAD $head - NR $nr - PROTO $proto\n";
 
-  $sql = "INSERT INTO sniff_protos (sensorid, parent, number, protocol) VALUES ('$sensorid', '$head', '$nr', '$proto')";
+  if ($head == 12) {
+    $sql = "INSERT INTO sniff_protos (sensorid, parent, number, subtype, version) VALUES ('$sensorid', '$head', '$nr', '$subtype', '$version')";
+  } else {
+    $sql = "INSERT INTO sniff_protos (sensorid, parent, number) VALUES ('$sensorid', '$head', '$nr')";
+  }
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
   return 0;
