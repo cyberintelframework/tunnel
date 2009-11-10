@@ -274,12 +274,18 @@ function getdomain($host) {
 function getorg($ip, $soapurl, $soapuser, $soappass) {
   $cred = array('login'     => $soapuser,
                 'password'  => $soappass);
-  $soap_client = new SoapClient($soapurl, $cred);
-  $remoteip = $ip;
-  $soap_klanten = array("var_type" => "ip", "var_value" => "$remoteip", "version" => "1.0");
-  $soap_result = $soap_client->__soapCall('getKlantSingle', array('invoer' => $soap_klanten));
+  try {
+    $soap_client = new SoapClient($soapurl, $cred);
+  } catch(Exception $e) {
+    return "";
+  }
+  $soap_klanten = array("var_type" => "ip", "var_value" => "$ip", "version" => "1.0");
+  try {
+    $soap_result = $soap_client->__soapCall('getKlantSingle', array('invoer' => $soap_klanten));
+  } catch(Exception $e) {
+    return "";
+  }
   if (is_soap_fault($soap_result)) {
-    trigger_error("SOAP Fault: (faultcode: {$soap_result->faultcode}, faultstring: {$soap_result->faultstring})", E_USER_ERROR);
     $soap_org = "";
   } else {
     $soap_org = $soap_result->klantafkorting;
@@ -289,20 +295,23 @@ function getorg($ip, $soapurl, $soapuser, $soappass) {
 
 # SURFnet function to get the IP ranges from an organisation.
 function getorgif($org, $soapurl, $soapuser, $soappass) {
-  require_once('include/nusoap.php');
-  $soap_client = new soapclient($soapurl, true);
-  $soap_client->setCredentials($soapuser, $soappass);
-  $soap_err = $soap_client->getError();
-  if ($soap_err) {
-    echo "SOAPERR: $soap_err<br />\n";
+  $cred = array('login'     => $soapuser,
+                'password'  => $soappass);
+  try {
+    $soap_client = new SoapClient($soapurl, $cred);
+  } catch(Exception $e) {
     return "false";
   }
   $soap_klanten = array("var_type" => "klantafkorting", "var_value" => "$org", "version" => "1.0");
-  $soap_result = $soap_client->call('getKlantSingle', array('invoer' => $soap_klanten));
-  $soap_interfaces = $soap_result["ipv4"];
+  try {
+    $soap_result = $soap_client->__soapCall('getKlantSingle', array('invoer' => $soap_klanten));
+  } catch(Exception $e) {
+    return "false";
+  }
+  $soap_interfaces = $soap_result->ipv4;
   $soap_ipv4_ranges = "";
   foreach ($soap_interfaces as $key => $value) {
-    $prefix = $value["prefix"];
+    $prefix = $value->prefix;
     $soap_ipv4_ranges .= "$prefix" . ";";
   }
   $soap_ipv4_ranges = trim($soap_ipv4_ranges, ";");
