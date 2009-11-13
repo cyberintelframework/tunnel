@@ -527,12 +527,14 @@ sub filter_packets {
       $head = 12;
       # IGMP protocol detected
       my $igmp_obj = NetPacket::IGMP->decode($ip_obj->{data});
-      $igmp_type = $igmp_obj->{type};
-      $igmp_subtype = $igmp_obj->{subtype};
-      $igmp_version = $igmp_obj->{version};
-      if (! exists $sniff_protos_igmp{"$igmp_type-$igmp_subtype"}) {
-        $check = add_proto_type($sensorid, $head, $igmp_type, $igmp_subtype, $igmp_version);
-      }  
+      #$igmp_subtype = $igmp_obj->{subtype};
+      $igmp_t = $igmp_obj->{type};
+      $igmp_v = $igmp_obj->{version};
+      $igmp_type = $igmp_v . $igmp_t;
+
+      if (! exists $sniff_protos_igmp{"$igmp_type"}) {
+        $check = add_proto_type($sensorid, $head, $igmp_type);
+      }
     } elsif ($proto == 6) {
       # TCP protocol detected
       my $tcp_obj = NetPacket::TCP->decode($ip_obj->{data});
@@ -598,6 +600,7 @@ sub filter_packets {
       }
     } elsif ($proto == 41) {
       # IPv6 protocol detected
+      #print "IPv6 detected\n";
     }
   }
 #  elsif ($eth_obj->{type} == ETH_TYPE_SNMP) {
