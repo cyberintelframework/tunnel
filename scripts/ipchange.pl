@@ -2,8 +2,8 @@
 
 ####################################
 # SURFids 3.00                     #
-# Changeset 008                    #
-# 21-10-2009                       #
+# Changeset 009                    #
+# 24-11-2009                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 # Contributors:                    #
@@ -28,6 +28,7 @@
 
 #####################
 # Changelog:
+# 009 Fixed #201
 # 008 Added logsys for status change
 # 007 Support multiple vlans per tunnel
 # 006 Error check on duplicate tap's
@@ -166,7 +167,8 @@ for(my $i = 0; $i < $res->rows; $i++) {
 	my $result = check_interface_ip($dev, $c_sql_dhcp_retries);
 	if ($result) {
 		logsys($f_log_error, "DEV_INFO", "Device $dev failed to come up");
-		exit(1);
+        logsys($f_log_debug, "NOTIFY", "Moving on to next device...");
+		next;
 	}
 	logsys($f_log_debug, "DEV_INFO", "$dev device is up.");
 
