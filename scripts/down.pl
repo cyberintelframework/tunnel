@@ -75,7 +75,7 @@ if ("$ret_stat" ne "false") {
 }
 
 # Update database with new uptime
-my $res = dbquery("UPDATE sensors SET uptime = uptime + laststop - laststart FROM sensors WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
+my $res = dbquery("UPDATE sensors SET uptime = uptime + laststop - laststart WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
 
 # For all tap devices affected by the openvpn tunnel going down, clean up.
 # (this uses the array of affected devices created earlier in this script)
