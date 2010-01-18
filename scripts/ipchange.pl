@@ -78,7 +78,7 @@ our $g_vlanid = 0;
 ##################
 my $mypid;
 if (!$mypid) {
-  logsys($f_log_debug, "SCRIPT_START");
+    logsys($f_log_debug, "SCRIPT_START");
 }
 
 # Fork to the background
@@ -93,36 +93,35 @@ if ($result eq 'false') {
 # Get the IP address configuration for the tap device from the database.
 my $res = dbquery("SELECT networkconfig, vlanid, arp, id FROM sensors WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
 if ($res->rows == 0) {
-	# no records
-	logsys($f_log_error, "NO_SENSOR_RECORD", "No entries for $sensor are configured" );
-	exit(1);
+    # no records
+    logsys($f_log_error, "NO_SENSOR_RECORD", "No entries for $sensor are configured" );
+    exit(1);
 }
 
 for(my $i = 0; $i < $res->rows; $i++) {
-	my @row = $res->fetchrow_array;
+    my @row = $res->fetchrow_array;
 
-	my $netconf = $row[0];
-#	my $netconfdetail = $row[1];
-	my $vlanid = $row[1];
+    my $netconf = $row[0];
+    my $vlanid = $row[1];
     $g_vlanid = $vlanid;
-	my $arp = $row[2];
-	my $sensorid = $row[3];
-	my $dev;
+    my $arp = $row[2];
+    my $sensorid = $row[3];
+    my $dev;
 
-	# The device we're going to work with is something like tap0 or tap0.13,
-	# depending on wether we're using vlans (latter) or not (former).
-	if ($vlanid != 0) {
-		$dev = "$tap.$vlanid";
+    # The device we're going to work with is something like tap0 or tap0.13,
+    # depending on wether we're using vlans (latter) or not (former).
+    if ($vlanid != 0) {
+        $dev = "$tap.$vlanid";
         $keyname = "$sensor.$vlanid";
-	} else {
-		$dev = "$tap";
+    } else {
+        $dev = "$tap";
         $keyname = $sensor;
 	}
-	logsys($f_log_debug, "DEV_INFO", "Bringing up $dev: $netconf");
+    logsys($f_log_debug, "DEV_INFO", "Bringing up $dev: $netconf");
 
 
-	# Kill off any remaining dhcp daemons for this interface
-	$ec = killdhclient($dev);
+    # Kill off any remaining dhcp daemons for this interface
+    $ec = killdhclient($dev);
     if ($ec == 0) {
         logsys($f_log_debug, "DHCP_KILL", "Killed dhclient for $dev");
     } else {
@@ -130,55 +129,55 @@ for(my $i = 0; $i < $res->rows; $i++) {
     }
 
 
-	# Make sure the routing table exists for this device. The startstatic()
-	# function, and surfnetids-dhclient will adapt routing rules dynamically,
-	# and require that /etc/iproute2/rt_tables contains the device. 
+    # Make sure the routing table exists for this device. The startstatic()
+    # function, and surfnetids-dhclient will adapt routing rules dynamically,
+    # and require that /etc/iproute2/rt_tables contains the device. 
     my $esc_dev = escape_dev($dev);
-	my $exist = `grep '\\b$esc_dev\\b' /etc/iproute2/rt_tables | wc -l`;
-	if ($exist == 0) {
-		my $next_identifier = `tail -1 /etc/iproute2/rt_tables | awk '{print \$1}'`;
-		chomp($next_identifier);
-		$next_identifier++;
-		`echo "$next_identifier			$dev" >> /etc/iproute2/rt_tables`;
-		logsys($f_log_debug, "IP_ROUTE", "Added entry for $dev in /etc/iproute2/rt_tables (id $next_identifier)");
-	}
+    my $exist = `grep '\\b$esc_dev\\b' /etc/iproute2/rt_tables | wc -l`;
+    if ($exist == 0) {
+        my $next_identifier = `tail -1 /etc/iproute2/rt_tables | awk '{print \$1}'`;
+        chomp($next_identifier);
+        $next_identifier++;
+        `echo "$next_identifier			$dev" >> /etc/iproute2/rt_tables`;
+        logsys($f_log_debug, "IP_ROUTE", "Added entry for $dev in /etc/iproute2/rt_tables (id $next_identifier)");
+    }
 
-	if ($netconf eq "dhcp") {
-		# Start the dhcp client
+    if ($netconf eq "dhcp") {
+        # Start the dhcp client
         logsys($f_log_debug, "DHCP_INFO", "Starting DHCP client");
-		$result_dhcp = startdhcp($dev);
+        $result_dhcp = startdhcp($dev);
         logsys($f_log_debug, "DHCP_INFO", "DHCP result: $result_dhcp");
 
-	} else { 
-		# Set static network configuration without gateway, dns and resolv.conf
-		# Format of netconfig: ip|netmask|gateway|broadcast
-		my @netconfig = split(/\|/, $netconf);
+    } else { 
+        # Set static network configuration without gateway, dns and resolv.conf
+        # Format of netconfig: ip|netmask|gateway|broadcast
+        my @netconfig = split(/\|/, $netconf);
 
-		my $if_ip = $netconfig[1];
-		my $if_nw = $netconfig[2];
-		my $if_bc = $netconfig[3];
-		my $if_gw = $netconfig[4];
+        my $if_ip = $netconfig[1];
+        my $if_nw = $netconfig[2];
+        my $if_bc = $netconfig[3];
+        my $if_gw = $netconfig[4];
 
-		startstatic($dev, $if_ip, $if_nw, $if_bc, $if_gw);
-	}
+        startstatic($dev, $if_ip, $if_nw, $if_bc, $if_gw);
+    }
 
 
-	# check wether interface obtained an IP
-	my $result = check_interface_ip($dev, $c_sql_dhcp_retries);
-	if ($result) {
-		logsys($f_log_error, "DEV_INFO", "Device $dev failed to come up");
+    # check wether interface obtained an IP
+    my $result = check_interface_ip($dev, $c_sql_dhcp_retries);
+    if ($result) {
+        logsys($f_log_error, "DEV_INFO", "Device $dev failed to come up");
         logsys($f_log_debug, "NOTIFY", "Moving on to next device...");
-		next;
-	}
-	logsys($f_log_debug, "DEV_INFO", "$dev device is up.");
+        next;
+    }
+    logsys($f_log_debug, "DEV_INFO", "$dev device is up.");
 
 
-	# Get the IP address from the tap interface.
-	my $tap_ip = getifip($dev);
-	logsys($f_log_debug, "DEV_INFO",  "Tap device $dev obtained IP address $tap_ip");
+    # Get the IP address from the tap interface.
+    my $tap_ip = getifip($dev);
+    logsys($f_log_debug, "DEV_INFO",  "Tap device $dev obtained IP address $tap_ip");
 
 
-	# Update Tap info to the database for the current vlan.
+    # Update Tap info to the database for the current vlan.
     my $date = time();
     $ret_stat = dbquery("UPDATE sensors SET tap = '$dev', tapip = '$tap_ip', status = 1, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'");
     if ("$ret_stat" ne "false") {
@@ -186,25 +185,25 @@ for(my $i = 0; $i < $res->rows; $i++) {
     }
 
 
-	if ($c_enable_pof == 1) {
-		system "p0f -d -i $dev -o /dev/null";
-		logsys($f_log_info, "NOTIFY", "Started passive TCP fingerprinting");
-	}
+    if ($c_enable_pof == 1) {
+        system "p0f -d -i $dev -o /dev/null";
+        logsys($f_log_info, "NOTIFY", "Started passive TCP fingerprinting");
+    }
 
-	if ($c_enable_arp == 1 && $arp == 1) {
-		system("$c_surfidsdir/scripts/detectarp.pl $dev $sensorid &");
-		logsys($f_log_info, "NOTIFY", "Started ARP & Rogue DHCP detection");
-	}
+    if ($c_enable_arp == 1 && $arp == 1) {
+        system("$c_surfidsdir/scripts/detectarp.pl $dev $sensorid &");
+        logsys($f_log_info, "NOTIFY", "Started ARP & Rogue DHCP detection");
+    }
 }
 $g_vlanid = 0;
 logsys($f_log_info, "NOTIFY", "Connection final phase - done");
 
 END {
-  if ($mypid) {
-    logsys($f_log_debug, "NOTIFY", "Daemonized");
-  } else {
-    logsys($f_log_debug, "NOTIFY", "Last return code: $?");
-    logsys($f_log_debug, "SCRIPT_END");
-    dbdisconnect();
-  } 
+    if ($mypid) {
+        logsys($f_log_debug, "NOTIFY", "Daemonized");
+    } else {
+        logsys($f_log_debug, "NOTIFY", "Last return code: $?");
+        logsys($f_log_debug, "SCRIPT_END");
+        dbdisconnect();
+    } 
 }
