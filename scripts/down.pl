@@ -55,7 +55,7 @@ if ($result eq 'false') {
 logsys($f_log_debug, "SCRIPT_START");
 
 # find all tap devices in use
-my $res = dbquery("SELECT tap FROM sensors WHERE keyname = '$sensor' AND status = 1");
+my $res = dbquery("SELECT tap FROM sensors WHERE keyname = '$sensor' AND (status = 1 OR status = 6)");
 my @devices;
 for (my $i = 0; $i < $res->rows(); $i++) {
 	my @row = $res->fetchrow_array;
