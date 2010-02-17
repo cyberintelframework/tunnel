@@ -53,7 +53,6 @@ our $source = 'detectarp.pl';
 #################
 # Blacklists
 #################
-
 $arp_blacklist{"01:00:0c:cd:cd:cd"} = 1;
 $arp_blacklist{"01:00:0C:CD:CD:CD"} = 1;
 
@@ -489,6 +488,15 @@ sub filter_packets {
   if ($eth_type > 1500) {
     if (! exists $sniff_protos_eth{$eth_type}) {
       $check = add_proto_type($sensorid, $head, $eth_type);
+    }
+  } else {
+    $dst_mac = $eth_obj->{dest_mac};
+    $dst_mac = colonmac($dst_mac);
+    if ("$dst_mac" eq "01:80:c2:00:00:00") {
+      # Adding STP as type -1
+      # Reason: IEEE 802.3 ethernet packets have no type field, thus no type
+      # $eth_obj->{type} returns the length field for IEEE 802.3 packets.
+      $check = add_proto_type($sensorid, $head, "-1");
     }
   }
 
