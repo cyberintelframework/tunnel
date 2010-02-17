@@ -520,8 +520,9 @@ sub filter_packets {
       # ICMP protocol detected
       my $icmp_obj = NetPacket::ICMP->decode($ip_obj->{data});
       $icmp_type = $icmp_obj->{type};
-      if (! exists $sniff_protos_icmp{$icmp_type}) {
-        $check = add_proto_type($sensorid, $head, $icmp_type);
+      $icmp_code = $icmp_obj->{code};
+      if (! exists $sniff_protos_icmp{"$icmp_type-$icmp_code"}) {
+        $check = add_proto_type($sensorid, $head, $icmp_type, $icmp_code);
       }
     } elsif ($proto == 2) {
       $head = 12;

@@ -864,7 +864,7 @@ sub add_host_type() {
 # 6.04 add_proto_type
 # Function to add a protocol type to the sensor sniff logs
 sub add_proto_type() {
-  my ($head, $nr, $proto, $sql, $sth, $er, @row, $id);
+  my ($head, $nr, $proto, $sql, $sth, $er, @row, $id, $code);
   $sensorid = $_[0];
   $head = $_[1];
   $nr = $_[2];
@@ -874,6 +874,11 @@ sub add_proto_type() {
 
   if ("$nr" eq "") {
     return 1;
+  }
+  if ("$_[3]" ne "") {
+    $code = $_[3];
+  } else {
+    $code = -1;
   }
 
   # Default protocol name is Unknown
@@ -885,7 +890,7 @@ sub add_proto_type() {
   } elsif ($head == 1) {
     $sniff_protos_ip{$nr} = 0;
   } elsif ($head == 11) {
-    $sniff_protos_icmp{$nr} = 0;
+    $sniff_protos_icmp{"$nr-$code"} = 0;
   } elsif ($head == 12) {
     $sniff_protos_igmp{"$nr"} = 0;
   } elsif ($head == 11768) {
@@ -893,7 +898,7 @@ sub add_proto_type() {
   }
 #  print "ADDPROTOTYPE: SID $sensorid - HEAD $head - NR $nr - PROTO $proto\n";
 
-  $sql = "INSERT INTO sniff_protos (sensorid, parent, number) VALUES ('$sensorid', '$head', '$nr')";
+  $sql = "INSERT INTO sniff_protos (sensorid, parent, number, subtype) VALUES ('$sensorid', '$head', '$nr', '$code')";
   $sth = $dbh->prepare($sql);
   $er = $sth->execute();
   return 0;
@@ -929,14 +934,15 @@ sub refresh_protos() {
     }
   } elsif ($head == 11) {
     # Filling the local scripts protocol list (ICMPTYPES)
-    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 11";
+    $sql = "SELECT number, subtype FROM sniff_protos WHERE sensorid = $sensorid AND parent = 11";
     $sth = $dbh->prepare($sql);
     $er = $sth->execute();
 
     %sniff_protos_icmp = ();
     while (@row = $sth->fetchrow_array) {
       $nr = $row[0];
-      $sniff_protos_icmp{"$nr"} = 0;
+      $subtype = $row[1];
+      $sniff_protos_icmp{"$nr-$subtype"} = 0;
     }
   } elsif ($head == 12) {
     # Filling the local scripts protocol list (IGMPTYPES)
