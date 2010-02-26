@@ -893,6 +893,7 @@ sub add_proto_type() {
     $sniff_protos_icmp{"$nr-$code"} = 0;
   } elsif ($head == 12) {
     $sniff_protos_igmp{"$nr"} = 0;
+    $code = -1;
   } elsif ($head == 11768) {
     $sniff_protos_dhcp{$nr} = 0;
   }
