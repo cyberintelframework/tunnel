@@ -2,14 +2,15 @@
 
 ####################################
 # Function library                 #
-# SURFids 3.00                     #
-# Changeset 006                    #
-# 26-08-2009                       #
+# SURFids 3.10                     #
+# Changeset 007                    #
+# 15-03-2010                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 007 Resolved change #182
 # 006 Fixed bug #175
 # 005 Fixed bug #153
 # 004 Fixed get_man with proper escaping
@@ -163,6 +164,13 @@ sub getts() {
 # Returns false if no gateway was found
 sub getlocalgw() {
   my ($gw);
+  our $c_local_gateway;
+  if ("$c_local_gateway" ne "") {
+    if (validip($c_local_gateway) == 0) {
+      return $c_local_gateway;
+    }
+  }
+
   $gw = `route -n | grep -i "0.0.0.0" | grep -i UG | awk '{print \$2}'`;
   chomp($gw);
   if ("$gw" eq "") {
