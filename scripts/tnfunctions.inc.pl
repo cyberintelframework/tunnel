@@ -633,7 +633,7 @@ sub add_arp_cache() {
       $arp_cache{"$mac"} = $ip;
 
       if ("$dbconn" ne "false") {
-        # Update Tap info to the database for the current $sensor.
+        # Update new IP info to the database for the current $sensor.
         $sql = "UPDATE arp_cache SET ip = '$ip', last_seen = $ts WHERE mac = '$mac' AND sensorid = '$sensorid'";
         $er = $dbh->do($sql);
       }
@@ -667,16 +667,10 @@ sub add_arp_cache() {
           }
         }
         return 0;
+      } else {
+        $sql = "INSERT INTO arp_cache (mac, ip, sensorid, last_seen, manufacturer) VALUES ('$mac', '$ip', $sensorid, $ts, E'$man')";
+        $er = $dbh->do($sql);
       }
-      # FIXME
-      # This might actually be wrong. Do we really want to insert this record if we have possible just updated a similar
-      # record?
-      # Possible solution: add an "} else {" around this, which will make it "Update if exists, else insert", which 
-      # sounds more logical.
-      # 
-      # Added as bug #151
-      $sql = "INSERT INTO arp_cache (mac, ip, sensorid, last_seen, manufacturer) VALUES ('$mac', '$ip', $sensorid, $ts, E'$man')";
-      $er = $dbh->do($sql);
     }
     $arp_cache{"$mac"} = $ip;
   }
