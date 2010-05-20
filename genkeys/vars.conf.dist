@@ -1,0 +1,8 @@
+#!/usr/bin/perl
+
+do '/etc/surfnetids/surfnetids-tn.conf';
+require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
+
+$genkeys = "$c_surfidsdir/genkeys";
+$serverkeys = "$c_surfidsdir/serverkeys";
+$clientkeys = "$c_surfidsdir/clientkeys";
