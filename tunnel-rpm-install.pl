@@ -59,10 +59,12 @@ if (! -e "$targetdir/serverkeys/serial.old") {
   `echo "00" > $targetdir/serverkeys/serial.old`;
 }
 
-$perl = `grep perl $targetdir/genkeys/vars.conf | wc -l`;
-chomp($perl);
-if ($perl == 0) {
-    `mv -f $targetdir/genkeys/vars.conf $targetdir/genkeys/old_vars.conf `;
+if (-e "$targetdir/genkeys/vars.conf") {
+    $perl = `grep perl $targetdir/genkeys/vars.conf | wc -l 2>>$logfile`;
+    chomp($perl);
+    if ($perl == 0) {
+        `mv -f $targetdir/genkeys/vars.conf $targetdir/genkeys/old_vars.conf  2>>$logfile`;
+    }
 }
 
 if (! -e "$targetdir/genkeys/vars.conf") {
@@ -167,7 +169,18 @@ close(OPENVPN);
 `/etc/init.d/cron restart`;
 
 # Setting up apache authentication
-`htpasswd -b -c -m $targetdir/.htpasswd idssensor $htpasswd`;
+if (! -e "$targetdir/.htpasswd") {
+    `htpasswd -b -c -m $targetdir/.htpasswd idssensor $htpasswd`;
+}
+
+# Checking the apache2 ports.conf file for the correct listening port (4443) 
+if (-e "/etc/apache2/ports.conf") {
+    $chk = `cat /etc/apache2/ports.conf | grep -v '^#.*\$' | grep 4443 | wc -l 2>/dev/null`; 
+    chomp($chk); 
+    if ($chk == 0) { 
+        `echo "Listen $xinetd:4443" >> /etc/apache2/ports.conf 2>>$logfile`; 
+    }
+}
 
 $ENV{"SURFIDS_COMMONNAME"} = "$hostname CA";
 if (! -d "$ssldir") {
@@ -206,5 +219,13 @@ if ($chk == 0) {
         `echo "1000         _unused_" >> /etc/iproute2/rt_tables`;
     }
 }
+
+# Setting up reset_sensors_db.pl as init script and add to rc
+`cp $targetdir/tntools/reset_sensors_db.pl /etc/init.d/surfids-reset-sensors 2>>$logfile`;
+if (-e "/etc/init.d/postgresql-8.3") {
+    `update-rc.d -f postgresql-8.3 remove 2>>$logfile`;
+    `update-rc.d -f postgresql-8.3 defaults 18 21 2>>$logfile`;
+}
+`update-rc.d surfids-reset-sensors start 19 2 3 4 5 . 2>>$logfile`;
 
 print "You will need to make sure the httpd daemon is listening on port 4443!\n";
