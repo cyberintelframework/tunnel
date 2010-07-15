@@ -27,7 +27,7 @@ require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
 dbconnect();
 
-$sql = "SELECT sensors.id FROM sensors, sensor_details WHERE sensors.keyname = sensor_details.keyname AND status = 1 AND NOT permanent = 1";
+$sql = "SELECT sensors.id FROM sensors, sensor_details WHERE sensors.keyname = sensor_details.keyname AND (status = 1 OR status = 6) AND NOT permanent = 1";
 $sth = $dbh->prepare($sql);
 $er = $sth->execute();
 
