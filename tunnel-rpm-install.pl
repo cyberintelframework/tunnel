@@ -174,11 +174,11 @@ if (! -e "$targetdir/.htpasswd") {
 }
 
 # Checking the apache2 ports.conf file for the correct listening port (4443) 
-if (-e "/etc/apache2/ports.conf") {
-    $chk = `cat /etc/apache2/ports.conf | grep -v '^#.*\$' | grep 4443 | wc -l 2>/dev/null`; 
+if (-e "/etc/httpd/ports.conf") {
+    $chk = `cat /etc/httpd/ports.conf | grep -v '^#.*\$' | grep 4443 | wc -l 2>/dev/null`; 
     chomp($chk); 
     if ($chk == 0) { 
-        `echo "Listen $xinetd:4443" >> /etc/apache2/ports.conf 2>>$logfile`; 
+        `echo "Listen $xinetd:4443" >> /etc/httpd/ports.conf 2>>$logfile`; 
     }
 }
 
