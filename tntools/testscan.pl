@@ -83,16 +83,16 @@ foreach $line (@contents) {
 
         # Extract the virus from the line
         $temp = $line;
-        $temp =~ s/$getvirus/$1/;
-        $virus = $temp;
+        $temp =~ /$getvirus/;
+        $virus = $1;
         if ($v == 1) {
             print "VIRUS: $virus\n";
         }
 
         # Extract the binary from the line
         $temp = $line;
-        $temp =~ s/$getbin/$1/;
-        $binary = $temp;
+        $temp =~ /$getbin/;
+        $binary = $1;
         if ($b == 1) {
             print "BINARY: $binary\n";
         }
@@ -104,8 +104,8 @@ foreach $line (@contents) {
 
         # Extract the binary from the line
         $temp = $line;
-        $temp =~ s/$getbin/$1/;
-        $binary = $temp;
+        $temp =~ /$getbin/;
+        $binary = $1;
         if ($b == 1) {
             print "BINARY: $binary\n";
         }
