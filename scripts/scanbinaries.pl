@@ -36,7 +36,7 @@ require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 # Define scanners
 ####################
 $scanners->{"F-Prot"} = {
-            'cmd' => "/opt/f-prot/fpscan -v 2 --report --adware",
+            'cmd' => "/opt/f-prot/fpscan -v 2 -z 0 --report --adware",
             'update' => "/opt/f-prot/fpupdate",
             'version' => "/opt/f-prot/fpscan --version | grep \"F-PROT Antivirus version\" | awk -F'(' '{print \$1}' | awk '{print \$NF}'",
             'batchmode' => 0,
@@ -314,13 +314,13 @@ while ( my ($name, $config) = each(%$scanners) ) {
             if ($line =~ m/$matchvirus/) {
                 # Extract the virus from the line
                 $temp = $line;
-                $temp =~ s/$getvirus/$1/;
-                $virus = $temp;
+                $temp =~ /$getvirus/;
+                $virus = $1;
 
                 # Extract the binary from the line
                 $temp = $line;
-                $temp =~ s/$getbin/$1/;
-                $binary = $temp;
+                $temp =~ /$getbin/;
+                $binary = $1;
 
                 if (exists $results{$binary}) {
                     print "Skipping $binary - OLD: ". $results{$binary} ." - NEW: $virus\n";
@@ -356,17 +356,17 @@ while ( my ($name, $config) = each(%$scanners) ) {
                         $ts = time();
                         $chk = dbquery("INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($ts, $bid, $vid, $sid)");
                         print "[Scan] Adding new scan record\n";
+
+                        # Update the last scanned timestamp
+                        $ts = time();
+                        $chk = dbquery("UPDATE binaries_detail SET last_scanned = $ts WHERE bin = $bid");
                     }
                 }
-
-                # Update the last scanned timestamp
-                $ts = time();
-                $chk = dbquery("UPDATE binaries_detail SET last_scanned = $ts WHERE bin = $bid");
             } elsif ($line =~ m/$matchclean/) {
                 # Extract the binary from the line
                 $temp = $line;
-                $temp =~ s/$getbin/$1/;
-                $binary = $temp;
+                $temp =~ /$getbin/;
+                $binary = $1;
 
                 if (exists $results{$binary}) {
                     print "Skipping $binary - OLD: ". $results{$binary} ." - NEW: OK\n";
@@ -389,12 +389,12 @@ while ( my ($name, $config) = each(%$scanners) ) {
                         $ts = time();
                         $chk = dbquery("INSERT INTO binaries (timestamp, bin, info, scanner) VALUES ($ts, $bid, $vid, $sid)");
                         print "[Scan] Adding new scan record\n";
+
+                        # Update the last scanned timestamp
+                        $ts = time();
+                        $chk = dbquery("UPDATE binaries_detail SET last_scanned = $ts WHERE bin = $bid");
                     }
                 }
-
-                # Update the last scanned timestamp
-                $ts = time();
-                $chk = dbquery("UPDATE binaries_detail SET last_scanned = $ts WHERE bin = $bid");
             }
         }
     }
