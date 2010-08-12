@@ -227,7 +227,8 @@ foreach $file (@contents) {
     # BINARIES_DETAIL
     ##############
     # Check if the binary was already in the binaries_detail table.
-    $chk = dbnumrows("SELECT bin FROM binaries_detail WHERE bin = $bid");
+    $sth = dbquery("SELECT bin, first_seen, last_seen FROM binaries_detail WHERE bin = $bid");
+    $chk = $sth->rows;
     if ($chk == 0) {
 
         # Getting the info from linux file command.
@@ -237,10 +238,76 @@ foreach $file (@contents) {
         $fileinfo = $fileinfo[1];
         chomp($fileinfo);
 
+        # Get the first_seen timestamp
+        # ORDER BY attacks.id is faster than ordering by timestamp
+        $sql = "SELECT attacks.timestamp FROM attacks, details ";
+        $sql .= " WHERE details.attackid = attacks.id AND details.type = 8 ";
+        $sql .= " AND details.text = '$file' ORDER BY attacks.id ASC LIMIT 1";
+        $sth = dbquery($sql);
+        if ($sth->rows > 0) {
+            @row = $sth->fetchrow_array;
+            $first_seen = $row[0];
+        } else {
+            $first_seen = 0;
+        }
+
+        # Get the last_seen timestamp
+        # ORDER BY attacks.id is faster than ordering by timestamp
+        $sql = "SELECT attacks.timestamp FROM attacks, details ";
+        $sql .= " WHERE details.attackid = attacks.id AND details.type = 8 ";
+        $sql .= " AND details.text = '$file' ORDER BY attacks.id DESC LIMIT 1";
+        $sth = dbquery($sql);
+        if ($sth->rows > 0) {
+            @row = $sth->fetchrow_array;
+            $last_seen = $row[0];
+        } else {
+            $last_seen = 0;
+        }
+
         # Getting the file size.
         $filesize = (stat($filepath))[7];
-        $chk = dbquery("INSERT INTO binaries_detail (bin, fileinfo, filesize) VALUES ($bid, '$fileinfo', $filesize)");
+
+        # Add record
+        $sql = "INSERT INTO binaries_detail (bin, fileinfo, filesize, first_seen, last_seen) ";
+        $sql .= " VALUES ($bid, '$fileinfo', $filesize, $first_seen, $last_seen)";
+        $chk = dbquery($sql);
         print "[Detail] Adding new detail record\n";
+    } else {
+        @row = $sth->fetchrow_array;
+        $first_seen = $row[1];
+        $last_seen = $row[2];
+        if ($first_seen == 0) {
+            # Get the first_seen timestamp
+            # ORDER BY attacks.id is faster than ordering by timestamp
+            $sql = "SELECT attacks.timestamp FROM attacks, details ";
+            $sql .= " WHERE details.attackid = attacks.id AND details.type = 8 ";
+            $sql .= " AND details.text = '$file' ORDER BY attacks.id ASC LIMIT 1";
+            $sth = dbquery($sql);
+            if ($sth->rows > 0) {
+                @row = $sth->fetchrow_array;
+                $first_seen = $row[0];
+            } else {
+                $first_seen = 0;
+            }
+            $sql = "UPDATE binaries_detail SET first_seen = $first_seen WHERE bin = '$bid'";
+            dbquery($sql);
+        }
+        if ($last_seen == 0) {
+            # Get the last_seen timestamp
+            # ORDER BY attacks.id is faster than ordering by timestamp
+            $sql = "SELECT attacks.timestamp FROM attacks, details ";
+            $sql .= " WHERE details.attackid = attacks.id AND details.type = 8 ";
+            $sql .= " AND details.text = '$file' ORDER BY attacks.id DESC LIMIT 1";
+            $sth = dbquery($sql);
+            if ($sth->rows > 0) {
+                @row = $sth->fetchrow_array;
+                $last_seen = $row[0];
+            } else {
+                $last_seen = 0;
+            }
+            $sql = "UPDATE binaries_detail SET last_seen = $last_seen WHERE bin = '$bid'";
+            dbquery($sql);
+        }
     }
 
     #############
