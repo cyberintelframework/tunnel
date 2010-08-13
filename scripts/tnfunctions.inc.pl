@@ -3,13 +3,14 @@
 ####################################
 # Function library                 #
 # SURFids 3.10                     #
-# Changeset 007                    #
-# 15-03-2010                       #
+# Changeset 008                    #
+# 19-03-2010                       #
 # Jan van Lith & Kees Trippelvitz  #
 ####################################
 
 #####################
 # Changelog:
+# 008 Added logsys_no_db function
 # 007 Resolved change #182
 # 006 Fixed bug #175
 # 005 Fixed bug #153
@@ -75,6 +76,15 @@ $f_log_crit = 4;
 # 6.08		get_man
 # 6.09		chk_static_arp
 # 6.10		chk_dhcp_server
+# 6.12      parse_icmp6_advertisement
+# 6.13      parse_icmp6_options
+# 6.14      ipv6
+# 6.15      refresh_mail
+# 6.16      handle_alert_mail
+# 6.17      add_dhcp_alert
+# 6.18      add_ipv6_alert
+# 6.19      add_ipv6_detail
+# 6.20      normalize_ipv6
 #
 # 7 ALL tool functions
 # 7.01		hextoip
@@ -102,6 +112,7 @@ $f_log_crit = 4;
 # 9.07		check_interface_ip
 # 9.08      sys_exec
 # 9.10      parse_upx
+# 9.11      logsys_no_db
 ###############################################
 
 #####################################
@@ -682,141 +693,42 @@ sub add_arp_cache() {
 # Returns 0 on success
 # Returns non-zero on failure
 sub add_arp_alert() {
-  my ($targetmac, $targetip, $sourcemac, $sourceip, $sensorid, $chk, @row, $sql, $sth, $er, $ts, $expires, $expiry, $mailfile, $subject, $atype, $ident);
-  our %dhcp_mail;
+  my ($targetmac, $targetip, $sourcemac, $sourceip, $sensorid, $cs, @row, $sql, $sth, $er, $expiry, $aid);
   $targetmac = $_[0];
   $sourcemac = $_[1];
   $targetip = $_[2];
   $sourceip = $_[3];
   $sensorid = $_[4];
-  $atype = $_[5];
-  $ident = $_[6];
   chomp($targetmac);
   chomp($sourcemac);
   chomp($targetip);
   chomp($sourceip);
   chomp($sensorid);
-  chomp($atype);
-  chomp($ident);
-  $ts = time();
 
-  if ("$sensorid" eq "") {
-    return 1;
-  }
+  "$sensorid" eq "" ? return 1 : $sensorid;
+  "$targetip" eq "" ? return 2 : $targetip;
+  "$targetmac" eq "" ? return 3 : $targetmac;
+  "$sourcemac" eq "" ? return 4 : $sourcemac;
+  "$sourceip" eq "" ? return 5 : $sourceip;
 
-  if ("$atype" eq "") {
-    return 6;
-  }
-
-  if ($atype == 10) {
-    if ("$targetip" eq "") {
-      return 2;
-    }
-
-    if ("$targetmac" eq "") {
-      return 3;
-    }
-  }
-
-  if ("$sourcemac" eq "") {
-    return 4;
-  }
-
-  if ("$sourceip" eq "") {
-    return 5;
-  }
-
-  if (!exists $arp_alert{"$sensorid-$sourcemac-$targetip-$atype"}) {
+  if (!exists $arp_alert{"$sensorid-$sourcemac-$targetip"}) {
     $expiry = 0;
   } else {
-    $expiry = $arp_alert{"$sensorid-$sourcemac-$targetip-$atype"};
+    $expiry = $arp_alert{"$sensorid-$sourcemac-$targetip"};
   }
   $cs = time();
   if ($cs > $expiry) {
-    if ($atype == 10) {
-      $sql = "INSERT INTO attacks (sensorid, timestamp, dst_mac, src_mac, dest, source, severity, atype) ";
-      $sql .= " VALUES ($sensorid, $ts, '$targetmac', '$sourcemac', '$targetip', '$sourceip', 1, $atype)";
-    } else {
-      $sql = "INSERT INTO attacks (sensorid, timestamp, src_mac, source, severity, atype) ";
-      $sql .= " VALUES ($sensorid, $ts, '$sourcemac', '$sourceip', 1, $atype)";
-    }
-    $sth = $dbh->prepare($sql);
-    $er = $sth->execute();
-
-    if ($atype == 11) {
-      if ("$ident" ne "") {
-        $sql = "SELECT last_value FROM attacks_id_seq";
-        $sth = $dbh->prepare($sql);
-        $er = $sth->execute();
-        @row = $sth->fetchrow_array;
-        $aid = $row[0];
-        if ("$aid" ne "") {
-          $sql = "INSERT INTO details (attackid, sensorid, type, text) ";
-          $sql .= " VALUES ($aid, $sensorid, 30, '$ident')";
-          $sth = $dbh->prepare($sql);
-          $er = $sth->execute();
-        }
-      }
-    }
-
-    # Setting up expiry date
-    $expires = $ts + $c_arp_alert_expiry;
-    $arp_alert{"$sensorid-$sourcemac-$targetip-$atype"} = $expires;
-
-    $sql_getsid = "SELECT keyname, vlanid FROM sensors WHERE id = '$sensorid'";
-    $sth_getsid = $dbh->prepare($sql_getsid);
-    $er = $sth_getsid->execute();
-    @row_sid = $sth_getsid->fetchrow_array;
-    $keyname = $row_sid[0];
-    $vlanid = $row_sid[1];
-    if ($vlanid != 0) {
-      $keyname = "$keyname-$vlanid";
-    }
-
-    if ($atype == 10) {
-      # ARP MAIL STUFF
-      $mailfile = "/tmp/" .$sensorid. ".arp.mail";
-      open(MAIL, "> $mailfile");
-      print MAIL "ARP Poisoning attack detected on $keyname!\n\n";
-      print MAIL "An attacker with MAC address $sourcemac is trying to take over $targetip ($targetmac)!\n";
-      close(MAIL);
-      $subject = $c_subject_prefix ."ARP Poisoning attempt detected on $keyname!";
-
-      # email address, mailfile, sensorid, subject, gpg
-      for my $email (keys %arp_mail) {
-        $temp = $arp_mail{"$email"};
-        @temp = split(/-/, $temp);
-        $gpg = $temp[0];
-        $rcid = $temp[1];
-        sendmail($email, $mailfile, $sensorid, $subject, $gpg, $rcid);
-      }
-    } elsif ($atype == 11) {
-      # DHCP MAIL STUFF
-      $mailfile = "/tmp/" .$sensorid. ".dhcp.mail";
-      open(MAIL, "> $mailfile");
-      print MAIL "Rogue DHCP server detected on $keyname!\n\n";
-      print MAIL "A host with source address $sourcemac ($sourceip) is trying to offer DHCP leases!\n";
-      close(MAIL);
-      $subject = $c_subject_prefix ."Rogue DHCP server detected on $keyname!";
-
-      # email address, mailfile, sensorid, subject, gpg
-      for my $email (keys %dhcp_mail) {
-        $temp = $dhcp_mail{"$email"};
-        @temp = split(/-/, $temp);
-        $gpg = $temp[0];
-        $rcid = $temp[1];
-        sendmail($email, $mailfile, $sensorid, $subject, $gpg, $rcid);
-      }
-
-      # Setting last_sent timestamp
-      $ts = time();
-      $sql = "UPDATE report_content SET last_sent = '$ts' WHERE template = 7 AND sensor_id = '$sensorid'";
+      # ARP
+      $sql = "SELECT surfids3_arp_add_by_id(1, '$targetmac', '$sourcemac', '$targetip', '$sourceip', $sensorid, $atype)";
       $sth = $dbh->prepare($sql);
       $er = $sth->execute();
-    }
+      @row = $sth->fetchrow_array;
+      $aid = $row[0];
 
-    # Removing mailfile
-    `rm -f $mailfile`;
+      # Setting up expiry date
+      $expiry = $cs + $c_arp_alert_expiry;
+      $arp_alert{"$sensorid-$sourcemac-$targetip"} = $expiry;
+      handle_alert_mail("arp", $sensorid, $sourcemac, $targetmac, $targetip);
   }
   return 0;
 }
@@ -895,9 +807,10 @@ sub add_proto_type() {
     $sniff_protos_icmp{"$nr-$code"} = 0;
   } elsif ($head == 12) {
     $sniff_protos_igmp{"$nr"} = 0;
-    $code = -1;
   } elsif ($head == 11768) {
     $sniff_protos_dhcp{$nr} = 0;
+  } elsif ($head == 34525) {
+    $sniff_protos_ipv6{$nr} = 0;
   }
 #  print "ADDPROTOTYPE: SID $sensorid - HEAD $head - NR $nr - PROTO $proto\n";
 
@@ -969,6 +882,17 @@ sub refresh_protos() {
       $nr = $row[0];
       $sniff_protos_dhcp{"$nr"} = 0;
     }
+  } elsif ($head == 34525) {
+    # Filling the local scripts protocol list (IPV6TYPES)
+    $sql = "SELECT number FROM sniff_protos WHERE sensorid = $sensorid AND parent = 34525";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    %sniff_protos_ipv6 = ();
+    while (@row = $sth->fetchrow_array) {
+      $nr = $row[0];
+      $sniff_protos_ipv6{"$nr"} = 0;
+    }
   }
   return "true";
 }
@@ -976,16 +900,40 @@ sub refresh_protos() {
 # 6.06 refresh_static
 # Function to refresh the detectarp static list hash
 sub refresh_static() {
-  my ($sql, $sth, $er, @row, $db_mac, $dp_ip);
-  $sql = "SELECT mac, ip FROM arp_static WHERE sensorid = $sensorid";
-  $sth = $dbh->prepare($sql);
-  $er = $sth->execute();
-  while (@row = $sth->fetchrow_array) {
-    $db_mac = $row[0];
-    $db_ip = $row[1];
-    $arp_static{"$db_ip"} = $db_mac;
-  }
-  return 0;
+    my ($sql, $sth, $er, @row, $db_mac, $dp_ip, $type);
+    $type = $_[0];
+    if ("$type" eq "arp") {
+        $sql = "SELECT mac, ip FROM arp_static WHERE sensorid = $sensorid";
+    } elsif ("$type" eq "dhcp") {
+        $sql = "SELECT ip FROM dhcp_static WHERE sensorid = $sensorid";
+    } elsif ("$type" eq "ipv6") {
+        $sql = "SELECT ip FROM ipv6_static WHERE sensorid = $sensorid";
+    }
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+    while (@row = $sth->fetchrow_array) {
+        if ("$type" eq "arp") {
+            $db_mac = $row[0];
+            $db_ip = $row[1];
+            $arp_static{"$db_ip"} = $db_mac;
+        } elsif ("$type" eq "dhcp") {
+            $db_ip = $row[0];
+            $dhcp_static{"$db_ip"} = 1;
+        } elsif ("$type" eq "ipv6") {
+            $db_ip = $row[0];
+            $db_ip = normalize_ipv6($db_ip);
+            print "Refreshed $db_ip \n";
+            $ipv6_static{"$db_ip"} = 1;
+        }
+    }
+#    if ("$type" eq "arp") {
+#        return %arp_static;
+#    } elsif ("$type" eq "dhcp") {
+#        return %dhcp_static;
+#    } elsif ("$type" eq "ipv6") {
+#        return %ipv6_static;
+#    }
+    return 0;
 }
 
 # 6.07 refresh_cache
@@ -1067,7 +1015,7 @@ sub chk_static_arp() {
     } else {
       if ("$mac" ne "$staticmac") {
         # Alert!!
-        $chk = &add_arp_alert($staticmac, $mac, $ip, $ip, $sensorid, 10);
+        $chk = &add_arp_alert($staticmac, $mac, $ip, $ip, $sensorid);
         # Modifying ARP cache
         $man = &get_man($mac);
         if ("$man" eq "false") {
@@ -1088,18 +1036,330 @@ sub chk_static_arp() {
 # 6.10 chk_dhcp_server
 # Function to check if a detected dhcp server is allowed
 sub chk_dhcp_server() {
-  my ($mac, $ip, $chk, $ident);
+  my ($mac, $ip, $chk, $dhcp_obj);
   $mac = $_[0];
   $ip = $_[1];
-  $ident = $_[2];
+  $ident = $_[2] ? $_[2] : "";
   chomp($mac);
   chomp($ip);
   chomp($ident);
-
   if (! exists $dhcp_static{"$ip"}) {
-    $chk = &add_arp_alert("", $mac, "", $ip, $sensorid, 11, "$ident");
+    $chk = &add_dhcp_alert($mac, $ip, $sensorid, $ident);
   }
   return 0;
+}
+
+# 6.12 parse_icmp6_advertisement
+# Function to parse an ICMP router advertisement package for IPv6
+# Returns parsed package
+sub parse_icmp6_advertisement() {
+    my ($code, $type, $csum, $chlimit, $flags, $source, $target, $unpacked, $rlife, $reach, $retrans, $options);
+    $unpacked = $_[0];
+    $type = substr($unpacked, 0, 2);
+    $code = substr($unpacked, 2, 2);
+    $csum = substr($unpacked, 4, 4);
+    $chlimit = substr($unpacked, 8, 2);
+    $flags = substr($unpacked, 10, 2);
+    $rlife = substr($unpacked, 12, 4);
+    $reach = substr($unpacked, 16, 8);
+    $retrans = substr($unpacked, 24, 8);
+    # The rest are all ICMPv6 option fields
+    $options = substr($unpacked, 32);
+    return ($type, $code, $csum, $chlimit, $flags, $rlife, $reach, $retrans, $options);
+}
+
+# 6.13 parse_icmp6_options
+# Function to parse the options segment of an icmp6 router advertisement
+sub parse_icmp6_options() {
+    my ($unpacked, $len, $preflen, $flags, $valid, $preferred, $reserved, $prefix, $type, $aid, $sensorid);
+    $unpacked = $_[0];
+    $sensorid = $_[1];
+    $aid = $_[2];
+    # First check the type of option
+    $type = substr($unpacked, 0, 2);
+    if ($type eq "01") {
+        # Source link-layer address
+        $len = substr($unpacked, 2, 2);
+        $len = $len * 8 * 2;
+        $next_option = substr($unpacked, $len);
+        return $next_option;
+    } elsif ($type eq "02") {
+        # Target link-layer address
+        $len = substr($unpacked, 2, 2);
+        $len = $len * 8 * 2;
+        $next_option = substr($unpacked, $len);
+        return $next_option;
+    } elsif ($type eq "03") {
+        # Prefix information
+        $len = substr($unpacked, 2, 2);
+        $len = $len * 8 * 2;
+        $preflen = substr($unpacked, 4, 2);
+        $flags = substr($unpacked, 6, 2);
+        $valid = substr($unpacked, 8, 8);
+        $preferred = substr($unpacked, 16, 8);
+        $reserved = substr($unpacked, 24, 8);
+        $prefix = substr($unpacked, 32, $len);
+        $prefix = ipv6($prefix);
+        $next_option = substr($unpacked, $len);
+        print "PREFIX: $prefix \n";
+        add_ipv6_detail($sensorid, $aid, 33, $prefix);
+        return $next_option;
+    } elsif ($type eq "04") {
+        # Redirected
+        $len = substr($unpacked, 2, 2);
+        $len = $len * 8 * 2;
+        $next_option = substr($unpacked, $len);
+        return $next_option;
+    } elsif ($type eq "05") {
+        # MTU info
+        $len = substr($unpacked, 2, 2);
+        $len = $len * 8 * 2;
+        $next_option = substr($unpacked, $len);
+        return $next_option;
+    }
+    return "";
+}
+
+# 6.14 ipv6
+# Function to convert a hex string to a proper IPv6 address
+# Returns IPv6 address
+sub ipv6 {
+    my ($unpacked, $address, $nugget);
+    $unpacked = $_[0];
+    $address = "";
+    while ("$unpacked" ne "") {
+        $nugget = substr($unpacked, 0, 4);
+        $nugget =~ s/^0000$/:/;
+        $nugget =~ s/^0*//;
+        if (index($nugget, ":") == -1) {
+            $nugget .= ":";
+        }
+        $unpacked = substr($unpacked, 4);
+        $address .= $nugget;
+    }
+    $address =~ s/:*$/::/;
+    return $address;
+}
+
+# 6.15 refresh_mail
+# Function to refresh the mail hashes
+# Returns nothing
+sub refresh_mail() {
+    my ($sql, $sth, $er, @row, $db_mac, $dp_ip, $template, $type, $org, $admin_org, $sensorid);
+    $type = $_[0];
+    $org = $_[1];
+    $admin_org = $_[2];
+    $sensorid = $_[3];
+    if ("$type" ne "") {
+        if ("$type" eq "arp") {
+            %arp_mail = ();
+            $template = 5
+        } elsif ("$type" eq "dhcp") {
+            %dhcp_mail = ();
+            $template = 7;
+        } elsif ("$type" eq "ipv6") {
+            %ipv6_mail = ();
+            $template = 8;
+        }
+    }
+
+    # Get the info needed for the mailreport stuff
+    $sql = "SELECT login.email, login.gpg, report_content.sensor_id, report_content.id FROM report_content, login ";
+    $sql .= " WHERE login.id = report_content.user_id AND report_content.template = $template AND report_content.active = TRUE ";
+    $sql .= " AND (report_content.sensor_id = $sensorid OR (report_content.sensor_id = -1 AND ";
+    $sql .= " (login.organisation = $org OR login.organisation = $admin_org)))";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+
+    while (@row = $sth->fetchrow_array) {
+        $email = $row[0];
+        $gpg = $row[1];
+        $db_sid = $row[2];
+        $rcid = $row[3];
+        if ("$db_sid" eq "-1" || "$db_sid" eq "$sensorid") {
+            if ("$type" eq "arp") {
+                $arp_mail{"$email"} = "$gpg-$rcid";
+            } elsif ("$type" eq "dhcp") {
+                $dhcp_mail{"$email"} = "$gpg-$rcid";
+            } elsif ("$type" eq "ipv6") {
+                $ipv6_mail{"$email"} = "$gpg-$rcid";
+            }
+        }
+    }
+}
+
+# 6.16 handle_alert_mail
+# Function to handle the mails of the different ethernet attacks
+sub handle_alert_mail {
+    my ($sql, $sth, $er, @row, $keyname, $vlanid, $atype, $sensorid, $mailfile, $subject, $temp, @temp, $gpg, $rcid);
+    $type = $_[0];
+    $sensorid = $_[1];
+
+    $sql = "SELECT keyname, vlanid FROM sensors WHERE id = '$sensorid'";
+    print "SQL (handle_alert_mail): $sql \n";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+    @row = $sth->fetchrow_array;
+    $keyname = $row[0];
+    $vlanid = $row[1];
+    if ($vlanid != 0) {
+        $keyname = "$keyname-$vlanid";
+    }
+
+    if ("$type" eq "arp") {
+        $sourcemac = $_[2];
+        $targetmac = $_[3];
+        $targetip = $_[4];
+
+        # ARP MAIL STUFF
+        $mailfile = "/tmp/" .$sensorid. ".arp.mail";
+        open(MAIL, "> $mailfile");
+        print MAIL "ARP Poisoning attack detected on $keyname!\n\n";
+        print MAIL "An attacker with MAC address $sourcemac is trying to take over $targetip ($targetmac)!\n";
+        close(MAIL);
+        $subject = $c_subject_prefix ."ARP Poisoning attempt detected on $keyname!";
+
+        # email address, mailfile, sensorid, subject, gpg
+        for my $email (keys %arp_mail) {
+            $temp = $arp_mail{"$email"};
+            @temp = split(/-/, $temp);
+            $gpg = $temp[0];
+            $rcid = $temp[1];
+            sendmail($email, $mailfile, $sensorid, $subject, $gpg, $rcid);
+        }
+    } elsif ("$type" eq "dhcp") {
+        $sourcemac = $_[2];
+        $sourceip = $_[3];
+
+        # DHCP MAIL STUFF
+        $mailfile = "/tmp/" .$sensorid. ".dhcp.mail";
+        open(MAIL, "> $mailfile");
+        print MAIL "Rogue DHCP server detected on $keyname!\n\n";
+        print MAIL "A host with source address $sourcemac ($sourceip) is trying to offer DHCP leases!\n";
+        close(MAIL);
+        $subject = $c_subject_prefix ."Rogue DHCP server detected on $keyname!";
+
+        # email address, mailfile, sensorid, subject, gpg
+        for my $email (keys %dhcp_mail) {
+            $temp = $dhcp_mail{"$email"};
+            @temp = split(/-/, $temp);
+            $gpg = $temp[0];
+            $rcid = $temp[1];
+            sendmail($email, $mailfile, $sensorid, $subject, $gpg, $rcid);
+        }
+    } elsif ("$type" eq "ipv6") {
+        $sourceip = normalize_ipv6($_[2]);
+
+        # IPv6 MAIL STUFF
+        $mailfile = "/tmp/" .$sensorid. ".ipv6.mail";
+        open(MAIL, "> $mailfile");
+        print MAIL "IPv6 Man-in-the-Middle attack detected on $keyname!\n\n";
+        print MAIL "A host with source address $sourceip is trying reroute your IPv6 traffic!\n";
+        close(MAIL);
+        $subject = $c_subject_prefix ."IPv6 MitM detected on $keyname!";
+
+        # email address, mailfile, sensorid, subject, gpg
+        for my $email (keys %ipv6_mail) {
+            $temp = $ipv6_mail{"$email"};
+            @temp = split(/-/, $temp);
+            $gpg = $temp[0];
+            $rcid = $temp[1];
+            print "Sending ipv6 mail to $email \n";
+            sendmail($email, $mailfile, $sensorid, $subject, $gpg, $rcid);
+        }
+    }
+}
+
+# 6.17 add_dhcp_alert
+# Function to add a dhcp alert
+sub add_dhcp_alert {
+    my ($sourcemac, $sourceip, $sensorid, $cs, @row, $sql, $sth, $er, $expiry, $ident, $aid);
+    $sourcemac = $_[0];
+    $sourceip = $_[1];
+    $sensorid = $_[2];
+    $ident = $_[3];
+    chomp($sourcemac);
+    chomp($sourceip);
+    chomp($sensorid);
+    chomp($ident);
+
+    "$sensorid" eq "" ? return 1 : $sensorid;
+    "$sourcemac" eq "" ? return 2 : $sourcemac;
+    "$sourceip" eq "" ? return 3 : $sourceip;
+
+    if (!exists $dhcp_alert{"$sensorid-$sourcemac-$sourceip"}) {
+        $expiry = 0;
+    } else {
+        $expiry = $dhcp_alert{"$sensorid-$sourcemac-$sourceip"};
+    }
+    $cs = time();
+    if ($cs > $expiry) {
+        $sql = "SELECT surfids3_dhcp_add_by_id($sensorid, '$sourcemac', '$sourceip', 1, 11)";
+        $sth = $dbh->prepare($sql);
+        $er = $sth->execute();
+        @row = $sth->fetchrow_array;
+        $aid = $row[0];
+
+        if ("$ident" ne "") {
+            if ("$aid" ne "") {
+                $sql = "INSERT INTO details (attackid, sensorid, type, text) ";
+                $sql .= " VALUES ($aid, $sensorid, 30, '$ident')";
+                $sth = $dbh->prepare($sql);
+                $er = $sth->execute();
+            }
+        }
+        handle_alert_mail("dhcp", $sensorid, $sourcemac, $sourceip);
+        $expiry = $cs + $c_dhcp_alert_expiry;
+        $dhcp_alert{"$sensorid-$sourcemac-$sourceip"} = $expiry;
+    }
+}
+
+# 6.18 add_ipv6_alert
+# Function to add an IPv6 alert
+sub add_ipv6_alert {
+    my ($sourcemac, $sourceip, $sensorid, @row, $sql, $sth, $er, $ident, $aid);
+    $sensorid = $_[0];
+    $sourceip = $_[1];
+    chomp($sourceip);
+    chomp($sensorid);
+    $sourceip = normalize_ipv6($sourceip);
+
+    "$sensorid" eq "" ? return -1 : $sensorid;
+    "$sourceip" eq "" ? return -1 : $sourceip;
+
+    $sql = "SELECT surfids3_ipv6_add_by_id($sensorid, '$sourceip'::inet, 1, 12)";
+    print "SQL (add_ipv6_alert): $sql \n";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+    @row = $sth->fetchrow_array;
+    $aid = $row[0];
+    handle_alert_mail("ipv6", $sensorid, $sourceip);
+    return $aid;
+}
+
+# 6.19 add_ipv6_detail
+# Function to add a detail record for an IPv6 attack
+sub add_ipv6_detail {
+    my ($sensorid, $aid, $dtype, $info, $sql, $sth, $er);
+    $sensorid = $_[0];
+    $aid = $_[1];
+    $dtype = $_[2];
+    $info = $_[3];
+
+    $sql = "SELECT surfids3_detail_add_by_id($aid, $sensorid, $dtype, '$info')";
+    print "SQL (add_ipv6_detail): $sql \n";
+    $sth = $dbh->prepare($sql);
+    $er = $sth->execute();
+}
+
+# 6.20 normalize_ipv6
+# Function to normalize an IPv6 address
+sub normalize_ipv6 {
+    my ($address);
+    $address = $_[0];
+    $address =~ s/(:0{1,})/:/g;
+    $address =~ s/:{2,}/::/g;
+    return $address;
 }
 
 #####################################
@@ -1524,6 +1784,7 @@ sub logsys() {
   chomp($msg);		
 
   if ($level >= $c_log_level) {
+    # FIXME: again? Possible remove this part.
     if (!$source) { $source = "unknown"; }
     if (!$sensor) { $sensor = "unknown"; }
     if (!$tap)    { $tap    = "unknown"; }
@@ -1683,5 +1944,48 @@ sub parse_upx() {
     }
     return $info;
 }
+
+# 9.11 logsys_no_db
+# Logsys function when no DB connection is present
+sub logsys_no_db() {
+  my ($ts, $level, $msg, $sql, $er, $tsensor);    # local variables
+  our $source;
+  our $sensor;
+  our $tap;		
+  our $pid;
+  our $g_vlanid;
+
+  if (!$source) { $source = "unknown"; }
+  if (!$sensor) { $sensor = "unknown"; }
+  if (!$tap)    { $tap    = "unknown"; }
+  if (!$pid)	{ $pid 	  = 0; }
+  if (!$g_vlanid) { $g_vlanid = 0; }
+
+  $level = $_[0];	# Loglegel (DEBUG, INFO, WARN, ERROR, CRIT)
+  $msg = $_[1];		# Message (START_SCRIPT, STOP_SCRIPT, etc )
+  chomp($msg);		
+
+  if ($level >= $c_log_level) {
+    if ($_[2]) {
+      $args = $_[2];
+      chomp($args);
+    } else {
+      $args = "";
+    }
+
+    if ($c_log_method == 1 || $c_log_method == 3) {
+      $tsensor = $sensor;
+      if ($g_vlanid != 0) {
+        $tsensor = "$sensor-$g_vlanid";
+      }
+      $ts = &getts();
+      open LOG,  ">>/var/log/surfids.log" || die ("cant open log: $!");
+      print LOG "[$ts] $pid $source $tsensor $msg $args\n";
+      close LOG;
+    }
+  }
+  return "true";
+}
+
 
 return "true";

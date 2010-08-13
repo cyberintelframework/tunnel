@@ -42,7 +42,7 @@
 ##################
 # Includes
 ##################
-use vars qw($c_surfidsdir $c_sql_dhcp_retries $c_enable_pof $c_enable_arp);
+use vars qw($c_surfidsdir $c_sql_dhcp_retries $c_enable_pof $c_ethernet_module);
 do '/etc/surfnetids/surfnetids-tn.conf';
 require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 
@@ -91,7 +91,7 @@ if ($result eq 'false') {
 }
 
 # Get the IP address configuration for the tap device from the database.
-my $res = dbquery("SELECT networkconfig, vlanid, arp, id FROM sensors WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
+my $res = dbquery("SELECT networkconfig, vlanid, id FROM sensors WHERE keyname = '$sensor' AND status > 0 AND NOT status = 3");
 if ($res->rows == 0) {
     # no records
     logsys($f_log_error, "NO_SENSOR_RECORD", "No entries for $sensor are configured" );
@@ -104,8 +104,7 @@ for(my $i = 0; $i < $res->rows; $i++) {
     my $netconf = $row[0];
     my $vlanid = $row[1];
     $g_vlanid = $vlanid;
-    my $arp = $row[2];
-    my $sensorid = $row[3];
+    my $sensorid = $row[2];
     my $dev;
 
     # The device we're going to work with is something like tap0 or tap0.13,
@@ -190,9 +189,9 @@ for(my $i = 0; $i < $res->rows; $i++) {
         logsys($f_log_info, "NOTIFY", "Started passive TCP fingerprinting");
     }
 
-    if ($c_enable_arp == 1 && $arp == 1) {
+    if ($c_ethernet_module == 1) {
         system("$c_surfidsdir/scripts/detectarp.pl $dev $sensorid &");
-        logsys($f_log_info, "NOTIFY", "Started ARP & Rogue DHCP detection");
+        logsys($f_log_info, "NOTIFY", "Started Ethernet detection");
     }
 }
 $g_vlanid = 0;
