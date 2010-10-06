@@ -141,19 +141,19 @@ $er = $sth->execute();
 $admin_org = $row[0];
 
 if ($db_arp == 1) {
-  print "[ARP] refresh_mail\n";
+#  print "[ARP] refresh_mail\n";
   %arp_mail = ();
   refresh_mail("arp", $org, $admin_org, $sensorid);
 }
 
 if ($db_dhcp == 1) {
-  print "[DHCP] refresh_mail\n";
+#  print "[DHCP] refresh_mail\n";
   %dhcp_mail = ();
   refresh_mail("dhcp", $org, $admin_org, $sensorid);
 }
 
 if ($db_ipv6 == 1) {
-  print "[IPv6] refresh_mail\n";
+#  print "[IPv6] refresh_mail\n";
   %ipv6_mail = ();
   refresh_mail("ipv6", $org, $admin_org, $sensorid);
 }
@@ -172,13 +172,13 @@ $mail_refresh = $ts + $c_mail_refresh;
 %sniff_protos_dhcp = ();
 
 if ($db_arp == 1) {
-  print "[ARP] refresh_cache\n";
+#  print "[ARP] refresh_cache\n";
   %arp_cache = ();
   refresh_cache();
   $ts = time();
   $cache_refresh = $ts + $c_arp_cache_refresh;
 
-  print "[ARP] refresh_static\n";
+#  print "[ARP] refresh_static\n";
   %arp_static = ();
   refresh_static("arp");
   $ts = time();
@@ -186,7 +186,7 @@ if ($db_arp == 1) {
 }
 
 if ($db_dhcp == 1) {
-  print "[DHCP] refresh_static\n";
+#  print "[DHCP] refresh_static\n";
   %dhcp_static = ();
   refresh_static("dhcp");
   $ts = time();
@@ -194,7 +194,7 @@ if ($db_dhcp == 1) {
 }
 
 if ($db_ipv6 == 1) {
-  print "[IPv6] refresh_static\n";
+#  print "[IPv6] refresh_static\n";
   %ipv6_static = ();
   refresh_static("ipv6");
   $ts = time();
@@ -379,20 +379,18 @@ sub filter_packets {
 
   if ($ts > $mail_refresh) {
     if ($db_arp == 1) {
-      print "[ARP] refresh arp_mail\n";
+#      print "[ARP] refresh arp_mail\n";
       refresh_mail("arp", $org, $admin_org, $sensorid);
     }
 
     if ($db_dhcp == 1) {
-      print "[DHCP] refresh dhcp_mail\n";
+#      print "[DHCP] refresh dhcp_mail\n";
       refresh_mail("dhcp", $org, $admin_org, $sensorid);
     }
 
     if ($db_ipv6 == 1) {
-      print "[IPv6] refresh ipv6_mail\n";
+#      print "[IPv6] refresh ipv6_mail\n";
       refresh_mail("ipv6", $org, $admin_org, $sensorid);
-    } else {
-      print "[IPv6] not refreshing \n";
     }
     $ts = time();
     $mail_refresh = $ts + $c_mail_refresh;
@@ -401,7 +399,7 @@ sub filter_packets {
   if ($db_dhcp == 1) {
     # Checking to see if we need to refresh the static dhcp list
     if ($ts > $dhcp_refresh) {
-      print "[DHCP] refresh dhcp_static\n";
+#      print "[DHCP] refresh dhcp_static\n";
       %dhcp_static = ();
       refresh_static("dhcp");
       $ts = time();
@@ -490,7 +488,7 @@ sub filter_packets {
         }
 
         if ($db_dhcp == 1) {
-          print "[DHCP] dhcp check on port 68\n";
+#          print "[DHCP] dhcp check on port 68\n";
           if ($op == 2) {
             $check = add_host_type($src_ip, $sensorid, 2);
           }
@@ -520,7 +518,7 @@ sub filter_packets {
         }
 
         if ($db_dhcp == 1) {
-          print "[DHCP] dhcp check on port 67\n";
+#          print "[DHCP] dhcp check on port 67\n";
           $count_dhcp_static = scalar(%dhcp_static);
           if ($count_dhcp_static != 0) {
             if ($dst_ip ne "255.255.255.255") {
@@ -561,10 +559,9 @@ sub filter_packets {
     }
     if ($db_ipv6 == 1) {
       if ($ts > $ipv6_refresh) {
-        print "[IPv6] refresh_static\n";
+#        print "[IPv6] refresh_static\n";
         %ipv6_static = ();
         refresh_static("ipv6");
-        print Dumper(%ipv6_static);
         $ts = time();
         $ipv6_refresh = $ts + $c_ipv6_static_refresh;
       }
@@ -574,10 +571,10 @@ sub filter_packets {
         $unpacked = unpack('H*', $ipv6_data);
         ($type, $code, $csum, $chlimit, $flags, $rlife, $reach, $retrans, $options) = parse_icmp6_advertisement($unpacked);
         if ($type eq "86") {
-            print "Detected router advertisement\n";
-            print "SRC: $src_mac -> DST: $dst_mac \n";
-            print "SRC: $src_ip6 -> DST: $dst_ip6 \n";
-            print Dumper(%ipv6_static);
+#            print "OPTIONS: $options \n";
+#            print "Detected router advertisement\n";
+#            print "SRC: $src_mac -> DST: $dst_mac \n";
+#            print "SRC: $src_ip6 -> DST: $dst_ip6 \n";
             if (! exists $ipv6_static{"$src_ip6"}) {
                 # This source IP is not allowed to send out router advertisements
                 if (!exists $ipv6_alert{"$sensorid-$sourceip"}) {
@@ -586,13 +583,14 @@ sub filter_packets {
                     $expiry = $ipv6_alert{"$sensorid-$sourceip"};
                 }
                 $cs = time();
-                print "CS: $cs - EXPIRY: $expiry \n";
+#                print "CS: $cs - EXPIRY: $expiry \n";
                 if ($cs > $expiry) {
                     $aid = add_ipv6_alert($sensorid, $src_ip6);
-                    print "AID 2: $aid \n";
+#                    print "AID 2: $aid \n";
                     if ("$aid" ne "-1") {
                         while ("$options" ne "") {
                             $options = parse_icmp6_options($options, $sensorid, $aid);
+#                            print "OPTIONS: $options \n";
                         }
                         $cs = time();
                         $ipv6_alert{"$sensorid-$sourceip"} = $cs + $c_ipv6_alert_expiry;
