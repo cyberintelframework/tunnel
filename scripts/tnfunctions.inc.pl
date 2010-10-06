@@ -922,17 +922,9 @@ sub refresh_static() {
         } elsif ("$type" eq "ipv6") {
             $db_ip = $row[0];
             $db_ip = normalize_ipv6($db_ip);
-            print "Refreshed $db_ip \n";
             $ipv6_static{"$db_ip"} = 1;
         }
     }
-#    if ("$type" eq "arp") {
-#        return %arp_static;
-#    } elsif ("$type" eq "dhcp") {
-#        return %dhcp_static;
-#    } elsif ("$type" eq "ipv6") {
-#        return %ipv6_static;
-#    }
     return 0;
 }
 
@@ -1101,7 +1093,6 @@ sub parse_icmp6_options() {
         $prefix = substr($unpacked, 32, $len);
         $prefix = ipv6($prefix);
         $next_option = substr($unpacked, $len);
-        print "PREFIX: $prefix \n";
         add_ipv6_detail($sensorid, $aid, 33, $prefix);
         return $next_option;
     } elsif ($type eq "04") {
@@ -1196,7 +1187,7 @@ sub handle_alert_mail {
     $sensorid = $_[1];
 
     $sql = "SELECT keyname, vlanid FROM sensors WHERE id = '$sensorid'";
-    print "SQL (handle_alert_mail): $sql \n";
+#    print "SQL (handle_alert_mail): $sql \n";
     $sth = $dbh->prepare($sql);
     $er = $sth->execute();
     @row = $sth->fetchrow_array;
@@ -1328,7 +1319,7 @@ sub add_ipv6_alert {
     "$sourceip" eq "" ? return -1 : $sourceip;
 
     $sql = "SELECT surfids3_ipv6_add_by_id($sensorid, '$sourceip'::inet, 1, 12)";
-    print "SQL (add_ipv6_alert): $sql \n";
+#    print "SQL (add_ipv6_alert): $sql \n";
     $sth = $dbh->prepare($sql);
     $er = $sth->execute();
     @row = $sth->fetchrow_array;
@@ -1347,7 +1338,7 @@ sub add_ipv6_detail {
     $info = $_[3];
 
     $sql = "SELECT surfids3_detail_add_by_id($aid, $sensorid, $dtype, '$info')";
-    print "SQL (add_ipv6_detail): $sql \n";
+#    print "SQL (add_ipv6_detail): $sql \n";
     $sth = $dbh->prepare($sql);
     $er = $sth->execute();
 }
