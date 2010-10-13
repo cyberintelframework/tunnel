@@ -37,13 +37,14 @@ sub usage() {
     print "   -s <sensor name>                      Name of the sensor, defaults to Nepenthes\n";
     print "   -o <organisation name>                Organisation name, defaults to LOCAL\n";
     print "   -h                                    This help message\n";
+    print "   -y                                    Assume yes, don't ask for confirmation\n";
     print "\n";
     print "Example: ./localsensor.pl -i eth0 -s mySensor -o SURFnet\n";
     print "Example: ./localsensor.pl -p 192.168.10.12 -m 00:11:22:33:44:55 -s mySensor -o SURFnet\n";
     print "\n";
 }
 
-getopts('i:p:m:s:o:h', \%opts);
+getopts('i:p:m:s:o:hy', \%opts);
 
 $sensor = $opts{"s"};
 $if = $opts{"i"};
@@ -60,6 +61,8 @@ if ($opts{"h"}) {
 ##################
 if (-r "/etc/surfnetids/surfnetids-log.conf") {
   do "/etc/surfnetids/surfnetids-log.conf";
+} elsif (-r "/etc/surfnetids/surfnetids-tn.conf") {
+  do "/etc/surfnetids/surfnetids-tn.conf";
 } else {
   # The root directory for the SURFids files (no trailing forward slash).
   $c_surfidsdir = "/opt/surfnetids";
@@ -86,6 +89,8 @@ if (-e "logfunctions.inc.pl") {
   require "logfunctions.inc.pl";
 } elsif (-e "$c_surfidsdir/logtools/logfunctions.inc.pl") {
   require "$c_surfidsdir/logtools/logfunctions.inc.pl";
+} elsif (-e "$c_surfidsdir/tntools/tnfunctions.inc.pl") {
+  require "$c_surfidsdir/tntools/tnfunctions.inc.pl";
 } else {
   require "$c_surfidsdir/scripts/logfunctions.inc.pl";
 }
@@ -174,9 +179,13 @@ print "Organisation: $org\n";
 print "Org ID: $orgid\n";
 print "\n";
 
-$chk = "none";
-while ($chk !~ /^(n|N|y|Y)$/) {
-  $chk = prompt("Add this sensor? [yN]", "N");
+if ($opts{"y"}) {
+  $chk = "y";
+} else {
+  $chk = "none";
+  while ($chk !~ /^(n|N|y|Y)$/) {
+    $chk = prompt("Add this sensor? [yN]", "N");
+  }
 }
 
 if ($chk =~ /^(y|Y)/) {
