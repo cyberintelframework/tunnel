@@ -69,7 +69,7 @@ if ($ARGV[0]) {
 
 # Get the sensorname from the database (based on the remoteip)
 my $sql;
-$sql = "SELECT distinct sensors.keyname, status FROM sensor_details, sensors ";
+$sql = "SELECT DISTINCT sensors.keyname, status FROM sensor_details, sensors ";
 $sql .= " WHERE sensors.keyname = sensor_details.keyname AND remoteip = '$remoteip' AND NOT status = 3";
 $res = dbquery($sql);
 my $numrows= $res->rows();
@@ -80,7 +80,8 @@ if ($numrows == 1) {
     $dev = $sensor;
     $dev =~ s/sensor/s/;
 
-    if ($status == 1) {
+    `ifconfig $dev 2>/dev/null`;
+    if ($? == 0) {
         logsys($f_log_warn, "CONN_DUP", "Sensor was already running, additional connections ignored");
         exit(1);
     }
@@ -99,7 +100,7 @@ if ($numrows == 1) {
 }
 
 my $openvpn = "/usr/sbin/openvpn";
-my $environment = "--setenv sensor $sensor --setenv tap $dev --setenv remoteip $remoteip --setenv pid $pid";
+my $environment = "--setenv sensor $sensor --setenv tap $dev --setenv remoteip $remoteip --setenv pid $pid --setenv PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 my $arguments = "--config /etc/surfnetids/openvpn.conf";
 
 my $command = "$openvpn $environment $arguments";
