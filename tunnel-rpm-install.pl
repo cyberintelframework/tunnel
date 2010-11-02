@@ -131,7 +131,7 @@ if (! -e "$targetdir/serverkeys/dh${key_size}.pem") {
 }
 
 # Setting up xinetd
-open(XINETD, ">$targetdir/xinetd.openvpn");
+open(XINETD, ">/etc/surfnetids/xinetd.conf");
 print XINETD "service openvpn\n";
 print XINETD "\{\n";
 print XINETD "  disable              = no\n";
@@ -146,7 +146,8 @@ print XINETD "  server               = $targetdir/scripts/tcp-wrapper.pl\n";
 print XINETD "\}\n";
 close(XINETD);
 
-`mv $targetdir/xinetd.openvpn /etc/xinetd.d/openvpn`;
+`ln -s /etc/surfnetids/xinetd.conf /etc/xinetd.d/surfids`;
+#`mv $targetdir/xinetd.openvpn /etc/xinetd.d/openvpn`;
 `/etc/init.d/xinetd restart`;
 
 if (-e "/etc/surfnetids/openvpn.conf") {
