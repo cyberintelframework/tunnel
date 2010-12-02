@@ -20,7 +20,7 @@
 # 001 version 2.10.00 release
 #####################
 
-use POSIX;
+require POSIX;
 
 $f_log_debug = 0;
 $f_log_info = 1;
@@ -1902,17 +1902,16 @@ sub check_interface_ip() {
 # 9.08 sys_exec 
 # Executes the specified command. Logs nonzero return value to database.
 sub sys_exec {
-	my $cmd = $_[0];
-
-	`$cmd`;
-
-	if ($?) {
-		&logsys($f_log_debug, "SYS_EXEC_FAIL", "'$cmd' returned $? ($!)");
-	} else {
-		&logsys($f_log_debug, "SYS_EXEC_OK", $cmd);
-	}
-
-	return $?;
+    my $cmd = $_[0];
+    &logsys($f_log_debug, "DEBUG", "CMD: $cmd");
+    `$cmd`;
+    
+    if ($?) {
+        &logsys($f_log_debug, "SYS_EXEC_FAIL", "'$cmd' returned $? ($!)");
+    } else {
+        &logsys($f_log_debug, "SYS_EXEC_OK", $cmd);
+    }
+    return $?;
 }
 
 # 9.10 parse_upx

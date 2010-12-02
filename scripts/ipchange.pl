@@ -115,7 +115,7 @@ for(my $i = 0; $i < $res->rows; $i++) {
     } else {
         $dev = "$tap";
         $keyname = $sensor;
-	}
+    }
     logsys($f_log_debug, "DEV_INFO", "Bringing up $dev: $netconf");
 
 
@@ -175,14 +175,19 @@ for(my $i = 0; $i < $res->rows; $i++) {
     my $tap_ip = getifip($dev);
     logsys($f_log_debug, "DEV_INFO",  "Tap device $dev obtained IP address $tap_ip");
 
-
-    # Update Tap info to the database for the current vlan.
     my $date = time();
-    $ret_stat = dbquery("UPDATE sensors SET tap = '$dev', tapip = '$tap_ip', status = 1, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'");
-    if ("$ret_stat" ne "false") {
-        logsys($f_log_debug, "STATUS_CHANGE", "Set status to 1 for $keyname");
+    # Update Tap info to the database for the current vlan.
+    if ("$tap_ip" eq "false") {
+        $ret_stat = dbquery("UPDATE sensors SET tap = '$dev', status = 7, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'");
+        if ("$ret_stat" ne "false") {
+            logsys($f_log_debug, "STATUS_CHANGE", "Set status to 7 for $keyname");
+        }
+    } else {
+        $ret_stat = dbquery("UPDATE sensors SET tap = '$dev', tapip = '$tap_ip', status = 1, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'");
+        if ("$ret_stat" ne "false") {
+            logsys($f_log_debug, "STATUS_CHANGE", "Set status to 1 for $keyname");
+        }
     }
-
 
     if ($c_enable_pof == 1) {
         system "p0f -d -i $dev -o /dev/null";
