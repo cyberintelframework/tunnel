@@ -31,7 +31,7 @@ $err =0;
 
 $allowed_get = array(
                 "ip_localip",
-        		"md5_oid"
+                "md5_oid"
 );
 $check = extractvars($_GET, $allowed_get);
 #debug_input();
@@ -146,6 +146,9 @@ if ($err == 0) {
       $oidtype = 0;
     }
     $ranges = "";
+
+    # Filter input
+    $orgname = pg_escape_string($orgname);
 
     $sql_chkorg = "SELECT id FROM organisations WHERE organisation = '$orgname'";
     $result_chkorg = pg_query($pgconn, $sql_chkorg);
