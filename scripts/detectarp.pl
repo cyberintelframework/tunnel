@@ -250,21 +250,48 @@ if ($db_arp == 1) {
   @row = $sth->fetchrow_array;
   $db_mac = $row[0];
 
-  `arping -h 2>/dev/null`;
-  $arpec = $?;
-  $gwlong = ip2long($gw);
-  if ($gwlong < $ifmin && $gwlong > $ifmax) {
-    $arpec == 1;
+  if ($c_arping_package eq "arping") {
+    `arping -h 2>/dev/null`;
+    $arpec = $?;
+    $gwlong = ip2long($gw);
+    if ($gwlong < $ifmin && $gwlong > $ifmax) {
+      $arpec == 1;
+    }
+    if ($arpec == 0) {
+      %maclist = ();
+      open(ARPING, "arping -r -i $tap -c 4 $gw | ");
+      while (<ARPING>) {
+        $mac = $_;
+        chomp($mac);
+        $maclist{"$mac"} = 0;
+      }
+      close(ARPING);
+  } elsif ($c_arping_package eq "iputils-arping") {
+    `arping -V 2>/dev/null`;
+    $arpec = $?;
+    $gwlong = ip2long($gw);
+    if ($gwlong < $ifmin && $gwlong > $ifmax) {
+      $arpec == 1;
+    }
+    if ($arpec == 0) {
+      %maclist = ();
+      open(ARPING, "arping -I $tap -c 4 $gw | awk '{print \$5}' | ");
+      while (<ARPING>) {
+        $mac = $_;
+        chomp($mac);
+        $mac =~ s/\[//g;
+        $mac =~ s/\]//g;
+        if ($mac =~ /([[:xdigit:]][[:xdigit:]]:){5}[[:xdigit:]][[:xdigit:]]/) {
+            $maclist{"$mac"} = 0;
+        }
+      }
+      close(ARPING);
+    }
+  } else {
+    print "Invalid arping package configured, check config (c_arping_package)\n";
+    $arpec = 1;
   }
   if ($arpec == 0) {
-    %maclist = ();
-    open(ARPING, "arping -r -i $tap -c 4 $gw | ");
-    while (<ARPING>) {
-      $mac = $_;
-      chomp($mac);
-      $maclist{"$mac"} = 0;
-    }
-    close(ARPING);
     $count = keys(%maclist);
     if ($count == 1) {
       if ("$db_mac" eq "") {
