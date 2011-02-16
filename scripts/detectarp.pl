@@ -266,6 +266,7 @@ if ($db_arp == 1) {
         $maclist{"$mac"} = 0;
       }
       close(ARPING);
+    }
   } elsif ($c_arping_package eq "iputils-arping") {
     `arping -V 2>/dev/null`;
     $arpec = $?;
