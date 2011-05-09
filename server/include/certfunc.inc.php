@@ -27,7 +27,7 @@ function printer($printvar) {
 }
 
 function logsys($level, $msg, $args) {
-	global $keyname, $c_log_level, $c_log_method;
+	global $keyname, $c_log_level, $c_log_methodi, $c_logfile_main;
 	$source = basename($_SERVER['SCRIPT_NAME']);
 
     if (!$source) { $source = "unknown"; }
@@ -45,15 +45,29 @@ function logsys($level, $msg, $args) {
         }
     	if ($c_log_method == 1 || $c_log_method == 3) {
             $ts = date("d-m-Y H:i:s");
-        	$res = fopen("/var/log/surfids.log", "a");
+        	$res = fopen($c_logfile_main, "a");
 	        if ($res != "FALSE") {
 		        fprintf($res, "[$ts] php $source $keyname $msg $args\n");
         		fclose($res);
 	        } else {
-		        echo "COULD NOT OPEN /tmp/logsys\n";
+		        echo "ERROR: COULD NOT OPEN /var/log/surfids/main.log\n";
         	}
         }
     }
+}
+
+function logapt($sensor, $msg) {
+	global $c_log_apt, $c_logfile_apt;
+	if ($c_log_apt == 1) {
+		$ts = date("d-m-Y H:i:s");
+		$res = fopen($c_logfile_apt, "a");
+		if ($res != "FALSE") {
+			fprintf($res, "[$sensor - $ts] $msg\n");
+			fclose($res);
+		} else {
+			echo "ERROR: COULD NOT OPEN /var/log/surfids/apt.log\n";
+		}
+	}
 }
 
 function logdb($sensorid, $log, $args) {
