@@ -42,12 +42,15 @@ while (@row = $res->fetchrow_array) {
     $tap = $row[6];
     $sid = $row[7];
 
+    $chkif = getifip($tap);
+
     if ($c_enable_pof == 1) {
         $chk = `ps -ef | grep p0f | grep -v grep | grep " $tap " | wc -l`;
         chomp($chk);
-        print "POF check for $tap: $chk\n";
         if ($chk == 0) {
-            system "p0f -d -i $tap -o /dev/null";
+            if ("$chkif" ne "false") {
+                system "p0f -d -i $tap -o /dev/null";
+            }
         }
     }
     if ($c_ethernet_module == 1) {
@@ -56,7 +59,9 @@ while (@row = $res->fetchrow_array) {
             $chk = `ps -ef | grep detectarp | grep -v grep | grep " $tap " | wc -l`;
             chomp($chk);
             if ($chk == 0) {
-                system("$c_surfidsdir/scripts/detectarp.pl $tap $sid &");
+                if ("$chkif" ne "false") {
+                    system("$c_surfidsdir/scripts/detectarp.pl $tap $sid &");
+                }
             }
         }
     }

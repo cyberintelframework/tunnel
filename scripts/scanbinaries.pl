@@ -35,24 +35,24 @@ require "$c_surfidsdir/scripts/tnfunctions.inc.pl";
 ####################
 # Define scanners
 ####################
-$scanners->{"F-Prot"} = {
-            'cmd' => "/opt/f-prot/fpscan -v 2 -z 0 --report --adware",
-            'update' => "/opt/f-prot/fpupdate",
-            'version' => "/opt/f-prot/fpscan --version | grep \"F-PROT Antivirus version\" | awk -F'(' '{print \$1}' | awk '{print \$NF}'",
-            'batchmode' => 0,
-};
-$scanners->{"AVAST"} = {
-            'cmd' => "/opt/avast4workstation-1.0.8/bin/avast -n",
-            'update' => "/opt/avast4workstation-1.0.8/bin/avast-update",
-            'version' => "/opt/avast4workstation-1.0.8/bin/avast --version | head -n1 | awk -F\"avast \" '{print \$2}'",
-            'batchmode' => 1,
-};
-$scanners->{"ClamAV"} = {
-            'cmd' => "clamscan --no-summary",
-            'update' => "freshclam",
-            'version' => "clamscan --version | awk '{print \$2}' | awk -F\"/\" '{print \$1}'",
-            'batchmode' => 0,
-};
+#$scanners->{"F-Prot"} = {
+#            'cmd' => "/opt/f-prot/fpscan -v 2 -z 0 --report --adware",
+#            'update' => "/opt/f-prot/fpupdate",
+#            'version' => "/opt/f-prot/fpscan --version | grep \"F-PROT Antivirus version\" | awk -F'(' '{print \$1}' | awk '{print \$NF}'",
+#            'batchmode' => 0,
+#};
+#$scanners->{"AVAST"} = {
+#            'cmd' => "/opt/avast4workstation-1.0.8/bin/avast -n",
+#            'update' => "/opt/avast4workstation-1.0.8/bin/avast-update",
+#            'version' => "/opt/avast4workstation-1.0.8/bin/avast --version | head -n1 | awk -F\"avast \" '{print \$2}'",
+#            'batchmode' => 1,
+#};
+#$scanners->{"ClamAV"} = {
+#            'cmd' => "clamscan --no-summary",
+#            'update' => "freshclam",
+#            'version' => "clamscan --version | awk '{print \$2}' | awk -F\"/\" '{print \$1}'",
+#            'batchmode' => 0,
+#};
 
 ##################
 # Functions

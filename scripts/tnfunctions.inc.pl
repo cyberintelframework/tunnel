@@ -21,6 +21,7 @@
 #####################
 
 require POSIX;
+use Time::localtime qw(localtime);
 
 $f_log_debug = 0;
 $f_log_info = 1;
@@ -507,23 +508,27 @@ sub flushroutes() {
 # Returns 0 on success
 # Returns non-zero on failure
 sub deliprules() {
-  my (@total, $ip, $tap, $ec, $e, $nr);
+  my (@total, $ip, $tap, $ec, $e, $nr, $regexp, $rule);
   $tap = $_[0];
   chomp($tap);
 
+  if ("$tap" eq "") {
+    return 3;
+  }
+
   $e = 0;
   $esctap = &escape_dev($tap);
-  @total = `ip rule list | grep '\\b$esctap\\b' | awk '{print \$3}'`;
-  foreach $ip (@total) {
-    chomp($ip);
-    $ec = sys_exec("ip rule del from $ip table $tap");
+  $regexp = $esctap . ' \?$';
+  @total = `ip rule list | grep \'$regexp\'`;
+  foreach $rule (@total) {
+    $ec = sys_exec("ip rule del table $tap");
     if ($ec != 0) { $e = 1; }
   }
   $nr = getrulenumber($esctap);
-  @total = `ip rule list | grep '\\b$nr\\b' | awk '{print \$3}'`;
-  foreach $ip (@total) {
-    chomp($ip);
-    $ec = sys_exec("ip rule del from $ip table $tap");
+  @total = `ip rule list | grep '\\b$nr\\b'`;
+  foreach $rule (@total) {
+    chomp($rule);
+    $ec = sys_exec("ip rule del table $tap");
     if ($ec != 0) { $e = 2; }
   }
   return $e;
@@ -572,14 +577,15 @@ sub ipruledel() {
 # 5.04 chkrule
 # Function to check for the existance of a rule given a device
 sub chkrule() {
-    my ($dev, $nr, $chk, $escdev);
+    my ($dev, $nr, $chk, $escdev, $regexp);
     $dev = $_[0];
     chomp($dev);
     $escdev = &escape_dev($dev);
-    $chk = `ip rule list | grep '\\b$escdev\\b' | wc -l`;
+    $regexp = $escdev . '$';
+    $chk = `ip rule list | grep \'$regexp\' | wc -l`;
     if ($chk == 0) {
         $nr = getrulenumber($escdev);
-        $chk = `ip rule list | grep '\\b$nr\\b' | wc -l`;
+        $chk = `ip rule list | grep \'$regexp\' | wc -l`;
     }
     chomp($chk);
     return $chk;
@@ -588,10 +594,12 @@ sub chkrule() {
 # 5.05 getrulenumber
 # Retrieves the table number for a rule given a tap device
 sub getrulenumber() {
-    my ($dev, $nr, $escdev);
+    my ($dev, $nr, $escdev, $regexp);
     $dev = $_[0];
     $escdev = &escape_dev($dev);
-    $nr = `grep "\\b$escdev\\b" /etc/iproute2/rt_tables | awk '{print \$1}'`;
+    chomp($escdev);
+    $regexp = $escdev . '$';
+    $nr = `grep \'$regexp\' /etc/iproute2/rt_tables | awk '{print \$1}'`;
     chomp($nr);
     if ("$nr" ne "") {
         return $nr;
@@ -1069,6 +1077,7 @@ sub parse_icmp6_options() {
     $aid = $_[2];
     # First check the type of option
     $type = substr($unpacked, 0, 2);
+#    print "OPTION TYPE: $type\n";
     if ($type eq "01") {
         # Source link-layer address
         $len = substr($unpacked, 2, 2);
@@ -1093,6 +1102,7 @@ sub parse_icmp6_options() {
         $prefix = substr($unpacked, 32, $len);
         $prefix = ipv6($prefix);
         $next_option = substr($unpacked, $len);
+#	print "PREFIX: $prefix\n";
         add_ipv6_detail($sensorid, $aid, 33, $prefix);
         return $next_option;
     } elsif ($type eq "04") {
@@ -1809,7 +1819,7 @@ sub logsys() {
         $tsensor = "$sensor-$g_vlanid";
       }
       $ts = &getts();
-      open LOG,  ">>/var/log/surfids.log" || die ("cant open log: $!");
+      open LOG,  ">>$c_logfile_main" || die ("cant open log: $!");
       print LOG "[$ts] $pid $source $tsensor $msg $args\n";
       close LOG;
     }
@@ -1969,7 +1979,7 @@ sub logsys_no_db() {
         $tsensor = "$sensor-$g_vlanid";
       }
       $ts = &getts();
-      open LOG,  ">>/var/log/surfids.log" || die ("cant open log: $!");
+      open LOG,  ">>$c_logfile_main" || die ("cant open log: $!");
       print LOG "[$ts] $pid $source $tsensor $msg $args\n";
       close LOG;
     }

@@ -578,6 +578,8 @@ sub filter_packets {
     $dst_ip6 = $ipv6->{dest_ip};
     $ipv6_data = $ipv6->{data};
     $ipv6_nxt = $ipv6->{nxt};
+#    print "IPV6 DATA: $ipv6_data\n";
+#    print "IPV6 NXT: $ipv6_nxt\n";
     if ($db_protos == 1) {
       if ("$ipv6_nxt" ne "" && "$ipv6_nxt" ne "0") {
         if (! exists $sniff_protos_ipv6{$ipv6_nxt}) {
@@ -597,31 +599,34 @@ sub filter_packets {
       if ($ipv6_nxt == 58) {
         # IPv6 ICMP
         $unpacked = unpack('H*', $ipv6_data);
+#        print "IPV6 ICMP UNPACKED: $unpacked\n";
         ($type, $code, $csum, $chlimit, $flags, $rlife, $reach, $retrans, $options) = parse_icmp6_advertisement($unpacked);
         if ($type eq "86") {
 #            print "OPTIONS: $options \n";
 #            print "Detected router advertisement\n";
 #            print "SRC: $src_mac -> DST: $dst_mac \n";
 #            print "SRC: $src_ip6 -> DST: $dst_ip6 \n";
-            if (! exists $ipv6_static{"$src_ip6"}) {
-                # This source IP is not allowed to send out router advertisements
-                if (!exists $ipv6_alert{"$sensorid-$sourceip"}) {
-                    $expiry = 0;
-                } else {
-                    $expiry = $ipv6_alert{"$sensorid-$sourceip"};
-                }
-                $cs = time();
-#                print "CS: $cs - EXPIRY: $expiry \n";
-                if ($cs > $expiry) {
-                    $aid = add_ipv6_alert($sensorid, $src_ip6);
-#                    print "AID 2: $aid \n";
-                    if ("$aid" ne "-1") {
-                        while ("$options" ne "") {
-                            $options = parse_icmp6_options($options, $sensorid, $aid);
-#                            print "OPTIONS: $options \n";
+            if ($src_ip6 !~ /^fe80.*/) {		# Ignore link local addresses
+                if (! exists $ipv6_static{"$src_ip6"}) {
+                    # This source IP is not allowed to send out router advertisements
+                    if (!exists $ipv6_alert{"$sensorid-$sourceip"}) {
+                        $expiry = 0;
+                    } else {
+                        $expiry = $ipv6_alert{"$sensorid-$sourceip"};
+                    }
+                    $cs = time();
+#                    print "CS: $cs - EXPIRY: $expiry \n";
+                    if ($cs > $expiry) {
+                        $aid = add_ipv6_alert($sensorid, $src_ip6);
+#                        print "AID 2: $aid \n";
+                        if ("$aid" ne "-1") {
+                            while ("$options" ne "") {
+                                $options = parse_icmp6_options($options, $sensorid, $aid);
+#                               print "OPTIONS: $options \n";
+                            }
+                            $cs = time();
+                            $ipv6_alert{"$sensorid-$sourceip"} = $cs + $c_ipv6_alert_expiry;
                         }
-                        $cs = time();
-                        $ipv6_alert{"$sensorid-$sourceip"} = $cs + $c_ipv6_alert_expiry;
                     }
                 }
             }

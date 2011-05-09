@@ -55,10 +55,10 @@ if ($result eq 'false') {
 logsys($f_log_debug, "SCRIPT_START");
 
 # find all tap devices in use
-my $res = dbquery("SELECT tap FROM sensors WHERE keyname = '$sensor' AND (status = 1 OR status = 6)");
+$sql = "SELECT tap FROM sensors WHERE keyname = '$sensor' AND (status = 1 OR status = 6)";
+my $res = dbquery($sql);
 my @devices;
-for (my $i = 0; $i < $res->rows(); $i++) {
-	my @row = $res->fetchrow_array;
+while (@row = $res->fetchrow_array) {
 	my $dev = $row[0];
 	push (@devices, $dev);
 }
@@ -86,21 +86,22 @@ foreach my $dev (@devices) {
 	# Delete .leases file
 	sys_exec("rm -f /var/lib/dhcp3/$dev.leases");
 
-	# Fix routes
-	$result = deliprules($dev);
-	if ($result) {
-		logsys($f_log_warn, "SYS_FAIL", "Deleting ip rules for $dev failed (error code $result)");
-	} else {
-		logsys($f_log_debug, "IP_RULE", "Removed ip rules for $dev");
-	}
+	if ("$dev" ne "") {
+		# Fix routes
+		$result = deliprules($dev);
+		if ($result) {
+			logsys($f_log_warn, "SYS_FAIL", "Deleting ip rules for $dev failed (error code $result)");
+		} else {
+			logsys($f_log_debug, "IP_RULE", "Removed ip rules for $dev");
+		}
 
-
-	# Flush the routing table of the tap device just to be sure.
-	$result = flushroutes($dev);
-	if ($result) {
-		logsys($f_log_warn, "SYS_FAIL", "Flushing routes for $dev failed. (error code ($result)");
-	} else {
-		logsys($f_log_debug, "IP_ROUTE", "Flushed routes for $dev");
+		# Flush the routing table of the tap device just to be sure.
+		$result = flushroutes($dev);
+		if ($result) {
+			logsys($f_log_warn, "SYS_FAIL", "Flushing routes for $dev failed. (error code ($result)");
+		} else {
+			logsys($f_log_debug, "IP_ROUTE", "Flushed routes for $dev");
+		}
 	}
 }
 

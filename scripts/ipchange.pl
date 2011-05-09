@@ -183,7 +183,8 @@ for(my $i = 0; $i < $res->rows; $i++) {
             logsys($f_log_debug, "STATUS_CHANGE", "Set status to 7 for $keyname");
         }
     } else {
-        $ret_stat = dbquery("UPDATE sensors SET tap = '$dev', tapip = '$tap_ip', status = 1, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'");
+        $sql = "UPDATE sensors SET tap = '$dev', tapip = '$tap_ip', status = 1, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'";
+        $ret_stat = dbquery($sql);
         if ("$ret_stat" ne "false") {
             logsys($f_log_debug, "STATUS_CHANGE", "Set status to 1 for $keyname");
         }
