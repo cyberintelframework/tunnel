@@ -581,11 +581,11 @@ sub chkrule() {
     $dev = $_[0];
     chomp($dev);
     $escdev = &escape_dev($dev);
-    $regexp = $escdev . '$';
+    $regexp = $escdev . ' \?$';
     $chk = `ip rule list | grep \'$regexp\' | wc -l`;
     if ($chk == 0) {
         $nr = getrulenumber($escdev);
-        $chk = `ip rule list | grep \'$regexp\' | wc -l`;
+        $chk = `ip rule list | grep \'\\b$nr\\b\' | wc -l`;
     }
     chomp($chk);
     return $chk;
