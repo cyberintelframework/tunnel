@@ -70,27 +70,6 @@ function logapt($sensor, $msg) {
 	}
 }
 
-function logdb($sensorid, $log, $args) {
-  global $pgconn;
-  if ($sensorid != "" && $log != "") {
-    $date = date("U");
-
-    $pattern = '/^[0-9]*$/';
-    if (preg_match($pattern, $sensorid)) {
-      $sql_log = "INSERT INTO sensors_log (sensorid, timestamp, logid, args) VALUES ('$sensorid', '$date', '$log', '$args')";
-      $result_log = pg_query($pgconn, $sql_log);
-    } else {
-      $sql_getids = "SELECT id FROM sensors WHERE keyname = '$sensorid'";
-      $result_getids = pg_query($sql_getids);
-      while ($row = pg_fetch_assoc($result_getids)) {
-        $sid = $row['id'];
-        $sql_log = "INSERT INTO sensors_log (sensorid, timestamp, logid, args) VALUES ('$sid', '$date', '$log', '$args')";
-        $result_log = pg_query($pgconn, $sql_log);
-      }
-    }
-  }
-}
-
 function debug_input() {
   global $c_debug_input;
   global $clean;
