@@ -1,6 +1,6 @@
 /var/log/surfids/main.log {
-  rotate 6
-  monthly
+  rotate 14
+  daily
   compress
   missingok
   notifempty
@@ -8,7 +8,7 @@
 
 /var/log/surfids/apt.log {
   rotate 6
-  monthly
+  weekly
   compress
   missingok
   notifempty
