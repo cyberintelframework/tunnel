@@ -229,4 +229,13 @@ if (-e "/etc/init.d/postgresql-8.3") {
 }
 `update-rc.d surfids-reset-sensors start 19 2 3 4 5 . 2>>$logfile`;
 
+####
+# Setting up logrotate stuff
+####
+if (! -e "/etc/logrotate.d/surfids-tn") {
+    `ln -s $targetdir/logrotate.tn /etc/logrotate.d/surfids-tn 2>>$logfile`;
+}
+
+`mkdir -p /var/log/surfids/`;
+
 print "You will need to make sure the httpd daemon is listening on port 4443!\n";
