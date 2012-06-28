@@ -164,6 +164,9 @@ for(my $i = 0; $i < $res->rows; $i++) {
     # check wether interface obtained an IP
     my $result = check_interface_ip($dev, $c_sql_dhcp_retries);
     if ($result) {
+        if ($netconf eq "dhcp") {
+            $ret_stat = dbquery("UPDATE sensors SET tap = '$dev', status = 7, laststart = $date WHERE keyname = '$sensor' and vlanid = '$vlanid'");
+        }
         logsys($f_log_error, "DEV_INFO", "Device $dev failed to come up");
         logsys($f_log_debug, "NOTIFY", "Moving on to next device...");
         next;

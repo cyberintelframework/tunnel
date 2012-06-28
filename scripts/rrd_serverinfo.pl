@@ -448,5 +448,7 @@ sub RegistDB {
     $execute_result = $sth->execute();
   }
   $dbh = "";
-  `rm $c_imgdir/$file`;
+  if (-e "$c_imgdir/$file") {
+    `rm $c_imgdir/$file`;
+  }
 }

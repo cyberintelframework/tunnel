@@ -127,7 +127,7 @@ $f_log_crit = 4;
 sub chkdhclient() {
   my ($chk, $tap);
   $tap = $_[0];
-  $chk = `ps -ef | grep -v grep | grep dhclient3 | grep "^.*$tap\$" | wc -l`;
+  $chk = `ps -ef | grep -v grep | grep dhclient | grep "^.*$tap\$" | wc -l`;
   if ($chk > 0) {
     return 0;
   } else {
@@ -1641,14 +1641,14 @@ sub killdhclient() {
   chomp($tap);
 
   $e = 0;
-  @dhclients = `ps -ef | grep dhclient3 | grep -v grep | grep "^.*$tap\$" | awk '{print \$2}'`;
+  @dhclients = `ps -ef | grep dhclient | grep -v grep | grep "^.*$tap\$" | awk '{print \$2}'`;
   foreach $pid (@dhclients) {
     chomp($pid);
     $ec = sys_exec("kill $pid");
     if ($ec != 0) { $e = 1; }
   }
-  if (-e "/var/lib/dhcp3/$tap.leases") {
-    $ec = sys_exec("rm -f /var/lib/dhcp3/$tap.leases");
+  if (-e "/var/lib/dhcp/$tap.leases") {
+    $ec = sys_exec("rm -f /var/lib/dhcp/$tap.leases");
     if ($ec != 0) { $e = 2; }
   }
   return $e;
@@ -1686,8 +1686,8 @@ sub startdhcp() {
   #
   # See startstatc() below to see the steps that are taken to set
   # up these routes.
-  `dhclient3 -lf /var/lib/dhcp3/$tap.leases -cf /etc/surfnetids/dhclient.conf -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
-#  `/opt/dhcp-3.0.7/bin/dhclient -lf /var/lib/dhcp3/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient3.$tap.pid $tap`;
+  `dhclient -lf /var/lib/dhcp/$tap.leases -cf /etc/surfnetids/dhclient.conf -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient.$tap.pid $tap`;
+#  `/opt/dhcp-3.0.7/bin/dhclient -lf /var/lib/dhcp/$tap.leases -sf $c_surfidsdir/scripts/surfnetids-dhclient -pf /var/run/dhclient.$tap.pid $tap`;
   sleep 1;
   if ($? == 0) {
     return "true";
@@ -1722,7 +1722,7 @@ sub sendmail() {
 
   if ($gpg_enabled == 1) {
     # Encrypt the mail with gnupg 
-    $gpg = new GnuPG();
+    $gpg = new GnuPG(homedir => $c_gpg_homedir);
     $gpg->clearsign(plaintext => "$mailfile", output => "$sigmailfile", armor => 1, passphrase => $c_passphrase);
   }
   
